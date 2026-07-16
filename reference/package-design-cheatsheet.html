@@ -1,0 +1,64 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Package Design Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Package Design Cheatsheet</h1>
+  <p class="lede">Shipping the procedural-animation toolkit as a reusable package. Taught in
+    <a href="../lessons/0008-package-api-design.html">Lesson 8</a>; grounded in
+    <a href="https://web.stanford.edu/~ouster/cgi-bin/book.php">Ousterhout, A Philosophy of
+    Software Design</a>.</p>
+
+  <h2>The one principle</h2>
+  <p><strong>An entity IS a creature by its components.</strong> No God-component, no class
+  hierarchy. Small, focused, independently useful components; the creature is their sum.
+  Composition is the API.</p>
+
+  <h2>Deep modules</h2>
+  <ul>
+    <li>Deep = simple interface over powerful implementation. "The cost of a module is its interface."</li>
+    <li>Gait = 4 floats hiding a state machine + partner guard. Aim for that ratio everywhere.</li>
+    <li>Split/join modules for the deepest interface, fewest dependencies, best information hiding.</li>
+  </ul>
+
+  <h2>Three moves that keep it deep</h2>
+  <table>
+    <tr><th>Move</th><th>Shape</th></tr>
+    <tr><td>Config baked, state separate</td><td>Authoring MonoBehaviour → <a href="https://docs.unity3d.com/Packages/com.unity.entities@1.0/manual/baking-baker-overview.html">Baker</a> → immutable Config (IComponentData/blob). Mutable runtime state in separate components. Data ≠ behaviour.</td></tr>
+    <tr><td>Two layers + escape hatch</td><td>Pure static Burst primitives (Ik.Solve2Bone, Fabrik.Solve, SecondOrder.Step) AND authoring components. Deep facade for 90%; primitives for off-road.</td></tr>
+    <tr><td>Glossary = vocabulary</td><td>Field names from the domain (RestLength, BendSign, GrabStrength, Comfort). Ubiquitous language = discoverability. Keep <a href="glossary.html">glossary</a> and API in sync.</td></tr>
+  </table>
+
+  <h2>Progressive disclosure</h2>
+  <ul>
+    <li>Sensible defaults: <code>AddComponent&lt;Gait&gt;()</code> already walks.</li>
+    <li>Advanced knobs available, never required.</li>
+    <li>Component set + field names = the contract. Implementation (solver, jobs, LOD, SIMD) free to change forever.</li>
+  </ul>
+
+  <h2>Composition quick reference</h2>
+  <table>
+    <tr><th>Creature</th><th>Components</th></tr>
+    <tr><td>Jellyfish tentacle</td><td>VerletChain + Muscles (+ Anchor)</td></tr>
+    <tr><td>Walking lizard</td><td>VerletChain + Limb2Bone + Gait (+ Muscles/SecondOrder)</td></tr>
+    <tr><td>Grabbing tail</td><td>FabrikChain + GrabTarget</td></tr>
+    <tr><td>Bouncing UI coin</td><td>SecondOrder</td></tr>
+  </table>
+  <p>Dependencies: Muscles→VerletChain · Gait→Limb2Bone · GrabTarget→(FabrikChain or Limb2Bone).</p>
+
+  <h2>Ship checklist</h2>
+  <ul>
+    <li>☐ Every component deep (few knobs, much power)?</li>
+    <li>☐ Config baked immutable; runtime state separate?</li>
+    <li>☐ Primitives exposed as static Burst functions (escape hatch)?</li>
+    <li>☐ Field names match the glossary?</li>
+    <li>☐ Defaults make the common case zero-config?</li>
+    <li>☐ Can you swap an implementation without breaking a consumer?</li>
+  </ul>
+
+  <div class="lesson-footer">
+    <p>See also: <a href="glossary.html">glossary</a> · <a href="scale-cheatsheet.html">scale patterns</a> · every technique cheatsheet is a module in this package.</p>
+  </div>
+</div>

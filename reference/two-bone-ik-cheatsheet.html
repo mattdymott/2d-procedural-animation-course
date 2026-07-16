@@ -1,0 +1,62 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Two-Bone IK Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Two-Bone IK Cheatsheet</h1>
+  <p class="lede">Analytic limb solver, position form. Taught in
+    <a href="../lessons/0003-two-bone-ik.html">Lesson 3</a>; angle-form derivation in
+    <a href="https://www.alanzucconi.com/2018/05/02/ik-2d-1/">Zucconi's IK in 2D</a>.</p>
+
+  <h2>The mental model</h2>
+  <p><strong>Knee = intersection of two circles</strong> (radius L1 around root, radius L2
+  around foot). Two intersections exist → <code>bendSign = ±1</code> picks knee-up or
+  knee-down. Reachable region = <strong>annulus</strong> [<code>|L1−L2|</code>, <code>L1+L2</code>].</p>
+
+  <h2>The solver</h2>
+<pre><code>d    = max(length(target - root), ε)
+dir  = (target - root) / d
+d    = clamp(d, |L1-L2| + ε, L1 + L2 - ε)     // annulus clamp
+foot = root + dir * d
+cosA = (L1² + d² - L2²) / (2·L1·d)             // law of cosines
+a    = acos(clamp(cosA, -1, 1)) * bendSign
+knee = root + rotate(dir, a) * L1               // rotate = 2D rotation of dir by a</code></pre>
+
+  <h2>Behaviour at the edges</h2>
+  <table>
+    <tr><th>Target</th><th>Clamp result</th><th>Reads as</th></tr>
+    <tr><td>Beyond L1+L2</td><td>Foot projected to outer circle</td><td>Limb straightens, strains toward target</td></tr>
+    <tr><td>Inside |L1−L2| (dead disk)</td><td>Foot projected to inner circle</td><td>Limb folds fully, foot held off</td></tr>
+    <tr><td>On the root exactly</td><td>ε guard prevents divide-by-zero</td><td>Direction defaults to last stable frame if you cache dir</td></tr>
+  </table>
+
+  <h2>bendSign rules of thumb</h2>
+  <ul>
+    <li>Per-limb constant: legs knee-backward (or forward — pick your creature's silhouette), arms elbow-opposite.</li>
+    <li>Never flip per-frame from a heuristic — the knee visibly snaps through the limb. If a flip is unavoidable, blend the knee position over a few ticks or hide it during a step.</li>
+    <li>The unused solution is the mirror of the used one across the root→foot line.</li>
+  </ul>
+
+  <h2>Combining with verlet bodies (wishes + promises)</h2>
+<pre><code>tick order:
+  1. verlet body integrates + muscles fire        (L1, L2 lessons)
+  2. gait/AI writes limb.Target, body writes limb.Root
+  3. IK solves knee + foot analytically
+  4. knee/foot written into verlet buffer as strength-1 pins
+  5. hard constraint sweeps legalize the whole creature</code></pre>
+  <p>Soft parts flow (spine, tail); planted parts promise (feet, grips). Rain World's
+  creatures are this exact marriage.</p>
+
+  <h2>DOTS notes</h2>
+  <ul>
+    <li>Pure static function, no state, no iteration — perfect Burst candidate; use <code>math.sincos</code>.</li>
+    <li>Constant cost per call → thousands of limbs, flat profile, deterministic.</li>
+    <li>Data flow one direction per tick: body → targets → solve → pins. No mid-job lookups needed.</li>
+  </ul>
+
+  <div class="lesson-footer">
+    <p>See also: <a href="glossary.html">glossary</a> · <a href="muscles-cheatsheet.html">muscles cheatsheet</a> · <a href="verlet-chain-cheatsheet.html">verlet cheatsheet</a></p>
+  </div>
+</div>

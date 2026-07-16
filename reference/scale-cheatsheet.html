@@ -1,0 +1,63 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Batching at Scale Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Batching at Scale Cheatsheet</h1>
+  <p class="lede">Patterns for running thousands of procedural creatures. Taught in
+    <a href="../lessons/0007-batching-at-scale.html">Lesson 7</a>. Assumes DOTS fluency —
+    these are the animation-specific traps, not ECS basics.</p>
+
+  <h2>The budget</h2>
+  <p><code>per-creature cost × count ≤ your frame slice</code>. 60fps = 16.6ms shared with
+  render + gameplay. Every pattern shrinks one factor: the cost, or the count paid at full price.</p>
+
+  <h2>Five patterns</h2>
+  <table>
+    <tr><th>#</th><th>Pattern</th><th>Do</th></tr>
+    <tr><td>1</td><td>Parallelize across, not within</td><td>One creature = one entity = one IJobEntity iteration. Chains are sequential internally; leave them so.</td></tr>
+    <tr><td>2</td><td>Self-contained creatures</td><td>Pin feet into own buffer; no ComponentLookup random access in hot jobs. Cross-entity needs? Snapshot in a prior job.</td></tr>
+    <tr><td>3</td><td>Structural change is the enemy</td><td>"dead"/"swinging"/"grab-active" as <a href="https://docs.unity3d.com/Packages/com.unity.entities@1.0/manual/components-enableable-intro.html">IEnableableComponent</a>. Toggle in place — no archetype move, no ECB, no sync point. Pool, don't destroy.</td></tr>
+    <tr><td>4</td><td>Keep buffers in-chunk</td><td>Size <a href="https://docs.unity3d.com/Packages/com.unity.entities@1.3/manual/components-buffer-set-capacity.html">[InternalBufferCapacity]</a> to typical chain length. Overflow spills to heap AND wastes the inline slot — double cache penalty, forever.</td></tr>
+    <tr><td>5</td><td>Branchless inner loops</td><td>gait switch + IK bendSign → math.select / sign multiplies / masks, so Burst keeps the solver SIMD-wide.</td></tr>
+  </table>
+
+  <h2>Simulation LOD — the multiplier</h2>
+<pre><code>near (on-screen, large): full iterations, every frame
+far  (distant, tiny):    iters capped low, updated every Nth frame,
+                         round-robined by entity index to spread cost
+
+// enableable tier flag = no structural change to retier
+struct FarLOD : IComponentData, IEnableableComponent {}
+
+if (far.ValueRO) {
+    if ((e.Index & 3) != frameParity) return;   // ~1/4 frames, index-spread
+    iters = min(iters, 2);
+}</code></pre>
+  <p>Small near-band at high fidelity + cheap amortized far-band turns 50ms frames into 5ms.
+  Assign FarLOD from on-screen bounds in a light culling system.</p>
+
+  <h2>System order (all six lessons)</h2>
+<pre><code>FixedStepSimulationSystemGroup:
+  SecondOrderJob (L6) → GaitSystem (L4) → IkSolveJob (L3/L5)
+    → MuscleJob (L2/L5) → ChainSolveJob (L1, integrate+pin+sweeps)
+one dependency line, one IJobEntity each, no sync points between.</code></pre>
+
+  <h2>Cost intuition (illustrative — profile YOUR numbers)</h2>
+  <table>
+    <tr><th>Workload</th><th>Bound by</th><th>Cheapening lever</th></tr>
+    <tr><td>Verlet sweeps</td><td>Memory (streaming points)</td><td>Fewer iterations; in-chunk buffers</td></tr>
+    <tr><td>Second-order filters</td><td>ALU (tiny, fixed)</td><td>Already cheap; rarely LOD it</td></tr>
+    <tr><td>IK / FABRIK</td><td>Iterations (warm-started ~1–2)</td><td>Cap iters on far tier; warm start</td></tr>
+    <tr><td>Structural churn</td><td>Sync points</td><td>Enableable flags + pooling</td></tr>
+  </table>
+
+  <div class="lesson-footer">
+    <p>See also: <a href="glossary.html">glossary</a> · every technique cheatsheet feeds this one:
+      <a href="verlet-chain-cheatsheet.html">verlet</a> · <a href="muscles-cheatsheet.html">muscles</a> ·
+      <a href="two-bone-ik-cheatsheet.html">IK</a> · <a href="gait-cheatsheet.html">gait</a> ·
+      <a href="fabrik-cheatsheet.html">FABRIK</a> · <a href="second-order-cheatsheet.html">second-order</a></p>
+  </div>
+</div>

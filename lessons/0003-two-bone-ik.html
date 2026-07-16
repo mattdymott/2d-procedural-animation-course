@@ -1,0 +1,417 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 3 — Two-Bone IK: Limbs That Make Promises</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 3</p>
+  <h1>Two-Bone IK: Limbs That Make Promises</h1>
+  <p class="lede">
+    <a href="0002-muscles-active-chains.html">Lesson 2's</a> muscles make <em>wishes</em> —
+    the tip leans toward the target and physics gets a vote. Feet can't work that way: a paw
+    that almost touches the ground reads as broken. Limbs need <em>promises</em> — the foot
+    is exactly there, this frame, guaranteed. That's inverse kinematics, and for a two-bone
+    limb the entire solver is one triangle.
+  </p>
+
+  <h2>The idea: two circles, one choice</h2>
+  <p>
+    A limb has a root (hip/shoulder), two bones of length <code>L1</code> and <code>L2</code>,
+    and a target for the foot. Ask: <em>where can the knee be?</em> It must sit at distance
+    <code>L1</code> from the root — a circle — and at distance <code>L2</code> from the foot —
+    another circle. <strong>The knee is where the circles intersect</strong>, and two circles
+    intersect at two points: knee-up or knee-down. All the trigonometry below is just
+    computing that intersection; the playground draws both circles so you can watch the
+    algebra be geometry.
+  </p>
+  <p>
+    This is the classic triangle construction from
+    <a href="https://www.alanzucconi.com/2018/05/02/ik-2d-1/">Zucconi's Inverse Kinematics in
+    2D</a> — root, knee, foot form a triangle whose three side lengths you already know
+    (<code>L1</code>, <code>L2</code>, and the root→target distance), so the
+    <a href="https://en.wikipedia.org/wiki/Law_of_cosines">law of cosines</a> hands you every
+    angle.
+  </p>
+
+  <h2>The recipe</h2>
+  <p>
+    Zucconi's version outputs joint <em>angles</em>. For verlet bodies you want joint
+    <em>positions</em> — this form returns them directly and bakes in the two clamps the
+    tutorials skip:
+  </p>
+  <div class="recipe">
+    <span class="callout-label">Recipe · 2-bone IK, position form</span>
+<pre><code>d    = max(length(target - root), ε)
+dir  = (target - root) / d
+d    = clamp(d, |L1 - L2| + ε, L1 + L2 - ε)   // ① reachability clamp
+foot = root + dir * d                          // where the foot actually goes
+cosA = (L1² + d² - L2²) / (2 · L1 · d)         // law of cosines at the root
+a    = acos(clamp(cosA, -1, 1)) · bendSign     // ② bendSign = ±1 picks the knee
+knee = root + rotate(dir, a) * L1</code></pre>
+  </div>
+  <ul>
+    <li><strong>Clamp ① is the annulus.</strong> The reachable region isn't a disk — it's a
+      ring. Outer edge <code>L1+L2</code> (limb straight), inner edge <code>|L1−L2|</code>
+      (limb folded). Unequal bones leave a <em>dead disk</em> around the root that the foot
+      can never enter. Targets outside the ring get projected to its edge, which is exactly
+      the behaviour you want: too far → limb straightens toward it, too close → folds.</li>
+    <li><strong><code>bendSign</code> is a modelling decision, not math.</strong> Knees bend
+      one way, elbows the other; a creature's silhouette lives in this bit. Flip it at the
+      wrong moment mid-animation and the knee snaps through the leg — pick per limb, change
+      rarely and deliberately.</li>
+  </ul>
+
+  <h2>The playground</h2>
+  <p>
+    Your mouse is the target. The faint circles are the construction; the dashed limb is the
+    <em>other</em> bend choice — the road not taken. The shaded ring is the annulus, and the
+    red hatch is a wall the knee must not enter.
+  </p>
+
+  <div class="sim" id="sim">
+    <canvas id="ikCanvas" height="380"></canvas>
+    <div class="sim-controls">
+      <label>L1 (upper bone) <span class="value" id="v-l1">90</span>
+        <input type="range" id="s-l1" min="40" max="140" value="90"></label>
+      <label>L2 (lower bone) <span class="value" id="v-l2">60</span>
+        <input type="range" id="s-l2" min="40" max="140" value="60"></label>
+      <label style="min-width:auto">bend side
+        <button id="b-bend" type="button" style="font:inherit;padding:0.2rem 0.7rem;cursor:pointer">knee ↓ (+1)</button>
+      </label>
+    </div>
+    <div class="sim-readout">
+      target: <span id="r-d">–</span>px · reachable ring: <span id="r-ring">–</span>px ·
+      <span id="r-state">–</span>
+    </div>
+  </div>
+
+  <div class="challenge" id="ch1">
+    <span class="status">☐</span> <strong>Challenge 1 — The dead disk.</strong>
+    Make the bones unequal enough that the dead disk becomes obvious (difference ≥ 40), then
+    hold the target inside it for 1.5s. Feel the foot refuse to follow you in.
+  </div>
+  <div class="challenge" id="ch2">
+    <span class="status">☐</span> <strong>Challenge 2 — Mind the wall.</strong>
+    Park the target on the green anchor with the knee <em>outside</em> the red wall for 1.5s.
+    One bend side works; the other jams the knee straight into it. (Restore L1=90, L2=60 if
+    you changed them.)
+  </div>
+
+  <h2>Promises and wishes, together</h2>
+  <p>
+    IK doesn't replace Lesson 2 — it completes it. The pattern for a full creature:
+    <strong>verlet + muscles for everything that may flow</strong> (spine, tail, ears),
+    <strong>IK for everything that must land</strong> (feet, grabbing hands). They meet
+    through pins: solve the limb analytically, then write knee and foot into the verlet body
+    as strength-1 pins (<a href="0001-verlet-chains.html">Lesson 1</a>), and let the
+    constraint sweeps drag the soft body along behind the planted foot. Rain World's lizards
+    are exactly this marriage — floppy chain spines with feet that grip like promises.
+  </p>
+
+  <h2>Mapping it to DOTS</h2>
+  <div class="dots-mapping">
+    <span class="callout-label">DOTS mapping</span>
+    <p style="margin-top:0">
+      The solver is a pure, branch-light, allocation-free function — the friendliest thing
+      you can hand Burst. No iteration, no convergence, identical cost every call:
+      thousands of limbs are trivially cheap and perfectly deterministic.
+    </p>
+<pre><code>public struct Limb2Bone : IComponentData
+{
+    public float2 Root;       // written by the body system each tick
+    public float2 Target;     // written by AI / gait logic
+    public float  L1, L2;
+    public float  BendSign;   // +1 or -1, a per-limb modelling choice
+    public float2 Knee, Foot; // solver output, read by rendering/pins
+}
+
+[BurstCompile]
+public static void Solve(ref Limb2Bone limb)
+{
+    const float eps = 1e-4f;
+    float2 toT = limb.Target - limb.Root;
+    float  d   = math.max(math.length(toT), eps);
+    float2 dir = toT / d;
+    d = math.clamp(d, math.abs(limb.L1 - limb.L2) + eps,
+                      limb.L1 + limb.L2 - eps);
+
+    limb.Foot = limb.Root + dir * d;
+
+    float cosA = (limb.L1 * limb.L1 + d * d - limb.L2 * limb.L2)
+               / (2f * limb.L1 * d);
+    float a = math.acos(math.clamp(cosA, -1f, 1f)) * limb.BendSign;
+
+    math.sincos(a, out float s, out float c);
+    float2 rotated = new float2(dir.x * c - dir.y * s,
+                                dir.x * s + dir.y * c);
+    limb.Knee = limb.Root + rotated * limb.L1;
+}</code></pre>
+    <p style="margin-bottom:0">
+      System order matters more than the solver: body/verlet system writes <code>Root</code>,
+      gait/AI writes <code>Target</code>, then the IK system solves, then pins feed
+      <code>Knee</code>/<code>Foot</code> back into the verlet buffer before its constraint
+      sweeps. One tick, one direction of data flow, no lookups mid-job.
+    </p>
+  </div>
+
+  <h2>Check yourself</h2>
+  <p>From memory — the circles should be in your head now.</p>
+  <div id="quiz"></div>
+
+  <h2>Where to go deeper</h2>
+  <p>
+    <strong>Primary source:</strong>
+    <a href="https://www.alanzucconi.com/2018/05/02/ik-2d-1/">Zucconi, Inverse Kinematics in
+    2D — Part 1</a> (the math, ~15 min) and
+    <a href="https://www.alanzucconi.com/2018/05/02/ik-2d-2/">Part 2</a> (the code). He
+    derives the angle form; you now know why the position form suits verlet bodies better.
+    When limbs grow past two bones — tails that grab, lizard tongues — the analytic triangle
+    runs out and you'll want <a href="https://www.andreasaristidou.com/publications/papers/FABRIK.pdf">FABRIK</a>:
+    that's the next lesson on this path.
+  </p>
+  <p>
+    Compressed recipe: <a href="../reference/two-bone-ik-cheatsheet.html">two-bone IK cheatsheet</a> ·
+    new terms in the <a href="../reference/glossary.html">glossary</a>.
+  </p>
+
+  <div class="lesson-footer">
+    <p>
+      <strong>Suggested real-world rep:</strong> in your scratch project, hang two
+      <code>Limb2Bone</code> legs off one of your muscled chains from Lesson 2 and pin the
+      feet to fixed ground points. Then drag the body around with the mouse and watch the
+      legs negotiate — you have just built 80% of a walking creature, missing only the rule
+      for when a foot lets go. That rule (gait) is where this path leads.
+    </p>
+    <p>
+      Stuck or curious? Run <code>/teach</code> and ask — "how do I keep the knee from
+      snapping when bendSign must flip?" is the classic question, and it has three good answers.
+    </p>
+  </div>
+</div>
+
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const canvas = document.getElementById('ikCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const sL1 = document.getElementById('s-l1'), vL1 = document.getElementById('v-l1');
+  const sL2 = document.getElementById('s-l2'), vL2 = document.getElementById('v-l2');
+  const bBend = document.getElementById('b-bend');
+  const rD = document.getElementById('r-d'), rRing = document.getElementById('r-ring'),
+        rState = document.getElementById('r-state');
+
+  let dpr = 1, W = 0, H = 380;
+  let bendSign = 1;
+  const mouse = { x: 300, y: 120, inside: false };
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    W = canvas.clientWidth;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function root() { return { x: W / 2 - 120, y: 210 }; }
+  function anchor() { const r = root(); return { x: r.x + 95, y: r.y - 15 }; }
+  function wall() { const r = root(); return { x: r.x + 30 - 35, y: r.y - 65 - 28, w: 70, h: 55 }; }
+
+  function solve(rx, ry, tx, ty, l1, l2, bend) {
+    const eps = 1e-4;
+    let dx = tx - rx, dy = ty - ry;
+    const dRaw = Math.max(Math.hypot(dx, dy), eps);
+    const ux = dx / dRaw, uy = dy / dRaw;
+    const d = Math.min(Math.max(dRaw, Math.abs(l1 - l2) + eps), l1 + l2 - eps);
+    const fx = rx + ux * d, fy = ry + uy * d;
+    const cosA = (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d);
+    const a = Math.acos(Math.min(1, Math.max(-1, cosA))) * bend;
+    const c = Math.cos(a), s = Math.sin(a);
+    return {
+      knee: { x: rx + (ux * c - uy * s) * l1, y: ry + (ux * s + uy * c) * l1 },
+      foot: { x: fx, y: fy },
+      dRaw, d,
+    };
+  }
+
+  // ---------- Challenges ----------
+  const ch = [
+    { el: document.getElementById('ch1'), frames: 0, done: false, test: null },
+    { el: document.getElementById('ch2'), frames: 0, done: false, test: null },
+  ];
+  function tickChallenge(c, ok) {
+    if (c.done) return;
+    c.frames = ok ? c.frames + 1 : 0;
+    if (c.frames > 90) {
+      c.done = true;
+      c.el.classList.add('done');
+      c.el.querySelector('.status').textContent = '✓';
+    }
+  }
+
+  function frame() {
+    const r = root(), an = anchor(), wl = wall();
+    const l1 = +sL1.value, l2 = +sL2.value;
+    const sol = solve(r.x, r.y, mouse.x, mouse.y, l1, l2, bendSign);
+    const ghost = solve(r.x, r.y, mouse.x, mouse.y, l1, l2, -bendSign);
+
+    const inner = Math.abs(l1 - l2), outer = l1 + l2;
+
+    // readouts
+    rD.textContent = sol.dRaw.toFixed(0);
+    rRing.textContent = inner.toFixed(0) + ' – ' + outer.toFixed(0);
+    const state = sol.dRaw > outer ? 'TOO FAR — straightened'
+                : sol.dRaw < inner ? 'TOO CLOSE — dead disk'
+                : 'reached';
+    rState.textContent = state;
+    rState.className = state === 'reached' ? 'ok' : '';
+
+    // challenges
+    const kneeInWall = sol.knee.x > wl.x && sol.knee.x < wl.x + wl.w &&
+                       sol.knee.y > wl.y && sol.knee.y < wl.y + wl.h;
+    tickChallenge(ch[0], mouse.inside && inner >= 40 && sol.dRaw < inner - 4);
+    tickChallenge(ch[1], mouse.inside && !kneeInWall &&
+      Math.hypot(sol.foot.x - an.x, sol.foot.y - an.y) < 8);
+
+    // ---------- draw ----------
+    ctx.clearRect(0, 0, W, H);
+
+    // annulus
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, outer, 0, Math.PI * 2);
+    ctx.arc(r.x, r.y, Math.max(inner, 0.01), 0, Math.PI * 2, true);
+    ctx.fillStyle = 'rgba(232,176,76,0.07)';
+    ctx.fill();
+    // dead disk
+    if (inner > 1) {
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, inner, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(224,93,61,0.10)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(224,93,61,0.45)';
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, outer, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(232,176,76,0.35)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // wall
+    ctx.fillStyle = 'rgba(224,93,61,0.18)';
+    ctx.fillRect(wl.x, wl.y, wl.w, wl.h);
+    ctx.strokeStyle = 'rgba(224,93,61,0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(wl.x, wl.y, wl.w, wl.h);
+
+    // construction circles
+    ctx.strokeStyle = 'rgba(246,231,200,0.22)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(r.x, r.y, l1, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(sol.foot.x, sol.foot.y, l2, 0, Math.PI * 2); ctx.stroke();
+
+    // ghost limb (other bend)
+    ctx.strokeStyle = 'rgba(246,231,200,0.28)';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.moveTo(r.x, r.y); ctx.lineTo(ghost.knee.x, ghost.knee.y);
+    ctx.lineTo(ghost.foot.x, ghost.foot.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // chosen limb
+    ctx.strokeStyle = '#e8b04c';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(r.x, r.y); ctx.lineTo(sol.knee.x, sol.knee.y); ctx.stroke();
+    ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(sol.knee.x, sol.knee.y); ctx.lineTo(sol.foot.x, sol.foot.y); ctx.stroke();
+
+    // joints
+    for (const [p, rad, col] of [[r, 8, '#e05d3d'], [sol.knee, 5, '#f6e7c8'], [sol.foot, 5, '#f6e7c8']]) {
+      ctx.beginPath(); ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+      ctx.fillStyle = col; ctx.fill();
+    }
+
+    // anchor
+    ctx.beginPath(); ctx.arc(an.x, an.y, 8, 0, Math.PI * 2);
+    ctx.strokeStyle = '#2e9d5f'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(an.x, an.y, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#2e9d5f'; ctx.fill();
+
+    // target
+    ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#e05d3d'; ctx.fill();
+
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- Input & wiring ----------
+  canvas.addEventListener('pointermove', (e) => {
+    const rct = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rct.left; mouse.y = e.clientY - rct.top;
+    mouse.inside = true;
+  });
+  canvas.addEventListener('pointerleave', () => { mouse.inside = false; });
+  sL1.addEventListener('input', () => { vL1.textContent = sL1.value; });
+  sL2.addEventListener('input', () => { vL2.textContent = sL2.value; });
+  bBend.addEventListener('click', () => {
+    bendSign = -bendSign;
+    bBend.textContent = bendSign > 0 ? 'knee ↓ (+1)' : 'knee ↑ (−1)';
+  });
+  new ResizeObserver(() => resize()).observe(canvas);
+
+  resize();
+  requestAnimationFrame(frame);
+
+  // ---------- Quiz ----------
+  Quiz.render(document.getElementById('quiz'), [
+    {
+      prompt: 'Geometrically, what does the two-bone IK solver compute?',
+      options: [
+        'The intersection of two circles, choosing one point',
+        'The projection of the target onto the bone axis',
+        'The rotation minimizing total joint displacement',
+      ],
+      answer: 0,
+      explain: 'Knee must be L1 from the root (circle one) and L2 from the foot (circle two). Two intersection points exist; bendSign picks one. The law of cosines is just how you compute it.',
+    },
+    {
+      prompt: 'With unequal bones, what shape is the reachable region?',
+      options: [
+        'A ring between |L1−L2| and L1+L2',
+        'A disk with radius equal to L1+L2',
+        'An ellipse elongated along the first bone',
+      ],
+      answer: 0,
+      explain: 'Fully folded, the foot sits |L1−L2| from the root — it can never get closer. The annulus, and its inner dead disk, is why the reachability clamp needs a lower bound too.',
+    },
+    {
+      prompt: 'What does bendSign decide, and how should it be treated?',
+      options: [
+        'Which mirrored knee to use — a stable modelling choice',
+        'Which bone absorbs the error — a per-frame optimization',
+        'Which direction the foot approaches — a solver detail',
+      ],
+      answer: 0,
+      explain: 'It selects between the two circle intersections. Knees and elbows each have a correct side; flipping it mid-motion makes the joint snap through the limb, so set it per limb and change it rarely.',
+    },
+    {
+      prompt: 'Why solve two-bone limbs analytically instead of iteratively?',
+      options: [
+        'Exact result at constant cost with no convergence',
+        'Iterative methods fail on chains shorter than three',
+        'Analytic methods extend naturally to many joints',
+      ],
+      answer: 0,
+      explain: 'The triangle has a closed-form answer — same cost every call, perfectly deterministic, ideal for Burst. Iterative solvers (FABRIK, next lesson) earn their keep only when joints exceed two.',
+    },
+  ]);
+})();
+</script>

@@ -1,0 +1,430 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 1 — Verlet Chains: Points on Strings</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 1</p>
+  <h1>Verlet Chains: Points on Strings</h1>
+  <p class="lede">
+    Every Rain World creature — lizards, slugcats, vulture wings — is a handful of points
+    in space held together by distance rules. This lesson gives you that atom: the verlet
+    chain. Master it and everything later (limbs, IK, gaits) is just decoration on top.
+  </p>
+
+  <h2>The idea</h2>
+  <p>
+    In his <a href="https://www.youtube.com/watch?v=-iXwvoFhPuU">GDC talk on Rain World's
+    animation process</a>, Joar Jakobsson describes the approach as the opposite of
+    frame-by-frame animation: instead of drawing poses, he places a handful of points in
+    space and connects them at fixed distances. The simulation moves the points; the
+    graphics simply drape over wherever the points ended up. Life emerges from physics,
+    not from keyframes.
+  </p>
+  <p>Two tiny recipes make this work. That's genuinely all of it.</p>
+
+  <h2>Recipe 1 — Verlet integration</h2>
+  <p>
+    Normally you'd store <em>position + velocity</em> per point. Verlet stores
+    <em>position + previous position</em> instead. The velocity is <strong>implied by the
+    gap between them</strong>: if a point was at 5 and is now at 7, it's clearly moving at
+    +2 per step. To advance, keep that drift going and add acceleration:
+  </p>
+  <div class="recipe">
+    <span class="callout-label">Recipe · integrate one point</span>
+<pre><code>velocity = position - prevPosition          // implied, never stored
+prevPosition = position
+position += velocity * (1 - damping) + gravity * dt * dt</code></pre>
+  </div>
+  <p>
+    Why bother? Because of what comes next: we are going to <strong>directly shove points
+    around</strong> to satisfy constraints. In a position+velocity scheme, teleporting a point
+    desynchronizes its velocity and the system explodes. In verlet, moving a point
+    <em>automatically updates its implied velocity</em> — the gap to its previous position
+    changed. Corrections and momentum can never disagree. This is the key insight of
+    <a href="https://github.com/krisives/advanced-character-physics">Thomas Jakobsen's
+    "Advanced Character Physics"</a> (GDC 2001, built for Hitman's ragdolls), and it's why
+    the whole genre of squishy point-creatures is stable.
+  </p>
+
+  <h2>Recipe 2 — Distance constraint relaxation</h2>
+  <p>
+    A chain is points plus one rule per neighbouring pair: <em>stay exactly
+    <code>restLength</code> apart</em>. Enforce it by measuring the error and moving both
+    points halfway toward correct:
+  </p>
+  <div class="recipe">
+    <span class="callout-label">Recipe · relax one link</span>
+<pre><code>delta = b.position - a.position
+error = length(delta) - restLength
+correction = normalize(delta) * error * 0.5
+a.position += correction
+b.position -= correction</code></pre>
+  </div>
+  <p>
+    Fixing one link disturbs its neighbours, so you sweep the whole chain several times
+    per frame. Each sweep leaves the chain a bit closer to legal.
+    <strong>The iteration count is your stiffness dial</strong>: 1–2 sweeps gives stretchy,
+    soupy rope; 20+ approaches a rigid stick. Rain World's floppy, imperfect feel comes
+    from deliberately living at the low end. Pinning is even simpler: after each sweep,
+    snap the anchored point back to where it must be. Verlet forgives the teleport.
+  </p>
+
+  <h2>The playground</h2>
+  <p>
+    A live verlet chain. <strong>Drag any point</strong> — grab the ⬤ anchor and whip it
+    around, or pull the tail. Watch the <code>stretch</code> readout: it's the average link
+    error, i.e. how illegal the chain currently is.
+  </p>
+
+  <div class="sim" id="sim">
+    <canvas id="ropeCanvas" height="380"></canvas>
+    <div class="sim-controls">
+      <label>points <span class="value" id="v-points">24</span>
+        <input type="range" id="s-points" min="4" max="60" value="24"></label>
+      <label>iterations <span class="value" id="v-iters">4</span>
+        <input type="range" id="s-iters" min="1" max="60" value="4"></label>
+      <label>gravity <span class="value" id="v-grav">1200</span>
+        <input type="range" id="s-grav" min="0" max="3000" step="50" value="1200"></label>
+      <label>damping % <span class="value" id="v-damp">0.5</span>
+        <input type="range" id="s-damp" min="0" max="10" step="0.1" value="0.5"></label>
+    </div>
+    <div class="sim-readout">stretch error: <span id="r-stretch">0.0</span>%</div>
+  </div>
+
+  <div class="challenge" id="ch1">
+    <span class="status">☐</span> <strong>Challenge 1 — Soup.</strong>
+    Make the chain visibly cheat: get stretch error <em>above 4%</em> under gravity.
+    (Which dial makes constraints weak?)
+  </div>
+  <div class="challenge" id="ch2">
+    <span class="status">☐</span> <strong>Challenge 2 — Stick.</strong>
+    Now the opposite: with gravity at 1200+, hold stretch error <em>below 0.6%</em>.
+    Note what it costs — this is the CPU/stiffness trade you'll tune in Burst jobs later.
+    (Two routes exist: brute force, or remembering that error propagates one link per sweep.)
+  </div>
+
+  <h2>Mapping it to DOTS</h2>
+  <div class="dots-mapping">
+    <span class="callout-label">DOTS mapping</span>
+    <p style="margin-top:0">
+      One creature = one entity = one <code>DynamicBuffer&lt;VerletPoint&gt;</code>. Chains are
+      tiny (10–40 points) and independent, so parallelism goes <em>across entities</em>, not
+      within a chain — a single Burst <code>IJobEntity</code> handles thousands of creatures.
+    </p>
+<pre><code>public struct VerletPoint : IBufferElementData
+{
+    public float2 Position;
+    public float2 PrevPosition;
+}
+
+public struct ChainSettings : IComponentData
+{
+    public float RestLength;
+    public int   Iterations;   // the stiffness dial
+    public float Damping;
+}
+
+[BurstCompile]
+partial struct ChainJob : IJobEntity
+{
+    public float  DeltaTime;
+    public float2 Gravity;
+
+    void Execute(ref DynamicBuffer&lt;VerletPoint&gt; pts,
+                 in ChainSettings s, in LocalTransform anchor)
+    {
+        // 1. Integrate every point
+        for (int i = 0; i &lt; pts.Length; i++)
+        {
+            var p = pts[i];
+            float2 vel = (p.Position - p.PrevPosition) * (1f - s.Damping);
+            p.PrevPosition = p.Position;
+            p.Position += vel + Gravity * (DeltaTime * DeltaTime);
+            pts[i] = p;
+        }
+
+        // 2. Relax constraints, re-pinning the head each sweep
+        for (int iter = 0; iter &lt; s.Iterations; iter++)
+        {
+            var head = pts[0];
+            head.Position = anchor.Position.xy;
+            pts[0] = head;
+
+            for (int i = 0; i &lt; pts.Length - 1; i++)
+            {
+                var a = pts[i]; var b = pts[i + 1];
+                float2 delta = b.Position - a.Position;
+                float dist = math.max(math.length(delta), 1e-6f);
+                float2 corr = delta * (0.5f * (dist - s.RestLength) / dist);
+                a.Position += corr;
+                b.Position -= corr;
+                pts[i] = a; pts[i + 1] = b;
+            }
+        }
+    }
+}</code></pre>
+    <p style="margin-bottom:0">
+      Burst notes: the inner loop is sequential by nature (each link reads its neighbour) —
+      don't fight it; it's ~40 points. Use a fixed timestep (run in a
+      <code>FixedStepSimulationSystemGroup</code>) or damping/stiffness will vary with
+      framerate, since <code>dt²</code> and iteration effects aren't time-normalized.
+    </p>
+  </div>
+
+  <h2>Check yourself</h2>
+  <p>Answer from memory — the struggle is the point.</p>
+  <div id="quiz"></div>
+
+  <h2>Where to go deeper</h2>
+  <p>
+    <strong>Primary source:</strong> watch
+    <a href="https://www.youtube.com/watch?v=-iXwvoFhPuU">The Rain World Animation Process
+    (Jakobsson &amp; Therrien, GDC)</a> — 30 minutes, and now that you know what a verlet
+    chain is you'll recognize it under every creature they show. The written bedrock is
+    <a href="https://github.com/krisives/advanced-character-physics">Jakobsen's Advanced
+    Character Physics</a>; sections 1–3 cover exactly what you just did.
+  </p>
+  <p>
+    Quick-reference versions of these recipes live in the
+    <a href="../reference/verlet-chain-cheatsheet.html">verlet chain cheatsheet</a>, and
+    terms are pinned in the <a href="../reference/glossary.html">glossary</a>.
+  </p>
+
+  <div class="lesson-footer">
+    <p>
+      <strong>Suggested real-world rep:</strong> port <code>ChainJob</code> into a scratch DOTS
+      project and spawn 1,000 chains before the next lesson. Next up: making chains
+      <em>alive</em> — muscles via targeted constraint offsets, or second-order dynamics for
+      juice (your pick).
+    </p>
+    <p>
+      Stuck or curious? Ask your teacher — run <code>/teach</code> again and ask follow-up
+      questions about anything unclear. That conversation is part of the course.
+    </p>
+  </div>
+</div>
+
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ---------- Simulation ----------
+  const canvas = document.getElementById('ropeCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const sliders = {
+    points: document.getElementById('s-points'),
+    iters:  document.getElementById('s-iters'),
+    grav:   document.getElementById('s-grav'),
+    damp:   document.getElementById('s-damp'),
+  };
+  const labels = {
+    points: document.getElementById('v-points'),
+    iters:  document.getElementById('v-iters'),
+    grav:   document.getElementById('v-grav'),
+    damp:   document.getElementById('v-damp'),
+  };
+  const stretchEl = document.getElementById('r-stretch');
+
+  let pts = [];
+  const REST = 12;
+  let anchor = { x: 200, y: 60 };
+  let dragIndex = -1;
+  let dpr = 1, W = 0, H = 380;
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    W = canvas.clientWidth;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    anchor.x = W / 2;
+  }
+
+  function rebuild() {
+    const n = +sliders.points.value;
+    pts = [];
+    for (let i = 0; i < n; i++) {
+      pts.push({ x: anchor.x + i * REST * 0.4, y: anchor.y + i * REST * 0.9, px: 0, py: 0 });
+      pts[i].px = pts[i].x; pts[i].py = pts[i].y;
+    }
+  }
+
+  function step(dt) {
+    const g = +sliders.grav.value;
+    const damp = +sliders.damp.value / 100;
+    const iters = +sliders.iters.value;
+
+    for (const p of pts) {
+      const vx = (p.x - p.px) * (1 - damp);
+      const vy = (p.y - p.py) * (1 - damp);
+      p.px = p.x; p.py = p.y;
+      p.x += vx;
+      p.y += vy + g * dt * dt;
+    }
+
+    for (let it = 0; it < iters; it++) {
+      pts[0].x = anchor.x; pts[0].y = anchor.y;
+      if (dragIndex > 0) { pts[dragIndex].x = dragPos.x; pts[dragIndex].y = dragPos.y; }
+
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i], b = pts[i + 1];
+        let dx = b.x - a.x, dy = b.y - a.y;
+        const dist = Math.max(Math.hypot(dx, dy), 1e-6);
+        const f = 0.5 * (dist - REST) / dist;
+        const cx = dx * f, cy = dy * f;
+        a.x += cx; a.y += cy;
+        b.x -= cx; b.y -= cy;
+      }
+    }
+    pts[0].x = anchor.x; pts[0].y = anchor.y;
+
+    // floor + walls so the rope stays visible
+    for (const p of pts) {
+      if (p.y > H - 6) p.y = H - 6;
+      if (p.x < 6) p.x = 6;
+      if (p.x > W - 6) p.x = W - 6;
+    }
+  }
+
+  function stretchError() {
+    let sum = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const d = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
+      sum += Math.abs(d - REST) / REST;
+    }
+    return (sum / (pts.length - 1)) * 100;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#e8b04c';
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke();
+
+    for (let i = 0; i < pts.length; i++) {
+      ctx.beginPath();
+      ctx.arc(pts[i].x, pts[i].y, i === 0 ? 7 : 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = i === 0 ? '#e05d3d' : '#f6e7c8';
+      ctx.fill();
+    }
+  }
+
+  // ---------- Challenges (auto-checked) ----------
+  const ch = [
+    { el: document.getElementById('ch1'), frames: 0, done: false,
+      test: (err) => err > 4 && +sliders.grav.value >= 600 },
+    { el: document.getElementById('ch2'), frames: 0, done: false,
+      test: (err) => err < 0.6 && +sliders.grav.value >= 1200 && dragIndex < 0 },
+  ];
+  function checkChallenges(err) {
+    for (const c of ch) {
+      if (c.done) continue;
+      c.frames = c.test(err) ? c.frames + 1 : 0;
+      if (c.frames > 90) {           // held for ~1.5s
+        c.done = true;
+        c.el.classList.add('done');
+        c.el.querySelector('.status').textContent = '✓';
+      }
+    }
+  }
+
+  // ---------- Input ----------
+  const dragPos = { x: 0, y: 0 };
+  function canvasPos(e) {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  canvas.addEventListener('pointerdown', (e) => {
+    const m = canvasPos(e);
+    let best = -1, bestD = 30;
+    for (let i = 0; i < pts.length; i++) {
+      const d = Math.hypot(pts[i].x - m.x, pts[i].y - m.y);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    dragIndex = best;
+    dragPos.x = m.x; dragPos.y = m.y;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (dragIndex < 0) return;
+    const m = canvasPos(e);
+    dragPos.x = m.x; dragPos.y = m.y;
+    if (dragIndex === 0) { anchor.x = m.x; anchor.y = m.y; }
+  });
+  canvas.addEventListener('pointerup', () => { dragIndex = -1; });
+
+  // ---------- Wiring ----------
+  for (const key of Object.keys(sliders)) {
+    sliders[key].addEventListener('input', () => {
+      labels[key].textContent = sliders[key].value;
+      if (key === 'points') rebuild();
+    });
+  }
+  new ResizeObserver(() => resize()).observe(canvas);
+
+  resize();
+  rebuild();
+  let last = performance.now();
+  (function loop(now) {
+    const dt = Math.min((now - last) / 1000, 1 / 30);
+    last = now;
+    step(1 / 60);           // fixed step: same lesson as the DOTS mapping notes
+    const err = stretchError();
+    stretchEl.textContent = err.toFixed(2);
+    stretchEl.className = err < 1 ? 'ok' : '';
+    checkChallenges(err);
+    draw();
+    requestAnimationFrame(loop);
+  })(last);
+
+  // ---------- Quiz ----------
+  Quiz.render(document.getElementById('quiz'), [
+    {
+      prompt: 'In verlet integration, where does a point’s velocity live?',
+      options: [
+        'In the gap between current and previous position',
+        'In a velocity field updated after each frame',
+        'In the sum of forces applied last frame',
+      ],
+      answer: 0,
+      explain: 'Velocity is never stored — it is implied by position minus previous position. That is why you can teleport points to satisfy constraints and momentum stays consistent.',
+    },
+    {
+      prompt: 'What does raising the constraint iteration count do?',
+      options: [
+        'Makes the chain stiffer and less stretchy',
+        'Makes the chain heavier so it falls faster',
+        'Makes the chain smoother by damping velocity',
+      ],
+      answer: 0,
+      explain: 'Each sweep removes remaining link error, so more sweeps per frame = closer to fully rigid. It is a stiffness dial, and it costs CPU linearly.',
+    },
+    {
+      prompt: 'Why is verlet safe to combine with hard position corrections?',
+      options: [
+        'Moving a point implicitly corrects its velocity too',
+        'Moving a point resets its accumulated forces to zero',
+        'Moving a point is undone before the next integration',
+      ],
+      answer: 0,
+      explain: 'Since velocity is derived from position history, shoving a point changes its implied velocity coherently. Position+velocity schemes desync and explode under the same treatment.',
+    },
+    {
+      prompt: 'Best-fit ECS storage for one creature’s chain of points?',
+      options: [
+        'A DynamicBuffer of point elements on that entity',
+        'A NativeArray owned by the simulation system',
+        'An IComponentData holding a fixed-size array',
+      ],
+      answer: 0,
+      explain: 'A DynamicBuffer keeps the chain chunk-local and per-creature, so one IJobEntity parallelizes across thousands of creatures with no shared state.',
+    },
+  ]);
+})();
+</script>

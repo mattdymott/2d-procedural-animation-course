@@ -1,0 +1,454 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 6 — Second-Order Dynamics: Juice From One Filter</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 6</p>
+  <h1>Second-Order Dynamics: Juice From One Filter</h1>
+  <p class="lede">
+    Lessons 1–5 built creatures. This one builds <em>character</em>, and it applies to almost
+    anything. Second-order dynamics is a tiny filter you drop between a value and its target:
+    position, rotation, scale, a squash amount, a camera, a health bar. The thing keeps doing
+    what it did — the filter decides <em>how it moves there</em>. Overshoot, follow-through,
+    anticipation: three knobs, one update, millions of entities.
+  </p>
+
+  <h2>It's a filter, not a motion</h2>
+  <p>
+    You already smooth values with a lerp (<code>y += (x − y) · rate</code>). That's a
+    <em>first-order</em> filter: it can only ease toward the target, never past it, never
+    before it. Add one more piece of state — a <em>velocity</em> that carries momentum — and
+    the output can overshoot, ring, settle, or wind up backward first. That's second order,
+    and those behaviours are exactly the animation principles (follow-through, anticipation,
+    secondary motion) that read as "alive." This is the system from
+    <a href="https://www.youtube.com/watch?v=KPoeNZZ6H4s">t3ssel8r's "Giving Personality to
+    Procedural Animations using Math."</a>
+  </p>
+
+  <h2>Three knobs, all intuitive</h2>
+  <table>
+    <tr><th>Knob</th><th>Is</th><th>Feel across its range</th></tr>
+    <tr>
+      <td><strong>f</strong> — frequency (Hz)</td>
+      <td>How fast it reacts</td>
+      <td>Low = slow, languid, heavy · High = snappy, twitchy, light</td>
+    </tr>
+    <tr>
+      <td><strong>ζ</strong> — damping</td>
+      <td>How it settles</td>
+      <td>0 = rings forever · &lt;1 = bounces then settles (lively) · 1 = fastest, no overshoot · &gt;1 = sluggish, stiff</td>
+    </tr>
+    <tr>
+      <td><strong>r</strong> — response</td>
+      <td>Character of the launch</td>
+      <td>&lt;0 = <em>anticipates</em> (winds up backward!) · 0 = eases in · 1 = immediate · &gt;1 = eager, overshoots to lead</td>
+    </tr>
+  </table>
+  <p>
+    The delight is that these map onto words an animator already uses. "Make it heavier" →
+    lower <code>f</code>. "Make it bouncier" → lower <code>ζ</code>. "Give it a wind-up" →
+    negative <code>r</code>. You tune with your eyes, not a calculator.
+  </p>
+
+  <h2>The recipe</h2>
+  <p>
+    Convert the three intuitive knobs into three constants once, then run a two-line update
+    per frame. This is the numerically stable form — it clamps one term so a fast
+    <code>f</code> at a coarse timestep can't explode:
+  </p>
+  <div class="recipe">
+    <span class="callout-label">Recipe · second-order filter</span>
+<pre><code>// constants — compute once when f, ζ, r change
+k1 = ζ / (π·f)
+k2 = 1 / (2π·f)²
+k3 = r·ζ / (2π·f)
+
+// per fixed step, T = dt, x = target this frame, y = filtered output
+xd = (x - xPrev) / T          // estimate how fast the target is moving
+xPrev = x
+k2s = max(k2, T²/2 + T·k1/2, T·k1)          // stability clamp
+y   = y + T · yd                             // move output by its velocity
+yd  = yd + T · (x + k3·xd - y - k1·yd) / k2s // update that velocity
+</code></pre>
+  </div>
+  <p>
+    The whole personality lives in that last line. <code>x − y</code> is a spring pulling the
+    output toward the target; <code>−k1·yd</code> is friction that decides how it settles;
+    <code>k3·xd</code> is the clever bit — it feeds the <em>target's</em> velocity into the
+    output's acceleration, and when <code>k3</code> is negative the output lurches
+    <em>away</em> before chasing. That single term is anticipation, the animator's wind-up,
+    falling out of the math for free.
+  </p>
+
+  <h2>The payoff: squash from the same filter</h2>
+  <p>
+    Here's the multiplier. The filter already computes <code>yd</code> — the output's
+    velocity. Feed that straight into squash-and-stretch: stretch the sprite along its
+    velocity, squash it perpendicular, scaled by speed. One filter now gives you
+    <strong>both</strong> a lively follow <em>and</em> its secondary motion, with no extra
+    state. The playground's blob does exactly this — watch it stretch as it launches and
+    squish as it settles.
+  </p>
+
+  <h2>The playground</h2>
+  <p>
+    A blob chasing a target. <strong>Mouse over the box: the target is your cursor.</strong>
+    Mouse away: the target jumps between points every ~1.6s so you can read the response
+    cleanly (<em>challenges count in jump mode</em>). The faint trail is the blob's path — the
+    shape of its personality.
+  </p>
+
+  <div class="sim" id="sim">
+    <canvas id="soCanvas" height="380"></canvas>
+    <div class="sim-controls">
+      <label>f — frequency <span class="value" id="v-f">2.0</span>
+        <input type="range" id="s-f" min="0.3" max="4" step="0.1" value="2"></label>
+      <label>ζ — damping <span class="value" id="v-z">1.00</span>
+        <input type="range" id="s-z" min="0" max="2" step="0.05" value="1"></label>
+      <label>r — response <span class="value" id="v-r">0.0</span>
+        <input type="range" id="s-r" min="-4" max="3" step="0.1" value="0"></label>
+    </div>
+    <div class="sim-readout">
+      last jump — overshoot: <span id="r-over">–</span>% · anticipation: <span id="r-ant">–</span>%
+      · <span id="r-mode">–</span>
+    </div>
+  </div>
+
+  <div class="challenge" id="ch1">
+    <span class="status">☐</span> <strong>Challenge 1 — Follow-through.</strong>
+    In jump mode, make the blob <em>overshoot past the target</em> by at least 15% of the jump
+    distance, on three jumps running. (Which knob controls bounce?) Watch it stretch as it
+    flies past, squash as it snaps back.
+  </div>
+  <div class="challenge" id="ch2">
+    <span class="status">☐</span> <strong>Challenge 2 — Anticipation.</strong>
+    Now the animator's wind-up: make the blob first move <em>backward</em>, away from the
+    target, by at least 10% of the jump distance, on three jumps running. Only one knob does
+    this, and it must go somewhere the others can't.
+  </div>
+
+  <h2>Mapping it to DOTS</h2>
+  <div class="dots-mapping">
+    <span class="callout-label">DOTS mapping</span>
+    <p style="margin-top:0">
+      This is the friendliest scale story in the whole course: a few floats of state and a
+      branchless update. Bake the constants once (they only change when a designer retunes),
+      then a single Burst job filters a million values — camera rigs, floating damage numbers,
+      turret lead, squash amounts, UI. Attach it to <em>any</em> <code>float</code>,
+      <code>float2</code>, or <code>quaternion</code>.
+    </p>
+<pre><code>public struct SecondOrder : IComponentData
+{
+    public float2 Y, Yd, Xp;   // output, output velocity, previous input
+    public float  K1, K2, K3;  // baked from (f, ζ, r)
+}
+
+public static void MakeConstants(float f, float z, float r,
+                                 out float k1, out float k2, out float k3)
+{
+    float w  = 2f * math.PI * f;
+    k1 = z / (math.PI * f);
+    k2 = 1f / (w * w);
+    k3 = r * z / w;
+}
+
+[BurstCompile]
+partial struct SecondOrderJob : IJobEntity
+{
+    public float T;
+    void Execute(ref SecondOrder s, in FollowTarget tgt)   // tgt.Value = the input x
+    {
+        float2 x  = tgt.Value;
+        float2 xd = (x - s.Xp) / T;
+        s.Xp = x;
+        float k2s = math.max(s.K2, math.max(T*T*0.5f + T*s.K1*0.5f, T*s.K1));
+        s.Y  += T * s.Yd;
+        s.Yd += T * (x + s.K3 * xd - s.Y - s.K1 * s.Yd) / k2s;
+        // s.Y is the juiced output; s.Yd is free squash/lean velocity
+    }
+}</code></pre>
+    <p style="margin-bottom:0">
+      Fixed timestep, as ever — <code>k2s</code> assumes a known <code>T</code>. The output
+      <code>Y</code> drives a <code>LocalTransform</code>; <code>Yd</code> drives a squash
+      shader param or a lean angle for free. Per-instance variation in
+      <code>(f, ζ, r)</code> makes a crowd of identical prefabs move like individuals — the
+      cheapest character you will ever buy.
+    </p>
+  </div>
+
+  <h2>Check yourself</h2>
+  <p>From memory — the knobs should have a <em>feel</em> now, not just a definition.</p>
+  <div id="quiz"></div>
+
+  <h2>Where to go deeper</h2>
+  <p>
+    <strong>Primary source:</strong>
+    <a href="https://www.youtube.com/watch?v=KPoeNZZ6H4s">t3ssel8r, "Giving Personality to
+    Procedural Animations using Math"</a> — the derivation from a physical spring-damper, the
+    stability analysis behind that <code>k2s</code> clamp, and gorgeous demos of every knob.
+    A <a href="https://github.com/SalvatoreScalia/Giving-Personality-to-Procedural-Animations-using-Math">text
+    transcription</a> exists if you prefer reading. This filter pairs beautifully with every
+    earlier lesson: run a creature's <em>IK target</em> through it and the whole limb inherits
+    follow-through.
+  </p>
+  <p>
+    Compressed recipe: <a href="../reference/second-order-cheatsheet.html">second-order dynamics
+    cheatsheet</a> · new terms in the <a href="../reference/glossary.html">glossary</a>.
+  </p>
+
+  <div class="lesson-footer">
+    <p>
+      <strong>Suggested real-world rep:</strong> take the noisiest value in your scratch
+      project — a camera that snaps to the player, a UI number that pops — and route it through
+      one <code>SecondOrder</code> component. Spend five minutes on the three sliders. The
+      moment a dead value gets a wind-up and a bounce, you'll understand why this is the single
+      highest juice-per-byte technique in the course. Next, and last on the spine: taking
+      everything to <em>scale</em> — DOTS batching patterns for thousands of animated creatures
+      — then shipping it all as your toolkit package.
+    </p>
+    <p>
+      Stuck or curious? Run <code>/teach</code> and ask. Good questions here: "how do I filter
+      an angle without it spinning the long way round?" (wrap the error) and "can I drive
+      <code>f</code> from gameplay for a rubber-band camera?" (yes — rebake constants when it
+      changes).
+    </p>
+  </div>
+</div>
+
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const canvas = document.getElementById('soCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const S = { f: document.getElementById('s-f'), z: document.getElementById('s-z'), r: document.getElementById('s-r') };
+  const Vl = { f: document.getElementById('v-f'), z: document.getElementById('v-z'), r: document.getElementById('v-r') };
+  const rOver = document.getElementById('r-over'),
+        rAnt = document.getElementById('r-ant'),
+        rMode = document.getElementById('r-mode');
+
+  let dpr = 1, W = 0, H = 380;
+  const PI = Math.PI;
+
+  // second-order state (vector)
+  let y = { x: 0, y: 0 }, yd = { x: 0, y: 0 }, xp = { x: 0, y: 0 };
+  let k1 = 0, k2 = 0, k3 = 0;
+
+  const target = { x: 0, y: 0 };
+  const mouse = { x: 0, y: 0, inside: false };
+  let time = 0, nextJump = 0;
+  const trail = [];
+
+  // per-jump measurement
+  let jump = null;  // { origin, axis, dist, maxProj, minProj }
+  let over = 0, ant = 0;         // last completed jump's stats
+  const chCount = [0, 0];
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    W = canvas.clientWidth;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function recompute() {
+    const f = +S.f.value, z = +S.z.value, r = +S.r.value;
+    const w = 2 * PI * f;
+    k1 = z / (PI * f);
+    k2 = 1 / (w * w);
+    k3 = r * z / w;
+  }
+
+  function pickJumpPoint() {
+    const mx = 90, my = 70;
+    return { x: mx + Math.random() * (W - 2 * mx), y: my + Math.random() * (H - 2 * my) };
+  }
+
+  function beginJump(newTarget) {
+    const origin = { x: y.x, y: y.y };
+    const dx = newTarget.x - origin.x, dy = newTarget.y - origin.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 60) { jump = null; return; }
+    jump = { origin, axis: { x: dx / dist, y: dy / dist }, dist, maxProj: 0, minProj: 0 };
+  }
+
+  function finalizeJump() {
+    if (!jump) return;
+    over = Math.max(0, (jump.maxProj - jump.dist) / jump.dist * 100);
+    ant = Math.max(0, -jump.minProj / jump.dist * 100);
+    // challenge counters (jump mode only)
+    if (!ch[0].done) { chCount[0] = over >= 15 ? chCount[0] + 1 : 0; if (chCount[0] >= 3) markDone(0); }
+    if (!ch[1].done) { chCount[1] = ant >= 10 ? chCount[1] + 1 : 0; if (chCount[1] >= 3) markDone(1); }
+  }
+
+  const ch = [
+    { el: document.getElementById('ch1'), done: false },
+    { el: document.getElementById('ch2'), done: false },
+  ];
+  function markDone(i) {
+    ch[i].done = true;
+    ch[i].el.classList.add('done');
+    ch[i].el.querySelector('.status').textContent = '✓';
+  }
+
+  function step(dt) {
+    time += dt;
+
+    // choose target
+    if (mouse.inside) {
+      target.x = mouse.x; target.y = mouse.y;
+      jump = null;              // measuring only in jump mode
+    } else {
+      if (time >= nextJump) {
+        const nt = pickJumpPoint();
+        finalizeJump();
+        target.x = nt.x; target.y = nt.y;
+        beginJump(nt);
+        nextJump = time + 1.6;
+      }
+    }
+
+    // second-order update (per axis, shared constants)
+    const T = dt;
+    const xdx = (target.x - xp.x) / T, xdy = (target.y - xp.y) / T;
+    xp.x = target.x; xp.y = target.y;
+    const k2s = Math.max(k2, T * T / 2 + T * k1 / 2, T * k1);
+    y.x += T * yd.x; y.y += T * yd.y;
+    yd.x += T * (target.x + k3 * xdx - y.x - k1 * yd.x) / k2s;
+    yd.y += T * (target.y + k3 * xdy - y.y - k1 * yd.y) / k2s;
+
+    // measure projection along the active jump axis
+    if (jump) {
+      const proj = (y.x - jump.origin.x) * jump.axis.x + (y.y - jump.origin.y) * jump.axis.y;
+      jump.maxProj = Math.max(jump.maxProj, proj);
+      jump.minProj = Math.min(jump.minProj, proj);
+    }
+
+    trail.push({ x: y.x, y: y.y });
+    if (trail.length > 90) trail.shift();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // trail
+    ctx.strokeStyle = 'rgba(232,176,76,0.25)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < trail.length; i++) {
+      const p = trail[i];
+      if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+
+    // target
+    ctx.beginPath(); ctx.arc(target.x, target.y, 9, 0, PI * 2);
+    ctx.fillStyle = 'rgba(224,93,61,0.22)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(target.x, target.y, 4, 0, PI * 2);
+    ctx.fillStyle = '#e05d3d'; ctx.fill();
+
+    // blob: squash-and-stretch driven by the filter velocity yd
+    const speed = Math.hypot(yd.x, yd.y);
+    const ang = Math.atan2(yd.y, yd.x);
+    const s = Math.min(speed / 900, 0.9);   // stretch amount, capped
+    const base = 20;
+    ctx.save();
+    ctx.translate(y.x, y.y);
+    ctx.rotate(ang);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, base * (1 + s), base / (1 + s), 0, 0, PI * 2);
+    ctx.fillStyle = '#e8b04c';
+    ctx.fill();
+    // eye hints at facing
+    ctx.beginPath();
+    ctx.arc(base * 0.4 * (1 + s), 0, 3, 0, PI * 2);
+    ctx.fillStyle = '#20242b'; ctx.fill();
+    ctx.restore();
+
+    // readouts
+    rOver.textContent = over.toFixed(0);
+    rAnt.textContent = ant.toFixed(0);
+    rOver.className = over >= 15 ? 'ok' : '';
+    rAnt.className = ant >= 10 ? 'ok' : '';
+    rMode.textContent = mouse.inside ? 'following mouse' : 'jump mode — challenges active';
+  }
+
+  // ---------- input & wiring ----------
+  canvas.addEventListener('pointermove', (e) => {
+    const rct = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rct.left; mouse.y = e.clientY - rct.top;
+    mouse.inside = true;
+  });
+  canvas.addEventListener('pointerleave', () => { mouse.inside = false; nextJump = 0; });
+  for (const key of Object.keys(S)) {
+    S[key].addEventListener('input', () => {
+      Vl[key].textContent = key === 'f' ? (+S[key].value).toFixed(1)
+                          : key === 'z' ? (+S[key].value).toFixed(2)
+                          : (+S[key].value).toFixed(1);
+      recompute();
+    });
+  }
+  new ResizeObserver(() => resize()).observe(canvas);
+
+  resize();
+  recompute();
+  y = { x: W / 2, y: H / 2 }; xp = { x: W / 2, y: H / 2 };
+  target.x = W / 2; target.y = H / 2;
+  let last = performance.now();
+  (function loop(now) {
+    const dt = Math.min((now - last) / 1000, 1 / 30);
+    last = now;
+    step(1 / 60);
+    draw();
+    requestAnimationFrame(loop);
+  })(last);
+
+  // ---------- Quiz ----------
+  Quiz.render(document.getElementById('quiz'), [
+    {
+      prompt: 'What does second order add over a lerp toward a target?',
+      options: [
+        'A velocity state, so the output can overshoot and settle',
+        'A faster convergence rate for the same target error',
+        'A per-frame clamp that prevents the value exploding',
+      ],
+      answer: 0,
+      explain: 'A lerp is first order — it can only ease toward the target. The extra velocity state carries momentum, unlocking overshoot, ringing, and anticipation: the behaviours that read as alive.',
+    },
+    {
+      prompt: 'Which knob makes the output wind up backward before chasing?',
+      options: [
+        'r — response, driven negative',
+        'ζ — damping, driven toward zero',
+        'f — frequency, driven high',
+      ],
+      answer: 0,
+      explain: 'Negative r flips the k3·xd term, feeding the target’s velocity into acceleration with the wrong sign — the output lurches away first. That is anticipation, the animator’s wind-up, straight from one term.',
+    },
+    {
+      prompt: 'You want a heavy, bouncy value that overshoots then settles. Set…',
+      options: [
+        'low f and ζ below 1',
+        'high f and ζ above 1',
+        'low f and r above 1',
+      ],
+      answer: 0,
+      explain: 'Low f makes it heavy/slow; ζ below 1 is underdamped, so it overshoots and rings down. ζ above 1 would be stiff with no overshoot; r>1 leads but does not create the settling bounce.',
+    },
+    {
+      prompt: 'Why is this technique such a good fit for ECS at scale?',
+      options: [
+        'A few floats of state and one branchless update per value',
+        'It removes the need for a fixed simulation timestep',
+        'It shares one global velocity across all entities',
+      ],
+      answer: 0,
+      explain: 'Each filtered value carries only Y, Yd, Xp plus three baked constants, updated with no branches — a single Burst job juices millions. And the velocity it already computes drives squash or lean for free.',
+    },
+  ]);
+})();
+</script>

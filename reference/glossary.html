@@ -1,0 +1,239 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Glossary</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Glossary</h1>
+  <p class="lede">Course nomenclature. Every lesson uses these terms in exactly these senses.
+    Terms are added as lessons introduce them.</p>
+
+  <table>
+    <tr><th>Term</th><th>Meaning</th><th>Introduced</th></tr>
+    <tr>
+      <td><strong>Verlet integration</strong></td>
+      <td>Advancing motion by storing position + previous position; velocity is implied by their difference, never stored.</td>
+      <td><a href="../lessons/0001-verlet-chains.html">L1</a></td>
+    </tr>
+    <tr>
+      <td><strong>Implied velocity</strong></td>
+      <td><code>position − prevPosition</code>. Changes coherently whenever a point is shoved, which is what makes verlet constraint-friendly.</td>
+      <td><a href="../lessons/0001-verlet-chains.html">L1</a></td>
+    </tr>
+    <tr>
+      <td><strong>Distance constraint</strong></td>
+      <td>The rule that two points stay <code>restLength</code> apart, enforced by moving both toward legality.</td>
+      <td><a href="../lessons/0001-verlet-chains.html">L1</a></td>
+    </tr>
+    <tr>
+      <td><strong>Relaxation</strong></td>
+      <td>Repeatedly sweeping all constraints, each pass shrinking the remaining error (a Gauss–Seidel-style solve). Iteration count ≈ stiffness.</td>
+      <td><a href="../lessons/0001-verlet-chains.html">L1</a></td>
+    </tr>
+    <tr>
+      <td><strong>Chain</strong></td>
+      <td>Points linked in sequence by distance constraints; the atomic body part (tail, spine, tentacle, rope).</td>
+      <td><a href="../lessons/0001-verlet-chains.html">L1</a></td>
+    </tr>
+    <tr>
+      <td><strong>Pin</strong></td>
+      <td>A point forced to a target position after each relaxation sweep; equivalently, an infinite-mass point.</td>
+      <td><a href="../lessons/0001-verlet-chains.html">L1</a></td>
+    </tr>
+    <tr>
+      <td><strong>Stretch error</strong></td>
+      <td>Average |actual − rest| / rest across links; how illegal a chain currently is. The playground readout.</td>
+      <td><a href="../lessons/0001-verlet-chains.html">L1</a></td>
+    </tr>
+    <tr>
+      <td><strong>Muscle</strong></td>
+      <td>A constraint corrected only fractionally toward a desired state ("a rule broken on purpose, weakly"). Strength = the fraction.</td>
+      <td><a href="../lessons/0002-muscles-active-chains.html">L2</a></td>
+    </tr>
+    <tr>
+      <td><strong>Goal muscle / weak pin</strong></td>
+      <td>Partial lerp of a point toward a target each tick; strength 1 is a pin, strength ≪ 1 is intent.</td>
+      <td><a href="../lessons/0002-muscles-active-chains.html">L2</a></td>
+    </tr>
+    <tr>
+      <td><strong>Rhythm muscle / traveling wave</strong></td>
+      <td>Perpendicular sinusoidal shoves with phase lag per link (−i·k), producing undulation that moves along the body.</td>
+      <td><a href="../lessons/0002-muscles-active-chains.html">L2</a></td>
+    </tr>
+    <tr>
+      <td><strong>Tone / posture spring</strong></td>
+      <td>Skip-one (i−1 ↔ i+1) distance constraint at rest 2·restLength, partially corrected; resists bending, sets stiffness of character.</td>
+      <td><a href="../lessons/0002-muscles-active-chains.html">L2</a></td>
+    </tr>
+    <tr>
+      <td><strong>Envelope</strong></td>
+      <td>Per-link amplitude scaling that assigns a muscle its territory on the body, preventing two muscles fighting over the same points.</td>
+      <td><a href="../lessons/0002-muscles-active-chains.html">L2</a></td>
+    </tr>
+    <tr>
+      <td><strong>Muscles propose, constraints dispose</strong></td>
+      <td>Tick order: integrate → fire muscles once (partial) → hard sweeps + pins last, so no muscle setting can break the body.</td>
+      <td><a href="../lessons/0002-muscles-active-chains.html">L2</a></td>
+    </tr>
+    <tr>
+      <td><strong>Inverse kinematics (IK)</strong></td>
+      <td>Computing joint positions/angles from a desired end-effector position — a promise the foot is exactly there, versus a muscle's wish.</td>
+      <td><a href="../lessons/0003-two-bone-ik.html">L3</a></td>
+    </tr>
+    <tr>
+      <td><strong>End effector</strong></td>
+      <td>The terminal point of a limb chain that the IK target refers to — the foot, hand, or tongue tip.</td>
+      <td><a href="../lessons/0003-two-bone-ik.html">L3</a></td>
+    </tr>
+    <tr>
+      <td><strong>Annulus / dead disk</strong></td>
+      <td>Reachable region of a two-bone limb: the ring [|L1−L2|, L1+L2]. Unequal bones leave an unreachable disk around the root.</td>
+      <td><a href="../lessons/0003-two-bone-ik.html">L3</a></td>
+    </tr>
+    <tr>
+      <td><strong>bendSign</strong></td>
+      <td>±1 selecting which of the two circle-intersection knees to use; a stable per-limb modelling choice, not a per-frame optimization.</td>
+      <td><a href="../lessons/0003-two-bone-ik.html">L3</a></td>
+    </tr>
+    <tr>
+      <td><strong>Wishes vs promises</strong></td>
+      <td>Course shorthand: muscles make wishes (partial corrections, physics votes); IK makes promises (exact placement this tick). Feet need promises.</td>
+      <td><a href="../lessons/0003-two-bone-ik.html">L3</a></td>
+    </tr>
+    <tr>
+      <td><strong>Gait</strong></td>
+      <td>The visible walking pattern; in this course an emergent consequence of stepping rules, never authored directly.</td>
+      <td><a href="../lessons/0004-gait-stepping.html">L4</a></td>
+    </tr>
+    <tr>
+      <td><strong>Home / comfort zone</strong></td>
+      <td>A foot's neutral footprint under its hip (moves with the body) and the stress radius around it beyond which the foot asks to step.</td>
+      <td><a href="../lessons/0004-gait-stepping.html">L4</a></td>
+    </tr>
+    <tr>
+      <td><strong>Stress</strong></td>
+      <td>Distance from a planted foot to its home point; the quantity the step trigger watches.</td>
+      <td><a href="../lessons/0004-gait-stepping.html">L4</a></td>
+    </tr>
+    <tr>
+      <td><strong>Partner guard</strong></td>
+      <td>The rule that a foot may only swing while its partner is planted; the entire coordination system, from which alternation emerges.</td>
+      <td><a href="../lessons/0004-gait-stepping.html">L4</a></td>
+    </tr>
+    <tr>
+      <td><strong>Step lead</strong></td>
+      <td>Planting ahead of home by bodyVelocity·lead seconds so the foot lands unstressed; the anti-limping dial (Little Polygon: "step extrapolation").</td>
+      <td><a href="../lessons/0004-gait-stepping.html">L4</a></td>
+    </tr>
+    <tr>
+      <td><strong>Event-driven vs phase-driven gait</strong></td>
+      <td>Stepping triggered by circumstances (stress) vs by a per-leg metronome (sine phase, π offset). Reactive/animal vs regular/confident.</td>
+      <td><a href="../lessons/0004-gait-stepping.html">L4</a></td>
+    </tr>
+    <tr>
+      <td><strong>FABRIK</strong></td>
+      <td>Forward And Backward Reaching IK: n-joint solver whose passes are directional length-fixing sweeps from alternately teleported endpoints. Position-based, trig-free.</td>
+      <td><a href="../lessons/0005-fabrik.html">L5</a></td>
+    </tr>
+    <tr>
+      <td><strong>Backward / forward pass</strong></td>
+      <td>Teleport tip onto target and sweep toward root; then teleport root onto anchor and sweep toward tip. One round trip = one iteration.</td>
+      <td><a href="../lessons/0005-fabrik.html">L5</a></td>
+    </tr>
+    <tr>
+      <td><strong>Warm start</strong></td>
+      <td>Solving each frame from last frame's pose. Targets barely move per frame, so ~1 iteration tracks sub-pixel — the real cost of FABRIK in games.</td>
+      <td><a href="../lessons/0005-fabrik.html">L5</a></td>
+    </tr>
+    <tr>
+      <td><strong>Grab muscle / grabStrength</strong></td>
+      <td>Blending the chain toward the FABRIK solution pose by a 0..1 strength — one dial spanning the wish⇄promise spectrum for the whole chain.</td>
+      <td><a href="../lessons/0005-fabrik.html">L5</a></td>
+    </tr>
+    <tr>
+      <td><strong>Second-order dynamics</strong></td>
+      <td>A spring-damper filter with a velocity state, mapping an input value to a juiced output that can overshoot, ring, settle, or anticipate. Droppable on any value.</td>
+      <td><a href="../lessons/0006-second-order-dynamics.html">L6</a></td>
+    </tr>
+    <tr>
+      <td><strong>f / ζ / r</strong></td>
+      <td>The three intuitive knobs: frequency (response speed), damping (settle behaviour), response (launch character — negative = anticipation).</td>
+      <td><a href="../lessons/0006-second-order-dynamics.html">L6</a></td>
+    </tr>
+    <tr>
+      <td><strong>Anticipation</strong></td>
+      <td>Winding up backward before moving toward a target; here it emerges from a negative r feeding the k3·xd term with reversed sign.</td>
+      <td><a href="../lessons/0006-second-order-dynamics.html">L6</a></td>
+    </tr>
+    <tr>
+      <td><strong>Follow-through / overshoot</strong></td>
+      <td>Output passing the target then settling back; produced by underdamping (ζ &lt; 1). The filter's velocity also drives squash-and-stretch for free.</td>
+      <td><a href="../lessons/0006-second-order-dynamics.html">L6</a></td>
+    </tr>
+    <tr>
+      <td><strong>Stability clamp (k2s)</strong></td>
+      <td>max(k2, T²/2 + T·k1/2, T·k1) — floors the k2 divisor so a fast f at a coarse timestep can't blow up. Never skip it.</td>
+      <td><a href="../lessons/0006-second-order-dynamics.html">L6</a></td>
+    </tr>
+    <tr>
+      <td><strong>Frame budget</strong></td>
+      <td>per-creature cost × count ≤ your slice of the 16.6ms frame. The lens for all scale decisions.</td>
+      <td><a href="../lessons/0007-batching-at-scale.html">L7</a></td>
+    </tr>
+    <tr>
+      <td><strong>Parallelize across, not within</strong></td>
+      <td>Chains are sequential internally, so the parallelism is the many independent creatures — one IJobEntity iteration each.</td>
+      <td><a href="../lessons/0007-batching-at-scale.html">L7</a></td>
+    </tr>
+    <tr>
+      <td><strong>Structural change</strong></td>
+      <td>Adding/removing components or spawning moves archetypes and forces a sync point that stalls workers; avoided via enableable flags + pooling.</td>
+      <td><a href="../lessons/0007-batching-at-scale.html">L7</a></td>
+    </tr>
+    <tr>
+      <td><strong>Enableable component</strong></td>
+      <td>An IEnableableComponent toggled in place with no archetype change or sync point — the cheap way to represent dead/swinging/grab-active/LOD-tier state.</td>
+      <td><a href="../lessons/0007-batching-at-scale.html">L7</a></td>
+    </tr>
+    <tr>
+      <td><strong>InternalBufferCapacity</strong></td>
+      <td>Inline buffer size in the chunk; sized to the typical chain, points stay cache-local. Overflow spills to heap and wastes the inline slot.</td>
+      <td><a href="../lessons/0007-batching-at-scale.html">L7</a></td>
+    </tr>
+    <tr>
+      <td><strong>Simulation LOD</strong></td>
+      <td>Near creatures full-fidelity every frame; far creatures fewer iterations updated every Nth frame (round-robined by index). The orders-of-magnitude scale lever.</td>
+      <td><a href="../lessons/0007-batching-at-scale.html">L7</a></td>
+    </tr>
+    <tr>
+      <td><strong>Composition is the API</strong></td>
+      <td>A creature is whichever small components an entity carries, not a God-component or class. Mix VerletChain/Muscles/Limb2Bone/Gait/... freely.</td>
+      <td><a href="../lessons/0008-package-api-design.html">L8</a></td>
+    </tr>
+    <tr>
+      <td><strong>Deep module</strong></td>
+      <td>A simple interface hiding a powerful implementation (Ousterhout). Gait's four floats over a whole state machine. The cost of a module is its interface.</td>
+      <td><a href="../lessons/0008-package-api-design.html">L8</a></td>
+    </tr>
+    <tr>
+      <td><strong>Config baked / state separate</strong></td>
+      <td>Authoring → Baker → immutable Config component; mutable runtime state (Y, foot phase) in separate components. Data never tangles with behaviour.</td>
+      <td><a href="../lessons/0008-package-api-design.html">L8</a></td>
+    </tr>
+    <tr>
+      <td><strong>Two layers + escape hatch</strong></td>
+      <td>Pure static Burst primitives (Ik.Solve2Bone, Fabrik.Solve, SecondOrder.Step) under the authoring components. Deep facade for the common case; primitives for going off-road.</td>
+      <td><a href="../lessons/0008-package-api-design.html">L8</a></td>
+    </tr>
+    <tr>
+      <td><strong>Progressive disclosure</strong></td>
+      <td>Sensible defaults make the common case zero-config; advanced knobs exist but never block the beginner. The component surface is the stable contract.</td>
+      <td><a href="../lessons/0008-package-api-design.html">L8</a></td>
+    </tr>
+  </table>
+
+  <div class="lesson-footer">
+    <p>See also: <a href="verlet-chain-cheatsheet.html">verlet chain cheatsheet</a> · <a href="../RESOURCES.md">resources</a></p>
+  </div>
+</div>

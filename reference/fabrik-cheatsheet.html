@@ -1,0 +1,59 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — FABRIK Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>FABRIK Cheatsheet</h1>
+  <p class="lede">n-joint position-based IK. Taught in
+    <a href="../lessons/0005-fabrik.html">Lesson 5</a>; source:
+    <a href="https://www.andreasaristidou.com/publications/papers/FABRIK.pdf">Aristidou &amp;
+    Lasenby 2011</a>. Inner operation = <a href="verlet-chain-cheatsheet.html">L1's distance
+    constraint</a>, swept with intent.</p>
+
+  <h2>The solver</h2>
+<pre><code>if length(target - root) ≥ Σ boneLengths:
+    lay chain straight from root toward target; return   // unreachable: 1 pass
+
+repeat up to maxIters (2 is plenty warm-started):
+    p[n-1] = target                                       // BACKWARD: tip → root
+    for i = n-2 .. 0:  p[i] = p[i+1] + normalize(p[i]-p[i+1]) * rest[i]
+    p[0] = root                                           // FORWARD: root → tip
+    for i = 1 .. n-1:  p[i] = p[i-1] + normalize(p[i]-p[i-1]) * rest[i-1]
+    if length(p[n-1] - target) < tolerance: break         // early-out</code></pre>
+
+  <h2>Key facts</h2>
+  <table>
+    <tr><th>Fact</th><th>Consequence</th></tr>
+    <tr><td>No angles, no matrices — positions on lines only</td><td>Trig-free, Burst-friendly, verlet-native</td></tr>
+    <tr><td>Warm start = last frame's pose (free with a DynamicBuffer)</td><td>~1 iteration/frame tracks a moving target sub-pixel</td></tr>
+    <tr><td>Unreachable detected up front</td><td>Graceful strain: point at what you can't have (cf. L3 annulus clamp, L4 red legs)</td></tr>
+    <tr><td>Solution is a <em>proposal pose</em>, not a command</td><td>Blend toward it by <code>grabStrength</code> — the wish⇄promise dial</td></tr>
+  </table>
+
+  <h2>The grab muscle</h2>
+<pre><code>sol = fabrik(currentPose, target)
+p[i] += (sol[i] - p[i]) * grabStrength      // 0.2 = reaching wish, 1.0 = grabbing promise
+// then hard sweeps legalize, as always: muscles propose, constraints dispose</code></pre>
+
+  <h2>Tuning &amp; failure modes</h2>
+  <table>
+    <tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
+    <tr><td>Chain loses its droop/character when grabbing</td><td>FABRIK pose is maximally direct; personality was in the slack</td><td>Lower grabStrength, or bias toward a rest pose between passes, or keep tone muscle running</td></tr>
+    <tr><td>Tip vibrates near target</td><td>Tolerance too small vs blend strength fighting gravity</td><td>Tolerance ≈ 0.25–0.5px, or raise grabStrength</td></tr>
+    <tr><td>Solve cost spikes on cold spawns</td><td>Cold start needs more iterations</td><td>Cap iterations anyway — one visually-imperfect frame is invisible</td></tr>
+    <tr><td>Multiple chains/effectors needed</td><td>Base algorithm is single chain</td><td>Paper's multi-effector variant (sub-bases); see <a href="https://www.andreasaristidou.com/FABRIK.html">project page</a></td></tr>
+  </table>
+
+  <h2>DOTS notes</h2>
+  <ul>
+    <li>Solve into <code>stackalloc Span&lt;float2&gt;</code> — allocation-free; chains are short.</li>
+    <li>Buffer positions are the warm start; MaxIters 2 + early-out is production-honest.</li>
+    <li>Runs inside the same chain job, after muscles, before hard sweeps.</li>
+  </ul>
+
+  <div class="lesson-footer">
+    <p>See also: <a href="glossary.html">glossary</a> · <a href="two-bone-ik-cheatsheet.html">two-bone IK</a> (use analytic when n=2) · <a href="muscles-cheatsheet.html">muscles</a> · <a href="gait-cheatsheet.html">gait</a></p>
+  </div>
+</div>

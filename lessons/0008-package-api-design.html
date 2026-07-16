@@ -1,0 +1,387 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 8 — Package API Design: Shipping the Toolkit</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  /* lesson-specific: the composer widget */
+  .briefs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; }
+  .brief-chip {
+    font: inherit; font-size: 0.85rem; cursor: pointer;
+    border: 1px solid var(--rule); border-radius: 20px;
+    padding: 0.35rem 0.9rem; background: var(--bg); color: var(--ink);
+  }
+  .brief-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .brief-chip.solved::after { content: ' ✓'; color: var(--good); font-weight: 700; }
+  .brief-chip.active.solved::after { color: #fff; }
+  .brief-desc { font-size: 0.95rem; color: var(--muted); margin: 0.3rem 0 1rem; min-height: 1.4em; }
+  .palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.6rem; }
+  .comp {
+    border: 1px solid var(--rule); border-radius: 8px; padding: 0.6rem 0.7rem;
+    cursor: pointer; background: var(--bg); user-select: none; transition: none;
+  }
+  .comp:hover { border-color: var(--accent); }
+  .comp.on { background: var(--accent-soft); border-color: var(--accent); }
+  .comp .cname { font-weight: 600; font-size: 0.92rem; }
+  .comp .crole { font-size: 0.75rem; color: var(--muted); margin-top: 0.15rem; line-height: 1.35; }
+  .comp .clesson { font-size: 0.68rem; color: var(--accent); font-family: -apple-system, sans-serif; }
+  .composer-status {
+    margin: 1rem 0 0; padding: 0.7rem 0.9rem; border-radius: 8px;
+    font-size: 0.92rem; border-left: 3px solid var(--rule); background: var(--sidebar-bg);
+  }
+  .composer-status.valid { border-color: var(--good); background: #eef6f0; }
+  .composer-status.invalid { border-color: var(--accent); }
+  .composer-status .warn { color: var(--accent); display: block; margin-top: 0.3rem; font-size: 0.85rem; }
+</style>
+
+<div class="page">
+  <p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 8</p>
+  <h1>Package API Design: Shipping the Toolkit</h1>
+  <p class="lede">
+    The third head of your mission. You have six techniques; now you make them a <em>package</em>
+    — something future-you drops into a new project and builds a creature in an afternoon without
+    reopening these lessons. The techniques were the hard part intellectually. The interface is
+    the hard part that decides whether any of it gets used again.
+  </p>
+
+  <h2>The one principle: an entity <em>is</em> a creature by its components</h2>
+  <p>
+    Resist the urge to write a <code>Creature</code> class with forty fields. In ECS the
+    creature isn't a type — it's whichever components an entity happens to carry. A jellyfish is
+    <code>VerletChain + Muscles</code>. A lizard adds <code>Limb2Bone + Gait</code>. A grabbing
+    tail is <code>FabrikChain + GrabTarget</code>. <strong>Composition is the API.</strong> Each
+    component is small, focused, and independently useful; the creature is their sum. This is
+    the ECS gift — take it.
+  </p>
+
+  <h2>Deep modules, narrow interfaces</h2>
+  <p>
+    <a href="https://web.stanford.edu/~ouster/cgi-bin/book.php">Ousterhout's <em>A Philosophy of
+    Software Design</em></a> names the target: a <strong>deep module</strong> — a simple
+    interface hiding a powerful implementation. "The cost of a module is its interface." Your
+    <code>Gait</code> component is deep: four tuning floats (<code>Comfort</code>,
+    <code>StepDuration</code>, <code>StepLead</code>, <code>StepHeight</code>) hide a foot state
+    machine, a partner guard, and reachability clamping. The consumer sets four numbers; the
+    lesson-4 machinery stays invisible. Every component you ship should feel like that — few
+    knobs, much power.
+  </p>
+
+  <h2>Three design moves that keep it deep</h2>
+  <table>
+    <tr><th>Move</th><th>What it buys</th></tr>
+    <tr>
+      <td><strong>Config baked, state separate</strong></td>
+      <td>Authoring <code>MonoBehaviour</code> → <a href="https://docs.unity3d.com/Packages/com.unity.entities@1.0/manual/baking-baker-overview.html"><code>Baker</code></a> → immutable runtime config (blob/IComponentData). Designers tune in the inspector; the sim reads baked values; live state (<code>Y</code>, <code>Yd</code>, foot phase) lives in separate mutable components. Data and behaviour never tangle.</td>
+    </tr>
+    <tr>
+      <td><strong>Two layers, one escape hatch</strong></td>
+      <td>Ship the primitives as pure static Burst functions (<code>Ik.Solve2Bone</code>, <code>Fabrik.Solve</code>, <code>SecondOrder.Step</code>) <em>and</em> the authoring components that wire them together. High-level for the 90% case; the raw functions for anyone who needs to go off-road. Never trap the power behind the convenience.</td>
+    </tr>
+    <tr>
+      <td><strong>The glossary is the vocabulary</strong></td>
+      <td>Name every field from the domain language you built across eight lessons — <code>RestLength</code>, <code>BendSign</code>, <code>GrabStrength</code>, <code>Comfort</code>. A consumer who read the <a href="../reference/glossary.html">glossary</a> already knows your API. Ubiquitous language <em>is</em> discoverability.</td>
+    </tr>
+  </table>
+
+  <div class="sidebar">
+    <span class="callout-label">Progressive disclosure — the pit of success</span>
+    <p style="margin:0">
+      The common case should need almost nothing: sensible defaults so <code>AddComponent&lt;Gait&gt;()</code>
+      already walks. Advanced knobs exist but never block the beginner. And keep the component
+      surface the <em>contract</em> — you can rewrite FABRIK or vectorize the verlet solver
+      tomorrow, and no consumer breaks, because they only ever touched the interface.
+    </p>
+  </div>
+
+  <h2>The playground: compose a creature</h2>
+  <p>
+    Here's the payoff of the whole course. Pick a creature brief, then toggle the package
+    components to build it — minimally and correctly. The composer checks dependencies (some
+    components need others) and whether your set actually fits the brief. This <em>is</em> your
+    API's front door; if composing feels obvious, the design is working.
+  </p>
+
+  <div class="sim" id="sim" style="padding: 1rem 1.1rem;">
+    <div class="briefs" id="briefs"></div>
+    <p class="brief-desc" id="brief-desc"></p>
+    <div class="palette" id="palette"></div>
+    <div class="composer-status" id="status">Pick a brief above, then toggle components.</div>
+  </div>
+
+  <div class="challenge" id="ch1">
+    <span class="status">☐</span> <strong>Challenge 1 — Range.</strong>
+    Correctly compose <em>any three</em> of the four briefs. You're proving the vocabulary is
+    yours: soft body, stepping legs, reaching tail, pure juice — each a different handful of the
+    same parts.
+  </div>
+  <div class="challenge" id="ch2">
+    <span class="status">☐</span> <strong>Challenge 2 — The graduation build.</strong>
+    Compose the <em>walking lizard</em> exactly — the creature you've been assembling in your
+    scratch project since Lesson 4. Minimal, correct, dependencies satisfied. This is the whole
+    course in one composition.
+  </div>
+
+  <h2>The package at a glance</h2>
+  <div class="dots-mapping">
+    <span class="callout-label">DOTS mapping — the shipped shape</span>
+    <p style="margin-top:0">
+      Two layers. The consumer touches only the top; the primitives are there when they need to
+      escape. Config bakes once; systems run in the fixed order you assembled in Lesson 7.
+    </p>
+<pre><code>// ── Layer 1: primitives (pure, static, Burst — the escape hatch) ──
+namespace ProcAnim.LowLevel {
+    public static class Ik        { public static void Solve2Bone(ref Limb2Bone l) {...} }
+    public static class Fabrik    { public static void Solve(Span&lt;float2&gt; p, float2 t, ...) {...} }
+    public static class SecondOrder { public static float2 Step(ref SO s, float2 x, float T) {...} }
+    public static class Verlet    { public static void Integrate(...); public static void Relax(...); }
+}
+
+// ── Layer 2: authoring → baked config (designer-facing) ──
+public class GaitAuthoring : MonoBehaviour {          // inspector knobs, domain-named
+    public float comfort = 40, stepDuration = 0.25f, stepLead = 0.2f, stepHeight = 20;
+}
+public struct GaitConfig : IComponentData {           // immutable baked config
+    public float Comfort, StepDuration, StepLead, StepHeight;
+}
+class GaitBaker : Baker&lt;GaitAuthoring&gt; {
+    public override void Bake(GaitAuthoring a) {
+        var e = GetEntity(TransformUsageFlags.Dynamic);
+        AddComponent(e, new GaitConfig {              // sensible values already in authoring
+            Comfort = a.comfort, StepDuration = a.stepDuration,
+            StepLead = a.stepLead, StepHeight = a.stepHeight });
+        AddBuffer&lt;GaitLeg&gt;(e);                         // mutable runtime state, separate
+    }
+}
+
+// ── The creature IS its components — compose freely ──
+//   jellyfish : VerletChainConfig + MusclesConfig
+//   lizard    : VerletChainConfig + Limb2BoneConfig + GaitConfig
+//   tail      : FabrikChainConfig + GrabTargetConfig
+//   coin      : SecondOrderConfig
+// Systems (fixed order, L7) read config + state; consumer schedules nothing.</code></pre>
+    <p style="margin-bottom:0">
+      The contract is the component set and its field names. Everything below — solver choice,
+      job structure, LOD gating, SIMD — is yours to change forever without breaking a single
+      consumer. That is what "shipped" means: a surface small enough to trust, over an
+      implementation free to grow.
+    </p>
+  </div>
+
+  <h2>Check yourself</h2>
+  <p>From memory — you're designing interfaces now, not just calling them.</p>
+  <div id="quiz"></div>
+
+  <h2>Where to go deeper</h2>
+  <p>
+    <strong>Primary sources:</strong>
+    <a href="https://web.stanford.edu/~ouster/cgi-bin/book.php">Ousterhout, <em>A Philosophy of
+    Software Design</em></a> — deep modules, information hiding, the cost of interfaces; short
+    and the single best book for this lesson. For the Unity mechanics of the config-baked-once
+    pattern, the <a href="https://docs.unity3d.com/Packages/com.unity.entities@1.0/manual/baking-baker-overview.html">Baker
+    overview</a> and <a href="https://docs.unity3d.com/Packages/com.unity.entities@1.0/manual/baking.html">baking
+    workflow</a>. Your own <a href="../reference/glossary.html">glossary</a> is the package's
+    naming spec — keep them in sync.
+  </p>
+  <p>
+    Compressed principles: <a href="../reference/package-design-cheatsheet.html">package design
+    cheatsheet</a> · new terms in the <a href="../reference/glossary.html">glossary</a>.
+  </p>
+
+  <div class="lesson-footer">
+    <p>
+      <strong>You've reached the end of the spine.</strong> Eight lessons ago a chain was a
+      corpse; now you can build a soft, walking, grabbing, juiced creature — and a thousand of
+      them — and ship the toolkit that makes the next one an afternoon's work. All three heads
+      of your <a href="../MISSION.md">mission</a> are served: Rain World-style creatures
+      (<a href="0001-verlet-chains.html">L1</a>–<a href="0005-fabrik.html">L5</a>), juice at
+      scale (<a href="0006-second-order-dynamics.html">L6</a>–<a href="0007-batching-at-scale.html">L7</a>),
+      and the package (this lesson).
+    </p>
+    <p>
+      <strong>Suggested real-world rep — the capstone:</strong> extract your scratch-project
+      creature into an actual embedded package (<code>com.yourname.procanim</code>) with the
+      two-layer shape above. One authoring component, one baker, one creature composed from
+      config. When you can delete your prototype and rebuild it from the package in ten minutes,
+      the course has done its job.
+    </p>
+    <p>
+      Where next? Run <code>/teach</code> and ask — good directions from here: a guided capstone
+      build (assembling the full lizard end-to-end), joint limits &amp; collision for the
+      creatures, or authoring-time tooling (a creature editor). The spine is complete; the
+      branches are yours to choose.
+    </p>
+  </div>
+</div>
+
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ---- package model (mirrors compose_check.py) ----
+  const COMPONENTS = [
+    { id: 'Anchor',      lesson: 'L1', role: 'Pins a root to a point' },
+    { id: 'VerletChain', lesson: 'L1', role: 'Soft body: points + constraints' },
+    { id: 'Muscles',     lesson: 'L2', role: 'Goal / rhythm / tone' },
+    { id: 'Limb2Bone',   lesson: 'L3', role: 'Analytic 2-bone IK leg' },
+    { id: 'FabrikChain', lesson: 'L5', role: 'n-joint IK chain' },
+    { id: 'GrabTarget',  lesson: 'L5', role: 'Reach + grabStrength' },
+    { id: 'Gait',        lesson: 'L4', role: 'Stepping state machine' },
+    { id: 'SecondOrder', lesson: 'L6', role: 'Juice filter (f/ζ/r)' },
+  ];
+  const PREREQ = {
+    Muscles: ['VerletChain'],
+    Gait: ['Limb2Bone'],
+    GrabTarget: ['FabrikChain', 'Limb2Bone'],
+  };
+  const BRIEFS = [
+    { name: 'Jellyfish tentacle', desc: 'Soft, drifting, no reaching, no legs — a body that flows.',
+      required: ['VerletChain', 'Muscles'],
+      forbidden: ['Limb2Bone', 'FabrikChain', 'GrabTarget', 'Gait'] },
+    { name: 'Walking lizard', desc: 'A soft spine on stepping legs — the graduation build.',
+      required: ['VerletChain', 'Limb2Bone', 'Gait'],
+      forbidden: ['FabrikChain', 'GrabTarget'] },
+    { name: 'Grabbing tail', desc: 'A many-jointed limb that reaches out and grabs a point.',
+      required: ['FabrikChain', 'GrabTarget'],
+      forbidden: ['Gait', 'Limb2Bone', 'VerletChain'] },
+    { name: 'Bouncing UI coin', desc: 'No body at all — pure procedural juice on one value.',
+      required: ['SecondOrder'],
+      forbidden: ['Anchor', 'VerletChain', 'Muscles', 'Limb2Bone', 'FabrikChain', 'GrabTarget', 'Gait'] },
+  ];
+
+  const selected = new Set();
+  let activeBrief = 0;
+  const solved = new Set();
+
+  const briefsEl = document.getElementById('briefs');
+  const descEl = document.getElementById('brief-desc');
+  const paletteEl = document.getElementById('palette');
+  const statusEl = document.getElementById('status');
+
+  // build brief chips
+  BRIEFS.forEach((b, i) => {
+    const chip = document.createElement('button');
+    chip.className = 'brief-chip' + (i === 0 ? ' active' : '');
+    chip.type = 'button';
+    chip.textContent = b.name;
+    chip.addEventListener('click', () => { activeBrief = i; render(); });
+    b._chip = chip;
+    briefsEl.appendChild(chip);
+  });
+
+  // build component palette
+  COMPONENTS.forEach((c) => {
+    const card = document.createElement('div');
+    card.className = 'comp';
+    card.innerHTML = '<div class="cname">' + c.id + ' <span class="clesson">' + c.lesson +
+      '</span></div><div class="crole">' + c.role + '</div>';
+    card.addEventListener('click', () => {
+      if (selected.has(c.id)) selected.delete(c.id); else selected.add(c.id);
+      render();
+    });
+    c._card = card;
+    paletteEl.appendChild(card);
+  });
+
+  function prereqViolations(sel) {
+    const out = [];
+    for (const [comp, needs] of Object.entries(PREREQ)) {
+      if (sel.has(comp) && !needs.some((n) => sel.has(n))) {
+        out.push(comp + ' needs ' + needs.join(' or '));
+      }
+    }
+    return out;
+  }
+
+  function evaluate(sel, brief) {
+    const req = brief.required, forb = brief.forbidden;
+    const missing = req.filter((r) => !sel.has(r));
+    const extra = forb.filter((f) => sel.has(f));
+    const pv = prereqViolations(sel);
+    return { missing, extra, pv, ok: !missing.length && !extra.length && !pv.length };
+  }
+
+  const ch = [
+    { el: document.getElementById('ch1'), done: false },
+    { el: document.getElementById('ch2'), done: false },
+  ];
+  function markDone(i) {
+    if (ch[i].done) return;
+    ch[i].done = true;
+    ch[i].el.classList.add('done');
+    ch[i].el.querySelector('.status').textContent = '✓';
+  }
+
+  function render() {
+    const brief = BRIEFS[activeBrief];
+    descEl.textContent = brief.desc;
+    BRIEFS.forEach((b, i) => {
+      b._chip.classList.toggle('active', i === activeBrief);
+      b._chip.classList.toggle('solved', solved.has(i));
+    });
+    COMPONENTS.forEach((c) => c._card.classList.toggle('on', selected.has(c.id)));
+
+    const r = evaluate(selected, brief);
+    statusEl.className = 'composer-status ' + (r.ok ? 'valid' : 'invalid');
+    if (r.ok) {
+      statusEl.innerHTML = '<strong>✓ ' + brief.name +
+        ' — valid and minimal.</strong> This composition ships.';
+      solved.add(activeBrief);
+      brief._chip.classList.add('solved');
+      if (solved.size >= 3) markDone(0);
+      if (solved.has(1)) markDone(1);   // walking lizard is index 1
+    } else {
+      let msg = '<strong>Not there yet for ' + brief.name + '.</strong>';
+      if (r.missing.length) msg += '<span class="warn">Add: ' + r.missing.join(', ') + '</span>';
+      if (r.extra.length) msg += '<span class="warn">Remove (doesn’t fit this brief): ' + r.extra.join(', ') + '</span>';
+      if (r.pv.length) msg += '<span class="warn">Dependency: ' + r.pv.join('; ') + '</span>';
+      statusEl.innerHTML = msg;
+    }
+  }
+
+  render();
+
+  // ---------- quiz ----------
+  Quiz.render(document.getElementById('quiz'), [
+    {
+      prompt: 'How is "a creature" best represented in this package?',
+      options: [
+        'As whichever small components an entity carries',
+        'As one Creature component holding every field',
+        'As a base class the specific creatures extend',
+      ],
+      answer: 0,
+      explain: 'In ECS the creature is emergent: composition is the API. Small focused components (VerletChain, Gait, ...) mix freely; a God-component or class hierarchy throws that gift away.',
+    },
+    {
+      prompt: 'What makes a component like Gait a "deep" module?',
+      options: [
+        'A few tuning knobs hide a lot of machinery',
+        'It exposes every internal field for flexibility',
+        'It depends on many other components to work',
+      ],
+      answer: 0,
+      explain: 'Deep = simple interface over powerful implementation. Four floats hide the foot state machine and partner guard. The cost of a module is its interface, so keep the surface small.',
+    },
+    {
+      prompt: 'Why bake config to immutable data and keep runtime state separate?',
+      options: [
+        'Designers tune data; the sim mutates state; they never tangle',
+        'Baking makes the components load faster at runtime',
+        'Immutable config can be shared across every entity',
+      ],
+      answer: 0,
+      explain: 'Authoring → Baker → immutable config is the inspector-facing knob; live values (Y, foot phase) sit in separate mutable components. The data/behaviour split keeps both clean.',
+    },
+    {
+      prompt: 'Why ship the raw solver functions alongside the authoring components?',
+      options: [
+        'An escape hatch: high-level for most, primitives for off-road',
+        'They run faster than the component-driven systems',
+        'Consumers must call them to initialize the components',
+      ],
+      answer: 0,
+      explain: 'Two layers: a deep facade for the 90% case, plus pure static Burst functions for anyone who needs to go beyond it. Never trap the power behind the convenience.',
+    },
+  ]);
+})();
+</script>

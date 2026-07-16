@@ -1,0 +1,517 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 4 — Gait: When a Promise Ends</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 4</p>
+  <h1>Gait: When a Promise Ends</h1>
+  <p class="lede">
+    <a href="0003-two-bone-ik.html">Lesson 3</a> ended with 80% of a walking creature: legs
+    that plant. The missing 20% is a single decision, made over and over — <em>when does a
+    foot let go?</em> Answer it with three small rules and walking simply falls out. Nobody
+    authors a walk cycle; the walk is what stepping looks like from outside.
+  </p>
+
+  <h2>The foot state machine</h2>
+  <p>
+    A foot is always in one of two states. <strong>Planted</strong>: pinned to a world
+    position — a promise being kept (the IK target simply <em>is</em> that spot, every frame,
+    while the body moves past it). <strong>Swinging</strong>: airborne on its way to a new
+    plant. The entire art of gait is the two transitions, and each is one rule.
+  </p>
+
+  <h2>Rule 1 — Let go when stressed (and the partner holds)</h2>
+  <div class="recipe">
+    <span class="callout-label">Recipe · step trigger (per planted foot, per tick)</span>
+<pre><code>home   = footprint of the hip on the ground      // moves with the body
+stress = |plant - home|                          // how far behind the foot fell
+if (stress > comfort && partnerIsPlanted)
+    beginSwing()</code></pre>
+  </div>
+  <p>
+    Each foot owns a <strong>comfort zone</strong> around its home point. The body drifts,
+    the planted foot stays, stress grows; past the threshold, the foot asks to step. The
+    <code>partnerIsPlanted</code> guard is the entire coordination system — with it, two legs
+    <em>cannot</em> swing at once, so alternation emerges without any notion of left-right
+    phase. (The other classic architecture drives pinning from a metronome — sine phase per
+    leg, offset by π, as in
+    <a href="https://blog.littlepolygon.com/posts/loco2/">Little Polygon's locomotion
+    series</a>. Event-driven reads as reactive and animal; phase-driven reads as regular and
+    confident. Rain World creatures are event-driven — they respond to circumstances, not
+    beats.)
+  </p>
+
+  <h2>Rule 2 — Land where you're <em>going</em>, not where you are</h2>
+  <div class="recipe">
+    <span class="callout-label">Recipe · step target</span>
+<pre><code>target = home + bodyVelocity * lead              // lead in seconds, ~0.1–0.3
+target = clampToReach(target, hip, L1 + L2)      // Lesson 3's annulus, again</code></pre>
+  </div>
+  <p>
+    With <code>lead = 0</code> the foot lands at its home point — already stressed the moment
+    it arrives, condemned to step again immediately. Leading the target by a fraction of a
+    second of velocity plants the foot <em>ahead</em>, buying it a full comfortable stride of
+    body travel before it must let go again. This one dial fixes most limping.
+    (<a href="https://blog.littlepolygon.com/posts/loco2/">Little Polygon</a> calls it step
+    extrapolation; every good stepper has it under some name.)
+  </p>
+
+  <h2>Rule 3 — Swing on an arc, on a clock</h2>
+  <div class="recipe">
+    <span class="callout-label">Recipe · the swing (fixed duration)</span>
+<pre><code>t      = elapsed / duration                      // 0 → 1, then re-plant
+tEase  = smoothstep(t)                           // t² (3 - 2t)
+foot.x = lerp(from, target, tEase)
+foot.y = ground - stepHeight * 4t(1 - t)         // parabolic lift</code></pre>
+  </div>
+  <p>
+    The parabola <code>4t(1−t)</code> peaks at ½ and touches zero at both ends — lift-off and
+    landing are automatically soft. Fixed duration (not fixed speed) keeps the rhythm stable:
+    faster bodies don't swing faster, they step <em>more often</em>. Which is the punchline
+    of this whole lesson: <strong>step frequency is emergent</strong>. You never author
+    "walk" or "run" — you tune comfort, lead, and duration, and the gait that appears at
+    each speed is a consequence.
+  </p>
+
+  <div class="sidebar">
+    <span class="callout-label">Strain is a signal, not just a bug</span>
+    <p style="margin:0">
+      When the body outruns the rules — a swing too slow, a comfort zone too wide — the
+      required foot position exceeds <code>L1+L2</code> and Lesson 3's reachability clamp
+      drags the planted foot off its promise. The playground paints that leg red. A blip of
+      red at a hard turnaround is <em>animal</em> (real legs strain when pivoting); sustained
+      red is a broken gait. Learn to read the difference — it's your main debugging sense for
+      steppers.
+    </p>
+  </div>
+
+  <h2>The playground</h2>
+  <p>
+    A two-legged walker. <strong>Mouse over the ground: it chases your cursor.</strong>
+    Mouse away: it patrols at full slider speed — <em>challenges only count while
+    patrolling</em>. Ticks on the ground mark each foot's comfort zone; red legs are
+    strained.
+  </p>
+
+  <div class="sim" id="sim">
+    <canvas id="gaitCanvas" height="380"></canvas>
+    <div class="sim-controls">
+      <label>speed <span class="value" id="v-speed">120</span>
+        <input type="range" id="s-speed" min="30" max="300" step="10" value="120"></label>
+      <label>comfort radius <span class="value" id="v-comfort">40</span>
+        <input type="range" id="s-comfort" min="10" max="120" step="5" value="40"></label>
+      <label>step duration <span class="value" id="v-dur">0.25</span>
+        <input type="range" id="s-dur" min="0.10" max="0.60" step="0.05" value="0.25"></label>
+      <label>step lead <span class="value" id="v-lead">0.00</span>
+        <input type="range" id="s-lead" min="0" max="0.40" step="0.05" value="0"></label>
+    </div>
+    <div class="sim-readout">
+      <span id="r-mode">–</span> · left: <span id="r-left">–</span> · right: <span id="r-right">–</span>
+      · strain: <span id="r-strain">–</span>
+    </div>
+  </div>
+
+  <div class="challenge" id="ch1">
+    <span class="status">☐</span> <strong>Challenge 1 — Break it on purpose.</strong>
+    Make a leg stay strained (red) for a continuous ¾ second. One slider is enough. Watch
+    <em>how</em> it fails: the planted foot dragged helplessly off its promise.
+  </div>
+  <div class="challenge" id="ch2">
+    <span class="status">☐</span> <strong>Challenge 2 — The confident sprint.</strong>
+    Speed ≥ 220, patrolling, and keep every strain to a blip: for 3 seconds, no red lasting
+    over 2 frames, with at least 6 steps taken. All three gait dials matter — defaults will
+    not survive this speed.
+  </div>
+
+  <h2>Mapping it to DOTS</h2>
+  <div class="dots-mapping">
+    <span class="callout-label">DOTS mapping</span>
+    <p style="margin-top:0">
+      Gait is the system <em>upstream</em> of Lesson 3's IK: it owns each leg's state machine
+      and writes <code>Limb2Bone.Target</code>. Branchy, but branchy over two enum states on
+      a handful of legs — Burst is fine with this.
+    </p>
+<pre><code>public enum FootState : byte { Planted, Swinging }
+
+public struct GaitLeg : IBufferElementData        // a creature has 2..N legs
+{
+    public FootState State;
+    public float2 Plant;        // world promise while Planted
+    public float2 SwingFrom;
+    public float2 SwingTo;
+    public float  SwingT;       // 0..1
+    public float2 HomeOffset;   // hip → home, creature-local
+    public sbyte  PartnerIndex; // coordination = "is my partner planted?"
+}
+
+public struct GaitSettings : IComponentData
+{
+    public float Comfort, StepDuration, StepLead, StepHeight;
+}
+
+// GaitSystem (runs before the IK system), per leg:
+switch (leg.State)
+{
+    case FootState.Planted:
+        float2 home = hip + leg.HomeOffset;
+        if (math.distance(leg.Plant, home) > s.Comfort &&
+            legs[leg.PartnerIndex].State == FootState.Planted)
+        {
+            leg.SwingFrom = leg.Plant;
+            leg.SwingTo   = ClampToReach(home + bodyVel * s.StepLead, hip);
+            leg.SwingT    = 0; leg.State = FootState.Swinging;
+        }
+        ikTarget = leg.Plant;
+        break;
+
+    case FootState.Swinging:
+        leg.SwingT += dt / s.StepDuration;
+        if (leg.SwingT >= 1f) { leg.Plant = leg.SwingTo; leg.State = FootState.Planted; }
+        float t = math.smoothstep(0, 1, leg.SwingT);
+        ikTarget = math.lerp(leg.SwingFrom, leg.SwingTo, t);
+        ikTarget.y -= s.StepHeight * 4 * leg.SwingT * (1 - leg.SwingT);
+        break;
+}</code></pre>
+    <p style="margin-bottom:0">
+      Tick order for the full creature, all four lessons composed:
+      <strong>body/verlet + muscles → gait (writes IK targets) → IK solve → pins → hard
+      sweeps</strong>. Note what gait state costs: two floats2 and an enum per leg —
+      a thousand walkers is nothing. Per-creature <code>GaitSettings</code> variation
+      (±20% comfort/duration) makes a crowd read as individuals.
+    </p>
+  </div>
+
+  <h2>Check yourself</h2>
+  <p>From memory. If Rule 2 feels obvious now, that's storage strength forming.</p>
+  <div id="quiz"></div>
+
+  <h2>Where to go deeper</h2>
+  <p>
+    <strong>Primary source:</strong> David Rosen's
+    <a href="https://www.gdcvault.com/play/1020583/Animation-Bootcamp-An-Indie-Approach">An
+    Indie Approach to Procedural Animation</a> (GDC 2014,
+    <a href="https://archive.org/details/GDC2014Rosen">free on the Internet Archive</a>) —
+    the canonical "tiny rules, emergent motion" talk; his walkers use a handful of poses plus
+    exactly the kind of logic you just built. Then
+    <a href="https://blog.littlepolygon.com/posts/loco1/">Little Polygon's locomotion series</a>
+    for the phase-driven alternative with excellent interactive figures, and rewatch the
+    lizard sections of <a href="https://www.youtube.com/watch?v=-iXwvoFhPuU">the Rain World
+    talk</a> — you'll now recognize event-driven stepping under every creature.
+  </p>
+  <p>
+    Compressed rules: <a href="../reference/gait-cheatsheet.html">gait cheatsheet</a> ·
+    new terms in the <a href="../reference/glossary.html">glossary</a>.
+  </p>
+
+  <div class="lesson-footer">
+    <p>
+      <strong>Suggested real-world rep — the graduation build:</strong> you now hold every
+      part of a Rain World-class creature. Assemble one: a muscled verlet chain body
+      (<a href="0002-muscles-active-chains.html">L2</a>), two <code>Limb2Bone</code> legs
+      (<a href="0003-two-bone-ik.html">L3</a>), gait driving the targets (this lesson), feet
+      pinned into the body's constraint solve (<a href="0001-verlet-chains.html">L1</a>).
+      Then spawn fifty with ±20% settings variation and watch a species emerge. This build is
+      the seed of your toolkit package — keep the components clean.
+    </p>
+    <p>
+      Stuck or curious? Run <code>/teach</code> and ask. Good next questions: uneven ground
+      (raycast the home point), four legs (partner = diagonal pair), or "why does my creature
+      moonwalk when I chase the mouse backwards?"
+    </p>
+  </div>
+</div>
+
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const canvas = document.getElementById('gaitCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const S = {
+    speed:   document.getElementById('s-speed'),
+    comfort: document.getElementById('s-comfort'),
+    dur:     document.getElementById('s-dur'),
+    lead:    document.getElementById('s-lead'),
+  };
+  const V = {
+    speed:   document.getElementById('v-speed'),
+    comfort: document.getElementById('v-comfort'),
+    dur:     document.getElementById('v-dur'),
+    lead:    document.getElementById('v-lead'),
+  };
+  const rMode = document.getElementById('r-mode'),
+        rLeft = document.getElementById('r-left'),
+        rRight = document.getElementById('r-right'),
+        rStrain = document.getElementById('r-strain');
+
+  const L1 = 55, L2 = 55, HIP_H = 92, HIP_OFF = 14, STAGGER = 6, STEP_H = 20;
+  const GROUND_PAD = 8;
+  const MAX_REACH_X = Math.sqrt((L1 + L2) * (L1 + L2) - HIP_H * HIP_H); // ~60.3
+
+  let dpr = 1, W = 0, H = 380;
+  let groundY = H - GROUND_PAD;
+  let bx = 200, vel = 0, dir = 1, facing = 1;
+  const mouse = { x: 0, inside: false };
+
+  const legs = [
+    { side: -1, plant: 0, swing: null, clamped: false, clampRun: 0 },
+    { side: +1, plant: 0, swing: null, clamped: false, clampRun: 0 },
+  ];
+  let stepEvents = [];   // frame indices of recent step starts
+  let frameNo = 0;
+  let strainHistory = []; // rolling record of max clamp-run per frame
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    W = canvas.clientWidth;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function reset() {
+    bx = W / 2;
+    for (const leg of legs) {
+      leg.plant = bx + leg.side * (HIP_OFF + STAGGER);
+      leg.swing = null;
+    }
+  }
+
+  function solveIK(rx, ry, tx, ty, l1, l2, bend) {
+    const eps = 1e-4;
+    let dx = tx - rx, dy = ty - ry;
+    const dRaw = Math.max(Math.hypot(dx, dy), eps);
+    const ux = dx / dRaw, uy = dy / dRaw;
+    const d = Math.min(Math.max(dRaw, Math.abs(l1 - l2) + eps), l1 + l2 - eps);
+    const cosA = (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d);
+    const a = Math.acos(Math.min(1, Math.max(-1, cosA))) * bend;
+    const c = Math.cos(a), s = Math.sin(a);
+    return {
+      knee: { x: rx + (ux * c - uy * s) * l1, y: ry + (ux * s + uy * c) * l1 },
+      foot: { x: rx + ux * d, y: ry + uy * d },
+      clamped: dRaw > l1 + l2 - 0.5,
+    };
+  }
+
+  function step(dt) {
+    frameNo++;
+    const speed = +S.speed.value, comfort = +S.comfort.value,
+          dur = +S.dur.value, lead = +S.lead.value;
+
+    // --- body motion ---
+    if (mouse.inside) {
+      const want = mouse.x - bx;
+      const dx = Math.max(-speed * dt, Math.min(speed * dt, want));
+      vel = dx / dt;
+      bx += dx;
+    } else {
+      if (bx > W - 90) dir = -1;
+      if (bx < 90) dir = 1;
+      vel = dir * speed;
+      bx += vel * dt;
+    }
+    if (Math.abs(vel) > 5) facing = Math.sign(vel);
+
+    // --- gait ---
+    let maxRunThisFrame = 0;
+    for (let i = 0; i < 2; i++) {
+      const leg = legs[i], other = legs[1 - i];
+      const hipX = bx + leg.side * HIP_OFF;
+      const hipY = groundY - HIP_H;
+      const home = hipX + leg.side * STAGGER;
+
+      if (leg.swing === null) {
+        const stress = Math.abs(leg.plant - home);
+        if (stress > comfort && other.swing === null) {
+          let target = home + vel * lead;
+          target = Math.max(hipX - MAX_REACH_X, Math.min(hipX + MAX_REACH_X, target));
+          leg.swing = { t: 0, from: leg.plant, to: target };
+          stepEvents.push(frameNo);
+        }
+      } else {
+        leg.swing.t += dt / dur;
+        if (leg.swing.t >= 1) { leg.plant = leg.swing.to; leg.swing = null; }
+      }
+
+      // resolve foot position + IK
+      let fx, fy;
+      if (leg.swing === null) {
+        fx = leg.plant; fy = groundY;
+      } else {
+        const t = leg.swing.t, tt = t * t * (3 - 2 * t);
+        fx = leg.swing.from + (leg.swing.to - leg.swing.from) * tt;
+        fy = groundY - STEP_H * 4 * t * (1 - t);
+      }
+      leg.ik = solveIK(hipX, hipY, fx, fy, L1, L2, facing >= 0 ? 1 : -1);
+      leg.hipX = hipX; leg.hipY = hipY; leg.home = home;
+      leg.clamped = leg.ik.clamped;
+      leg.clampRun = leg.clamped ? leg.clampRun + 1 : 0;
+      maxRunThisFrame = Math.max(maxRunThisFrame, leg.clampRun);
+    }
+
+    // rolling windows
+    strainHistory.push(maxRunThisFrame);
+    if (strainHistory.length > 180) strainHistory.shift();
+    stepEvents = stepEvents.filter((f) => frameNo - f < 180);
+
+    // --- challenges ---
+    if (!ch[0].done && maxRunThisFrame >= 45) markDone(ch[0]);
+    if (!ch[1].done) {
+      const ok = !mouse.inside && +S.speed.value >= 220 &&
+        strainHistory.length >= 180 &&
+        Math.max.apply(null, strainHistory) <= 2 &&
+        stepEvents.length >= 6;
+      ch[1].frames = ok ? ch[1].frames + 1 : 0;
+      if (ch[1].frames >= 1) markDone(ch[1]);   // window itself is the 3s test
+    }
+  }
+
+  const ch = [
+    { el: document.getElementById('ch1'), done: false, frames: 0 },
+    { el: document.getElementById('ch2'), done: false, frames: 0 },
+  ];
+  function markDone(c) {
+    c.done = true;
+    c.el.classList.add('done');
+    c.el.querySelector('.status').textContent = '✓';
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // ground
+    ctx.fillStyle = '#2a2f38';
+    ctx.fillRect(0, groundY, W, H - groundY);
+
+    for (const leg of legs) {
+      // comfort zone ticks on the ground
+      const comfort = +S.comfort.value;
+      ctx.strokeStyle = 'rgba(246,231,200,0.25)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(leg.home - comfort, groundY + 3); ctx.lineTo(leg.home - comfort, groundY + 7);
+      ctx.moveTo(leg.home + comfort, groundY + 3); ctx.lineTo(leg.home + comfort, groundY + 7);
+      ctx.moveTo(leg.home - comfort, groundY + 5); ctx.lineTo(leg.home + comfort, groundY + 5);
+      ctx.stroke();
+    }
+
+    // legs (back leg first, dimmer)
+    const order = facing >= 0 ? [0, 1] : [1, 0];
+    order.forEach((i, k) => {
+      const leg = legs[i];
+      const col = leg.clamped ? '#e05d3d' : (k === 0 ? '#a87f36' : '#e8b04c');
+      ctx.strokeStyle = col;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(leg.hipX, leg.hipY);
+      ctx.lineTo(leg.ik.knee.x, leg.ik.knee.y);
+      ctx.stroke();
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(leg.ik.knee.x, leg.ik.knee.y);
+      ctx.lineTo(leg.ik.foot.x, leg.ik.foot.y);
+      ctx.stroke();
+      // foot marker: filled when planted, hollow when swinging
+      ctx.beginPath();
+      ctx.arc(leg.ik.foot.x, leg.ik.foot.y, 4, 0, Math.PI * 2);
+      if (leg.swing === null) { ctx.fillStyle = '#f6e7c8'; ctx.fill(); }
+      else { ctx.strokeStyle = '#f6e7c8'; ctx.lineWidth = 1.5; ctx.stroke(); }
+    });
+
+    // body: capsule + eye, slight lean into velocity
+    const lean = Math.max(-0.18, Math.min(0.18, vel / 1400));
+    const byC = groundY - HIP_H - 10;
+    ctx.save();
+    ctx.translate(bx, byC);
+    ctx.rotate(lean);
+    ctx.fillStyle = '#e8b04c';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 34, 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(facing * 18, -5, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#20242b';
+    ctx.fill();
+    ctx.restore();
+
+    // readouts
+    rMode.textContent = mouse.inside ? 'chasing mouse' : 'patrolling — challenges active';
+    rLeft.textContent = legs[0].swing === null ? 'planted' : 'swinging';
+    rRight.textContent = legs[1].swing === null ? 'planted' : 'swinging';
+    const strained = legs[0].clamped || legs[1].clamped;
+    rStrain.textContent = strained ? 'STRAINED' : 'ok';
+    rStrain.className = strained ? '' : 'ok';
+  }
+
+  // ---------- input & wiring ----------
+  canvas.addEventListener('pointermove', (e) => {
+    const r = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - r.left;
+    mouse.inside = true;
+  });
+  canvas.addEventListener('pointerleave', () => { mouse.inside = false; });
+  for (const key of Object.keys(S)) {
+    S[key].addEventListener('input', () => { V[key].textContent = S[key].value; });
+  }
+  new ResizeObserver(() => resize()).observe(canvas);
+
+  resize();
+  reset();
+  let last = performance.now();
+  (function loop(now) {
+    const dt = Math.min((now - last) / 1000, 1 / 30);
+    last = now;
+    step(1 / 60);
+    draw();
+    requestAnimationFrame(loop);
+  })(last);
+
+  // ---------- Quiz ----------
+  Quiz.render(document.getElementById('quiz'), [
+    {
+      prompt: 'When may a planted foot begin its swing?',
+      options: [
+        'When stress exceeds comfort and its partner is planted',
+        'When the swing timer of the gait cycle reaches zero',
+        'When the body velocity rises above the stride speed',
+      ],
+      answer: 0,
+      explain: 'Two conditions: the foot has fallen too far behind its home (stress > comfort), and the partner guard holds. That single guard IS the coordination system — alternation emerges from it.',
+    },
+    {
+      prompt: 'Where should a swinging foot aim to land?',
+      options: [
+        'Ahead of home by body velocity times a lead time',
+        'Exactly on the home point beneath its own hip',
+        'On the far edge of the comfort zone behind home',
+      ],
+      answer: 0,
+      explain: 'Landing at home means arriving already stressed — an immediate re-step, i.e. limping. Leading by velocity·lead plants the foot ahead, buying a full stride of travel.',
+    },
+    {
+      prompt: 'Why did the default gait strain at high speed?',
+      options: [
+        'Stress outgrows leg reach during the partner’s swing',
+        'The parabolic arc lifts the foot too high to land',
+        'The comfort radius shrinks as the body accelerates',
+      ],
+      answer: 0,
+      explain: 'While one leg swings, the other MUST hold — and at high speed the body drags it past L1+L2 before the partner lands. Fixes: step earlier (comfort ↓), swing quicker (duration ↓), land ahead (lead ↑).',
+    },
+    {
+      prompt: 'What is authored, and what emerges, in this architecture?',
+      options: [
+        'Rules are authored; the walk itself emerges from them',
+        'Poses are authored; timing emerges from interpolation',
+        'Timing is authored; foot placement emerges from IK',
+      ],
+      answer: 0,
+      explain: 'Nobody keyframed a walk cycle. Comfort, lead, and duration are the authored rules; step frequency, stride length, and the visible gait are consequences — which is why one ruleset scales across speeds and creatures.',
+    },
+  ]);
+})();
+</script>

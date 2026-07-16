@@ -1,0 +1,504 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 5 — FABRIK: Promises for Any Number of Joints</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 5</p>
+  <h1>FABRIK: Promises for Any Number of Joints</h1>
+  <p class="lede">
+    <a href="0003-two-bone-ik.html">Lesson 3's</a> triangle solves two bones exactly — and
+    stops there. A tail that grabs a ledge, a tongue that snags a fly, a six-segment limb:
+    for <em>n</em> joints you need FABRIK. The good news is startling: <strong>you already
+    know this algorithm.</strong> You've been running its inner loop since Lesson 1.
+  </p>
+
+  <h2>The algorithm you already know</h2>
+  <p>
+    <a href="https://www.andreasaristidou.com/publications/papers/FABRIK.pdf">FABRIK</a>
+    (Forward And Backward Reaching Inverse Kinematics, Aristidou &amp; Lasenby 2011) never
+    touches an angle or a matrix. Its whole move: place each joint <em>on the line toward its
+    neighbour, at bone length</em> — which is precisely Lesson 1's distance constraint. The
+    only new idea is <strong>sweeping with intent</strong>, in two passes:
+  </p>
+  <table>
+    <tr><th>Pass</th><th>What it does</th><th>In course terms</th></tr>
+    <tr>
+      <td><strong>Backward</strong></td>
+      <td>Teleport the <em>tip</em> onto the target, then walk tip→root re-fixing every bone length</td>
+      <td>Pin the tip where you wish it were; let one constraint sweep propagate the consequences</td>
+    </tr>
+    <tr>
+      <td><strong>Forward</strong></td>
+      <td>Teleport the <em>root</em> back onto its anchor, walk root→tip re-fixing lengths</td>
+      <td>Re-honor the root's promise; sweep the correction the other way</td>
+    </tr>
+  </table>
+  <p>
+    One backward+forward round trip = one iteration. Repeat until the tip is within tolerance
+    of the target. Each round trip splits the remaining error between both ends' demands, and
+    it converges fast — the paper shows it beating CCD and Jacobian methods on both cost and
+    quality. (Alternating sweep directions converging faster than one-way sweeps — you met
+    that note in the <a href="../reference/verlet-chain-cheatsheet.html">verlet cheatsheet</a>.
+    FABRIK is that trick, weaponized.)
+  </p>
+
+  <div class="recipe">
+    <span class="callout-label">Recipe · FABRIK (2D, uniform bone length)</span>
+<pre><code>if length(target - root) ≥ totalLength:          // unreachable:
+    lay chain straight from root toward target   // point at it, done (1 pass)
+    return
+
+repeat up to maxIters:
+    // backward: tip → root
+    p[n-1] = target
+    for i = n-2 .. 0:
+        p[i] = p[i+1] + normalize(p[i] - p[i+1]) * rest
+
+    // forward: root → tip
+    p[0] = root
+    for i = 1 .. n-1:
+        p[i] = p[i-1] + normalize(p[i] - p[i-1]) * rest
+
+    if length(p[n-1] - target) < tolerance: break   // early-out</code></pre>
+  </div>
+
+  <h2>Warm starts: the working secret</h2>
+  <p>
+    Textbook analyses ask how many iterations FABRIK needs from a cold pose. Wrong question
+    for games. You solve <em>every frame</em>, starting from last frame's pose — and the
+    target rarely moves far in 16 ms. Started warm, the chain is nearly solved before you
+    begin: in this lesson's playground, a moving target is tracked to sub-pixel error at
+    <strong>one iteration per frame</strong>, and with the tolerance early-out a cap of 10
+    averages ~1.2. That's the honest cost of FABRIK at scale: one or two length-fixing sweeps
+    over a handful of points. Cheaper than most muscles.
+  </p>
+
+  <h2>The strength dial: wish ⇄ promise, unified</h2>
+  <p>
+    FABRIK returns a <em>solution pose</em> — where the chain would be if the tip's promise
+    were kept. You don't have to snap to it. Blend toward it like any
+    <a href="0002-muscles-active-chains.html">muscle</a>:
+  </p>
+  <div class="recipe">
+    <span class="callout-label">Recipe · the grab muscle</span>
+<pre><code>solution = fabrik(currentPose, target)
+for each point i:
+    p[i] += (solution[i] - p[i]) * grabStrength    // 0..1</code></pre>
+  </div>
+  <p>
+    At <code>grabStrength = 1</code> the tail <em>grabs</em> — a promise. At <code>0.3</code>
+    it <em>reaches</em> — a wish, with gravity and momentum still voting. One dial spans the
+    entire course vocabulary, and it can change per moment: a Rain World-style creature runs
+    its tail at 0.2 (drapes, flows) until the moment it leaps and the tail whips to 1.0 on a
+    grab point. Then the constraint sweeps legalize whatever the blend produced, as always —
+    muscles propose, constraints dispose.
+  </p>
+
+  <h2>The playground</h2>
+  <p>
+    A tail with a FABRIK grab muscle. Mouse over the water: the firefly is yours. The faint
+    circle is total reach; the dashed ghost is the raw FABRIK solution when your grab strength
+    keeps the real chain from committing to it.
+  </p>
+
+  <div class="sim" id="sim">
+    <canvas id="fabrikCanvas" height="380"></canvas>
+    <div class="sim-controls">
+      <label>segments <span class="value" id="v-seg">16</span>
+        <input type="range" id="s-seg" min="8" max="24" value="16"></label>
+      <label>iteration cap <span class="value" id="v-cap">10</span>
+        <input type="range" id="s-cap" min="1" max="20" value="10"></label>
+      <label>grab strength <span class="value" id="v-grab">1.00</span>
+        <input type="range" id="s-grab" min="0" max="1" step="0.05" value="1"></label>
+    </div>
+    <div class="sim-readout">
+      tip error: <span id="r-err">–</span>px · iterations used: <span id="r-iters">–</span>
+      · straightness: <span id="r-straight">–</span>%
+    </div>
+  </div>
+
+  <div class="challenge" id="ch1">
+    <span class="status">☐</span> <strong>Challenge 1 — The one-iteration tail.</strong>
+    Cap iterations at <em>1</em>, grab at full strength, and hold tip error under 2px for
+    two seconds (target within reach). You are watching warm-starting pay for the whole
+    algorithm.
+  </div>
+  <div class="challenge" id="ch2">
+    <span class="status">☐</span> <strong>Challenge 2 — Graceful failure.</strong>
+    Drag the target well beyond the reach circle and hold it: the chain should snap straight,
+    pointing at what it cannot have (straightness > 99.5% for 1.5s). Compare: L3 clamped to
+    the annulus edge, L4 strained red — same philosophy, n joints.
+  </div>
+
+  <h2>Mapping it to DOTS</h2>
+  <div class="dots-mapping">
+    <span class="callout-label">DOTS mapping</span>
+    <p style="margin-top:0">
+      FABRIK on a <code>DynamicBuffer&lt;VerletPoint&gt;</code> is almost insultingly direct —
+      the buffer's current positions ARE the warm start, and the solver is normalize-and-scale
+      with zero trig. Solve into a scratch <code>Span</code>, then blend:
+    </p>
+<pre><code>public struct GrabMuscle : IComponentData
+{
+    public float2 Target;
+    public float  Strength;      // 0..1, the wish⇄promise dial
+    public int    MaxIters;      // 1-4 is plenty warm-started
+    public float  Tolerance;     // e.g. 0.25f
+}
+
+// inside the chain job, after integration + other muscles, before sweeps:
+Span&lt;float2&gt; sol = stackalloc float2[pts.Length];
+for (int i = 0; i &lt; pts.Length; i++) sol[i] = pts[i].Position;
+
+float2 root = anchor.Position.xy;
+if (math.distance(g.Target, root) &gt;= s.RestLength * (pts.Length - 1))
+{
+    float2 dir = math.normalizesafe(g.Target - root);
+    for (int i = 0; i &lt; sol.Length; i++) sol[i] = root + dir * (s.RestLength * i);
+}
+else
+{
+    for (int it = 0; it &lt; g.MaxIters; it++)
+    {
+        sol[^1] = g.Target;                                   // backward
+        for (int i = sol.Length - 2; i &gt;= 0; i--)
+            sol[i] = sol[i+1] + math.normalizesafe(sol[i] - sol[i+1]) * s.RestLength;
+        sol[0] = root;                                        // forward
+        for (int i = 1; i &lt; sol.Length; i++)
+            sol[i] = sol[i-1] + math.normalizesafe(sol[i] - sol[i-1]) * s.RestLength;
+        if (math.distancesq(sol[^1], g.Target) &lt; g.Tolerance * g.Tolerance) break;
+    }
+}
+
+for (int i = 0; i &lt; pts.Length; i++)                          // grab muscle blend
+{
+    var p = pts[i];
+    p.Position += (sol[i] - p.Position) * g.Strength;
+    pts[i] = p;
+}</code></pre>
+    <p style="margin-bottom:0">
+      Notes: <code>stackalloc</code> keeps it allocation-free in Burst; chains are short, the
+      stack doesn't care. Because the verlet buffer warm-starts the solve, <code>MaxIters</code>
+      of 2 with early-out is production-honest. And since the blend happens before the hard
+      sweeps, a mid-solve pose can never tear the body — same guarantee as every muscle.
+    </p>
+  </div>
+
+  <h2>Check yourself</h2>
+  <p>From memory — the passes should replay in your head like a film strip.</p>
+  <div id="quiz"></div>
+
+  <h2>Where to go deeper</h2>
+  <p>
+    <strong>Primary source:</strong> the
+    <a href="https://www.andreasaristidou.com/publications/papers/FABRIK.pdf">FABRIK paper</a>
+    (Aristidou &amp; Lasenby, <em>Graphical Models</em> 2011) — sections 3–4 are the
+    algorithm and read easily now that you've run it; the comparisons against CCD/Jacobian
+    justify everything empirically. The author's
+    <a href="https://www.andreasaristidou.com/FABRIK.html">project page</a> collects
+    follow-ups (joint limits, multiple end effectors) when you need them.
+  </p>
+  <p>
+    Compressed recipe: <a href="../reference/fabrik-cheatsheet.html">FABRIK cheatsheet</a> ·
+    new terms in the <a href="../reference/glossary.html">glossary</a>.
+  </p>
+
+  <div class="lesson-footer">
+    <p>
+      <strong>Suggested real-world rep:</strong> give your graduation-build creature a tail
+      with a <code>GrabMuscle</code>. Idle: strength 0.2, target drifting behind the body
+      (flow). On command: strength 1.0, target on a ledge point (grab). The moment you feel
+      the difference between those two states in play, you own the wish⇄promise spectrum.
+      With FABRIK the toolkit's solver set is complete — what remains is the juice branch
+      (second-order dynamics, deferred since Lesson 1) and shipping it all as a package.
+    </p>
+    <p>
+      Stuck or curious? Run <code>/teach</code> and ask. Classic questions here: "how do I
+      keep FABRIK from straightening my chain's personality away?" (blend, or bias toward a
+      rest pose between passes) and "two tails grabbing two targets?" (the paper's multi-effector
+      variant).
+    </p>
+  </div>
+</div>
+
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const canvas = document.getElementById('fabrikCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const S = {
+    seg:  document.getElementById('s-seg'),
+    cap:  document.getElementById('s-cap'),
+    grab: document.getElementById('s-grab'),
+  };
+  const V = {
+    seg:  document.getElementById('v-seg'),
+    cap:  document.getElementById('v-cap'),
+    grab: document.getElementById('v-grab'),
+  };
+  const rErr = document.getElementById('r-err'),
+        rIters = document.getElementById('r-iters'),
+        rStraight = document.getElementById('r-straight');
+
+  const REST = 18, GRAV = 300, DAMP = 0.01, SWEEPS = 10, TOL = 0.5;
+  let dpr = 1, W = 0, H = 380;
+  let pts = [];
+  let time = 0;
+  const mouse = { x: 0, y: 0, inside: false };
+  const target = { x: 0, y: 0 };
+
+  function base() { return { x: W / 2, y: H - 12 }; }
+  function totalLen() { return (pts.length - 1) * REST; }
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    W = canvas.clientWidth;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function rebuild() {
+    const n = +S.seg.value, b = base();
+    pts = [];
+    for (let i = 0; i < n; i++) {
+      pts.push({ x: b.x, y: b.y - i * REST, px: b.x, py: b.y - i * REST });
+    }
+  }
+
+  function fabrik(target, iters) {
+    const n = pts.length, b = base();
+    const sol = pts.map((p) => ({ x: p.x, y: p.y }));
+    const dx0 = target.x - b.x, dy0 = target.y - b.y;
+    const dist0 = Math.hypot(dx0, dy0);
+    if (dist0 >= totalLen()) {
+      const ux = dx0 / dist0, uy = dy0 / dist0;
+      for (let i = 0; i < n; i++) { sol[i].x = b.x + ux * REST * i; sol[i].y = b.y + uy * REST * i; }
+      return { sol, used: 1 };
+    }
+    let used = 0;
+    for (let it = 0; it < iters; it++) {
+      used = it + 1;
+      sol[n - 1].x = target.x; sol[n - 1].y = target.y;      // backward
+      for (let i = n - 2; i >= 0; i--) {
+        const dx = sol[i].x - sol[i + 1].x, dy = sol[i].y - sol[i + 1].y;
+        const d = Math.max(Math.hypot(dx, dy), 1e-6);
+        sol[i].x = sol[i + 1].x + dx / d * REST;
+        sol[i].y = sol[i + 1].y + dy / d * REST;
+      }
+      sol[0].x = b.x; sol[0].y = b.y;                        // forward
+      for (let i = 1; i < n; i++) {
+        const dx = sol[i].x - sol[i - 1].x, dy = sol[i].y - sol[i - 1].y;
+        const d = Math.max(Math.hypot(dx, dy), 1e-6);
+        sol[i].x = sol[i - 1].x + dx / d * REST;
+        sol[i].y = sol[i - 1].y + dy / d * REST;
+      }
+      if (Math.hypot(sol[n - 1].x - target.x, sol[n - 1].y - target.y) < TOL) break;
+    }
+    return { sol, used };
+  }
+
+  let lastSolve = { sol: null, used: 0 };
+
+  function step(dt) {
+    const b = base();
+    time += dt;
+    if (mouse.inside) { target.x = mouse.x; target.y = mouse.y; }
+    else {
+      target.x = W / 2 + 130 * Math.cos(0.8 * time);
+      target.y = H - 162 + 60 * Math.sin(0.8 * time);
+    }
+
+    for (const p of pts) {
+      const vx = (p.x - p.px) * (1 - DAMP);
+      const vy = (p.y - p.py) * (1 - DAMP);
+      p.px = p.x; p.py = p.y;
+      p.x += vx;
+      p.y += vy + GRAV * dt * dt;
+    }
+
+    const grab = +S.grab.value;
+    if (grab > 0) {
+      lastSolve = fabrik(target, +S.cap.value);
+      for (let i = 0; i < pts.length; i++) {
+        pts[i].x += (lastSolve.sol[i].x - pts[i].x) * grab;
+        pts[i].y += (lastSolve.sol[i].y - pts[i].y) * grab;
+      }
+    } else { lastSolve = { sol: null, used: 0 }; }
+
+    for (let it = 0; it < SWEEPS; it++) {
+      pts[0].x = b.x; pts[0].y = b.y;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p = pts[i], q = pts[i + 1];
+        const dx = q.x - p.x, dy = q.y - p.y;
+        const d = Math.max(Math.hypot(dx, dy), 1e-6);
+        const f = 0.5 * (d - REST) / d;
+        p.x += dx * f; p.y += dy * f;
+        q.x -= dx * f; q.y -= dy * f;
+      }
+    }
+    pts[0].x = b.x; pts[0].y = b.y;
+    for (const p of pts) {
+      if (p.y > H - 6) p.y = H - 6;
+      if (p.x < 6) p.x = 6;
+      if (p.x > W - 6) p.x = W - 6;
+    }
+  }
+
+  // ---------- Challenges ----------
+  const ch = [
+    { el: document.getElementById('ch1'), frames: 0, done: false, need: 120 },
+    { el: document.getElementById('ch2'), frames: 0, done: false, need: 90 },
+  ];
+  function tickChallenge(c, ok) {
+    if (c.done) return;
+    c.frames = ok ? c.frames + 1 : 0;
+    if (c.frames > c.need) {
+      c.done = true;
+      c.el.classList.add('done');
+      c.el.querySelector('.status').textContent = '✓';
+    }
+  }
+
+  function metrics() {
+    const b = base(), n = pts.length;
+    const tip = pts[n - 1];
+    const err = Math.hypot(tip.x - target.x, tip.y - target.y);
+    const straight = Math.hypot(tip.x - b.x, tip.y - b.y) / totalLen();
+    const targetDist = Math.hypot(target.x - b.x, target.y - b.y);
+    return { err, straight, targetDist };
+  }
+
+  function draw(m) {
+    const b = base();
+    ctx.clearRect(0, 0, W, H);
+
+    ctx.fillStyle = '#2a2f38';
+    ctx.fillRect(0, H - 8, W, 8);
+
+    // reach circle
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, totalLen(), 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(232,176,76,0.30)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // ghost solution when the blend hides it
+    if (lastSolve.sol && +S.grab.value < 0.95) {
+      ctx.strokeStyle = 'rgba(246,231,200,0.30)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 6]);
+      ctx.beginPath();
+      ctx.moveTo(lastSolve.sol[0].x, lastSolve.sol[0].y);
+      for (let i = 1; i < lastSolve.sol.length; i++) ctx.lineTo(lastSolve.sol[i].x, lastSolve.sol[i].y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // tail
+    for (let i = 0; i < pts.length - 1; i++) {
+      ctx.strokeStyle = '#e8b04c';
+      ctx.lineCap = 'round';
+      ctx.lineWidth = 9 * (1 - i / pts.length) + 2;
+      ctx.beginPath();
+      ctx.moveTo(pts[i].x, pts[i].y);
+      ctx.lineTo(pts[i + 1].x, pts[i + 1].y);
+      ctx.stroke();
+    }
+    const tip = pts[pts.length - 1];
+    ctx.beginPath(); ctx.arc(tip.x, tip.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#f6e7c8'; ctx.fill();
+    ctx.beginPath(); ctx.arc(b.x, b.y, 7, 0, Math.PI * 2);
+    ctx.fillStyle = '#e05d3d'; ctx.fill();
+
+    // firefly
+    ctx.beginPath(); ctx.arc(target.x, target.y, 10, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(224,93,61,0.25)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(target.x, target.y, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#e05d3d'; ctx.fill();
+
+    rErr.textContent = m.err.toFixed(2);
+    rErr.className = m.err < 2 ? 'ok' : '';
+    rIters.textContent = lastSolve.sol ? lastSolve.used : '–';
+    rStraight.textContent = (m.straight * 100).toFixed(1);
+  }
+
+  // ---------- input & wiring ----------
+  canvas.addEventListener('pointermove', (e) => {
+    const r = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top;
+    mouse.inside = true;
+  });
+  canvas.addEventListener('pointerleave', () => { mouse.inside = false; });
+  for (const key of Object.keys(S)) {
+    S[key].addEventListener('input', () => {
+      V[key].textContent = key === 'grab' ? (+S[key].value).toFixed(2) : S[key].value;
+      if (key === 'seg') rebuild();
+    });
+  }
+  new ResizeObserver(() => resize()).observe(canvas);
+
+  resize();
+  rebuild();
+  let last = performance.now();
+  (function loop(now) {
+    const dt = Math.min((now - last) / 1000, 1 / 30);
+    last = now;
+    step(1 / 60);
+    const m = metrics();
+    tickChallenge(ch[0], +S.cap.value === 1 && +S.grab.value >= 0.9 &&
+      m.err < 2 && m.targetDist < totalLen() * 0.95);
+    tickChallenge(ch[1], m.targetDist > totalLen() * 1.05 && m.straight > 0.995);
+    draw(m);
+    requestAnimationFrame(loop);
+  })(last);
+
+  // ---------- Quiz ----------
+  Quiz.render(document.getElementById('quiz'), [
+    {
+      prompt: 'What is a single FABRIK pass, in this course’s terms?',
+      options: [
+        'A length-fixing sweep away from a teleported endpoint',
+        'A rotation of each joint toward the target angle',
+        'A gradient step minimizing the tip position error',
+      ],
+      answer: 0,
+      explain: 'Teleport one end to where it must be (tip→target, then root→anchor) and sweep Lesson 1’s distance constraint along the chain. No angles, no matrices — which is exactly why it suits verlet bodies and Burst.',
+    },
+    {
+      prompt: 'Why does FABRIK need so few iterations in a game loop?',
+      options: [
+        'Each frame starts from last frame’s nearly-solved pose',
+        'Each pass halves the error regardless of start pose',
+        'Each chain link contributes its own parallel solve',
+      ],
+      answer: 0,
+      explain: 'Warm starting: you solve every frame and the target barely moves between frames, so the chain begins almost converged. One iteration per frame tracks a moving target to sub-pixel error.',
+    },
+    {
+      prompt: 'What should happen when the target is beyond total reach?',
+      options: [
+        'Lay the chain straight toward it in a single pass',
+        'Iterate until the error stops improving, then stop',
+        'Scale the bone lengths up until the tip can arrive',
+      ],
+      answer: 0,
+      explain: 'Unreachable is detected up front (distance ≥ Σ lengths) and handled without iterating: point at what you cannot have. The same graceful-strain philosophy as L3’s annulus clamp and L4’s red legs.',
+    },
+    {
+      prompt: 'What does blending toward the FABRIK solution by a strength give you?',
+      options: [
+        'One dial spanning wish to promise for the whole chain',
+        'A cheaper solve by skipping the convergence check',
+        'A guarantee the constraint sweeps cannot be violated',
+      ],
+      answer: 0,
+      explain: 'The solution pose is a proposal. Applied at 0.2 it is a muscle (reaching, flowing); at 1.0 it is a promise (grabbing). One creature can slide along that dial moment to moment — the whole course vocabulary in one line of lerp.',
+    },
+  ]);
+})();
+</script>

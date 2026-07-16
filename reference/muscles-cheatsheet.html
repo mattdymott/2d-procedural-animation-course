@@ -1,0 +1,74 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Muscles Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Muscles Cheatsheet</h1>
+  <p class="lede">The three muscle recipes for verlet bodies. Taught in
+    <a href="../lessons/0002-muscles-active-chains.html">Lesson 2</a>; the underlying
+    partial-correction trick is Jakobsen §5 (springs).
+    Foundations: <a href="verlet-chain-cheatsheet.html">verlet cheatsheet</a>.</p>
+
+  <h2>The one idea</h2>
+  <p><strong>Muscle = a constraint corrected only fractionally.</strong>
+  Bones correct 100% of error per sweep; a muscle corrects <code>strength ∈ (0,1)</code> of
+  the distance to a <em>wish</em>. Fire all muscles once per fixed tick, <em>then</em> run the
+  hard constraint sweeps — muscles propose, constraints dispose.</p>
+
+  <h2>Tick order</h2>
+<pre><code>1. integrate all points          (verlet + gravity + damping)
+2. fire muscles once             (rhythm → goal → tone, all partial)
+3. legalize                      (k hard distance sweeps + pins)
+4. collide/clamp</code></pre>
+
+  <h2>Recipes</h2>
+  <table>
+    <tr><th>Muscle</th><th>Code</th><th>Dial feel</th></tr>
+    <tr>
+      <td><strong>Goal</strong><br>(weak pin)</td>
+      <td><code>tip += (target − tip) · strength</code></td>
+      <td>0.05 lazy/organic · 0.15 attentive · 0.30 snappy · 1.0 robotic pin</td>
+    </tr>
+    <tr>
+      <td><strong>Rhythm</strong><br>(traveling wave)</td>
+      <td><code>p[i] += perp(i) · A · env(i) · sin(φ − i·k)</code><br>
+          <code>perp(i) ⟂ (p[i+1] − p[i−1])</code>, advance <code>φ += speed·dt</code></td>
+      <td><code>k</code>≈0.5–0.8 rad/link makes it travel; <code>k</code>=0 is stiff rocking.
+          <code>env</code> assigns territory (e.g. <code>1 − i/n</code> to free the tip)</td>
+    </tr>
+    <tr>
+      <td><strong>Tone</strong><br>(posture spring)</td>
+      <td>Distance constraint <code>p[i−1] ↔ p[i+1]</code>, rest <code>2·restLength</code>,
+          corrected by fraction <code>tone</code></td>
+      <td>0.1 sags · 0.4 tentacle · 0.8 stiff spine · 1.0 rod</td>
+    </tr>
+  </table>
+
+  <h2>Layering rules</h2>
+  <ul>
+    <li><strong>Superposition is free</strong> — all muscles are just position nudges; they add.
+        Life = goal + rhythm + tone running simultaneously.</li>
+    <li><strong>Envelopes prevent turf wars.</strong> Two muscles shoving the same points fight
+        (visible as jitter or orbiting around the target). Fade each muscle out where another
+        needs authority.</li>
+    <li><strong>Strengths are per-fixed-tick fractions</strong> — meaningless without a fixed
+        timestep. In DOTS: <code>FixedStepSimulationSystemGroup</code>, always.</li>
+    <li><strong>Variation is data.</strong> Randomize tone/speed ±15% per creature at spawn to
+        kill the clone-army look.</li>
+  </ul>
+
+  <h2>Failure modes</h2>
+  <table>
+    <tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
+    <tr><td>Tip circles the target, never lands</td><td>Goal strength fighting a wave that reaches the tip</td><td>Taper the wave envelope to zero at the tip</td></tr>
+    <tr><td>Body too limp to lift the tip</td><td>Tone too low — goal muscle drags a noodle</td><td>Raise tone; posture carries, goal steers</td></tr>
+    <tr><td>High-frequency jitter</td><td>Tone ≈ 1 fighting the hard sweeps, or wave speed ≫ solver</td><td>Back tone off max; keep muscle nudges ≪ restLength per tick</td></tr>
+    <tr><td>Feel changes with framerate</td><td>Muscles firing per-frame, not per fixed tick</td><td>Fixed timestep; strengths are per-tick fractions</td></tr>
+  </table>
+
+  <div class="lesson-footer">
+    <p>See also: <a href="glossary.html">glossary</a> · <a href="verlet-chain-cheatsheet.html">verlet cheatsheet</a> · <a href="../RESOURCES.md">resources</a></p>
+  </div>
+</div>

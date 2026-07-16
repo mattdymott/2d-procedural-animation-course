@@ -1,0 +1,74 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Second-Order Dynamics Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Second-Order Dynamics Cheatsheet</h1>
+  <p class="lede">Universal juice filter (spring-damper with anticipation). Taught in
+    <a href="../lessons/0006-second-order-dynamics.html">Lesson 6</a>; source:
+    <a href="https://www.youtube.com/watch?v=KPoeNZZ6H4s">t3ssel8r, "Giving Personality to
+    Procedural Animations using Math."</a></p>
+
+  <h2>Constants (bake once, when f/ζ/r change)</h2>
+<pre><code>ω  = 2π·f
+k1 = ζ / (π·f)
+k2 = 1 / ω²
+k3 = r·ζ / ω</code></pre>
+
+  <h2>Update (per fixed step T)</h2>
+<pre><code>xd  = (x - xPrev) / T          // input velocity estimate
+xPrev = x
+k2s = max(k2, T²/2 + T·k1/2, T·k1)          // stability clamp — never skip
+y   = y + T·yd
+yd  = yd + T·(x + k3·xd - y - k1·yd) / k2s
+// y = juiced output; yd = velocity (free squash/lean driver)</code></pre>
+
+  <h2>The three knobs</h2>
+  <table>
+    <tr><th>Knob</th><th>Meaning</th><th>Range feel</th></tr>
+    <tr><td><strong>f</strong> (Hz)</td><td>Response speed</td><td>Low = heavy/languid · High = snappy/twitchy</td></tr>
+    <tr><td><strong>ζ</strong> (zeta)</td><td>Damping / settle</td><td>0 rings forever · &lt;1 overshoots then settles · 1 critical (fastest, no overshoot) · &gt;1 sluggish/stiff</td></tr>
+    <tr><td><strong>r</strong></td><td>Launch character</td><td>&lt;0 anticipates (backward wind-up) · 0 eases in · 1 immediate · &gt;1 eager (overshoots to lead)</td></tr>
+  </table>
+
+  <h2>Term-by-term (the last line)</h2>
+  <table>
+    <tr><th>Term</th><th>Does</th></tr>
+    <tr><td><code>x − y</code></td><td>Spring pulling output toward target</td></tr>
+    <tr><td><code>−k1·yd</code></td><td>Friction — sets how it settles (ζ)</td></tr>
+    <tr><td><code>k3·xd</code></td><td>Feeds target velocity into acceleration; negative k3 ⇒ anticipation</td></tr>
+  </table>
+
+  <h2>Recipes</h2>
+  <table>
+    <tr><th>Want</th><th>Setting</th></tr>
+    <tr><td>Smooth, characterless follow (camera)</td><td>f mid, ζ = 1, r = 0</td></tr>
+    <tr><td>Bouncy pop (UI, pickups)</td><td>ζ ≈ 0.3–0.5, r = 0–1</td></tr>
+    <tr><td>Heavy, laggy body</td><td>low f, ζ ≈ 1</td></tr>
+    <tr><td>Eager lead (turret, aim)</td><td>r &gt; 1</td></tr>
+    <tr><td>Wind-up before launch</td><td>r &lt; 0 (−1 to −4)</td></tr>
+    <tr><td>Squash-and-stretch</td><td>stretch sprite along yd, magnitude ∝ |yd|</td></tr>
+  </table>
+
+  <h2>Gotchas</h2>
+  <ul>
+    <li><strong>Fixed timestep only</strong> — k2s assumes a known T. Variable dt ⇒ inconsistent feel or instability.</li>
+    <li><strong>Never skip the k2s clamp</strong> — high f at 60fps explodes without it.</li>
+    <li><strong>Angles:</strong> wrap the error to [−π, π] before filtering, or it spins the long way.</li>
+    <li><strong>ζ = 0</strong> rings forever by design — not a bug, just rarely what you want.</li>
+    <li><strong>Retune live:</strong> changing f/ζ/r means rebaking k1/k2/k3; the y/yd state carries over fine.</li>
+  </ul>
+
+  <h2>DOTS</h2>
+  <ul>
+    <li>State per value: <code>float2 Y, Yd, Xp</code> + <code>float K1,K2,K3</code>. Branchless update → one job juices millions.</li>
+    <li>Attach to any float/float2/quaternion: position, scale, lean, squash, camera, UI number, turret lead.</li>
+    <li>Per-instance (f,ζ,r) variation makes identical prefabs feel individual — highest juice-per-byte in the toolkit.</li>
+  </ul>
+
+  <div class="lesson-footer">
+    <p>See also: <a href="glossary.html">glossary</a> · <a href="muscles-cheatsheet.html">muscles</a> · <a href="fabrik-cheatsheet.html">FABRIK</a> · pairs with any lesson (filter an IK target for free follow-through)</p>
+  </div>
+</div>

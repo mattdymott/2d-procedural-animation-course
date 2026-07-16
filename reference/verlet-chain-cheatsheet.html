@@ -1,0 +1,61 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Verlet Chain Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Verlet Chain Cheatsheet</h1>
+  <p class="lede">The two recipes plus tuning table. Taught in
+    <a href="../lessons/0001-verlet-chains.html">Lesson 1</a>; bedrock source is
+    <a href="https://github.com/krisives/advanced-character-physics">Jakobsen, Advanced Character Physics (GDC 2001)</a>.</p>
+
+  <h2>1 · Integrate (per point, per fixed step)</h2>
+<pre><code>velocity     = position - prevPosition       // implied velocity
+prevPosition = position
+position    += velocity * (1 - damping) + acceleration * dt²</code></pre>
+  <p>State per point: <code>Position</code>, <code>PrevPosition</code>. Nothing else.
+  To spawn a point at rest, set both equal. To launch it, offset <code>PrevPosition</code>
+  <em>backwards</em> along the desired velocity.</p>
+
+  <h2>2 · Relax (per link, × iterations)</h2>
+<pre><code>delta = b.position - a.position
+dist  = max(length(delta), 1e-6)
+corr  = delta * (0.5 * (dist - restLength) / dist)
+a.position += corr
+b.position -= corr</code></pre>
+  <ul>
+    <li><strong>Pin</strong>: after each sweep, snap the pinned point back to its target. For unequal masses, split the correction by inverse mass instead of 0.5/0.5 (a pin is just infinite mass).</li>
+    <li><strong>Order</strong>: sweeping head→tail each iteration is fine; alternating direction converges slightly faster.</li>
+  </ul>
+
+  <h2>Tuning table</h2>
+  <table>
+    <tr><th>You want</th><th>Turn this dial</th><th>Notes</th></tr>
+    <tr><td>Stiffer / rope → rod</td><td>Iterations ↑</td><td>Linear CPU cost; for a ~24-point chain: 1–4 soupy, 10–20 firm, 40+ rigid</td></tr>
+    <tr><td>Floppier, more "alive"</td><td>Iterations ↓</td><td>Rain World lives at the low end deliberately</td></tr>
+    <tr><td>Underwater / floaty</td><td>Damping ↑, gravity ↓</td><td>Damping is % of implied velocity removed per step</td></tr>
+    <tr><td>Whippy, energetic</td><td>Damping → 0</td><td>Watch for energy gain if dt varies — use fixed step</td></tr>
+    <tr><td>Longer chain, same look</td><td>Points ↑ and iterations ↑ together</td><td>Error propagates one link per sweep, so long chains need more sweeps</td></tr>
+  </table>
+
+  <h2>DOTS shape</h2>
+<pre><code>VerletPoint  : IBufferElementData { float2 Position, PrevPosition }
+ChainSettings: IComponentData     { float RestLength; int Iterations; float Damping }
+// One entity per creature; one Burst IJobEntity; parallelism ACROSS entities.
+// Run inside FixedStepSimulationSystemGroup — dt² and iteration stiffness
+// are not framerate-independent otherwise.</code></pre>
+
+  <h2>Failure modes</h2>
+  <table>
+    <tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
+    <tr><td>Chain stretches under load</td><td>Too few iterations</td><td>Raise iterations (or accept — it can look organic)</td></tr>
+    <tr><td>Jitter / vibration</td><td>Variable timestep or huge gravity·dt²</td><td>Fixed step; clamp dt; add a little damping</td></tr>
+    <tr><td>Explosion on teleport</td><td>Moved Position but not PrevPosition</td><td>Move both together to teleport without imparting velocity</td></tr>
+    <tr><td>NaN poisoning</td><td>Two points exactly coincident (divide by 0)</td><td>The <code>max(dist, 1e-6)</code> guard</td></tr>
+  </table>
+
+  <div class="lesson-footer">
+    <p>See also: <a href="glossary.html">glossary</a> · <a href="../RESOURCES.md">resources</a></p>
+  </div>
+</div>

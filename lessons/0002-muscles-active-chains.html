@@ -1,0 +1,474 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 2 — Muscles: A Rule Broken on Purpose</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 2</p>
+  <h1>Muscles: A Rule Broken on Purpose</h1>
+  <p class="lede">
+    Your <a href="0001-verlet-chains.html">Lesson 1</a> chain was a corpse: constraints kept
+    it legal, gravity did the rest. A creature is a chain that <em>wants things</em>. This
+    lesson adds muscles — and in a constraint world, a muscle is beautifully simple:
+    a rule broken on purpose, weakly.
+  </p>
+
+  <h2>What a muscle is</h2>
+  <p>
+    Lesson 1's distance constraint corrects <strong>100%</strong> of its error every sweep —
+    that's what makes it a bone. <a href="https://github.com/krisives/advanced-character-physics">
+    Jakobsen's paper</a> hides a gem in one line: correct only a <em>fraction</em> of the
+    error and the same code becomes a <strong>spring</strong>. That fraction is muscle
+    strength. A weak pin is a wish; a strong pin is a bone. Everything below is this one
+    trick pointed at three different wishes:
+  </p>
+  <table>
+    <tr><th>Muscle</th><th>The wish</th><th>Gives the creature</th></tr>
+    <tr><td><strong>Goal</strong></td><td>"Tip, be at the target"</td><td>Intent — reaching, tracking, grabbing</td></tr>
+    <tr><td><strong>Rhythm</strong></td><td>"Body, wave side to side"</td><td>Life — idle motion, swimming, breathing</td></tr>
+    <tr><td><strong>Tone</strong></td><td>"Spine, stay straight-ish"</td><td>Posture — stands up instead of puddling</td></tr>
+  </table>
+
+  <h2>Recipe 1 — Goal: the weak pin</h2>
+  <div class="recipe">
+    <span class="callout-label">Recipe · reach muscle (per frame, on the end point)</span>
+<pre><code>tip.position += (target - tip.position) * strength   // strength 0..1</code></pre>
+  </div>
+  <p>
+    A pin (Lesson 1) is this with <code>strength = 1</code>. At <code>0.15</code> the tip
+    leans toward the target while gravity, momentum, and the rest of the body all still get
+    a vote — that negotiation <em>is</em> the organic look. Verlet makes it safe: the shove
+    coherently updates the implied velocity, so the whole chain follows the tip like a
+    body, not like a rubber band glued to a dot.
+  </p>
+
+  <h2>Recipe 2 — Rhythm: the traveling wave</h2>
+  <div class="recipe">
+    <span class="callout-label">Recipe · wave muscle (per frame, each interior point)</span>
+<pre><code>dir   = normalize(p[i+1] - p[i-1])          // local body direction
+perp  = (-dir.y, dir.x)
+phase = time * speed - i * phasePerLink      // - i·k makes the wave TRAVEL
+p[i] += perp * amplitude * envelope(i) * sin(phase)</code></pre>
+  </div>
+  <p>
+    Shove each point sideways — perpendicular to its own body — by a sinusoid whose phase
+    lags along the chain. The lag is everything: without <code>-i·k</code> the body rocks
+    stiffly in unison; with it, an undulation travels base-to-tip and reads as swimming.
+    The <code>envelope</code> shapes <em>where</em> the muscle lives: the playground uses
+    <code>1&nbsp;−&nbsp;i/n</code> (strong at the base, silent at the tip) because a rhythm
+    that reaches the tip fights the goal muscle for control of it — you'll feel this in
+    Challenge 2.
+  </p>
+
+  <h2>Recipe 3 — Tone: posture springs</h2>
+  <div class="recipe">
+    <span class="callout-label">Recipe · tone muscle (per frame, each interior joint)</span>
+<pre><code>// a distance constraint between GRANDPARENT neighbours i-1 and i+1,
+// rest length 2·restLength (= perfectly straight), corrected by only `tone`
+delta = p[i+1] - p[i-1]
+corr  = delta * (tone * 0.5 * (length(delta) - 2*restLength) / length(delta))
+p[i-1] += corr;  p[i+1] -= corr</code></pre>
+  </div>
+  <p>
+    Skip-one constraints punish bending: the straighter the chain, the closer
+    <code>i−1 → i+1</code> is to two full links. At <code>tone = 1</code> you get a rod;
+    at <code>0.2</code> a tired tentacle that sags but doesn't puddle. This is the same
+    idea Rain World uses to give lizard spines their stiff-but-swishy character — bodies in
+    <a href="https://www.youtube.com/watch?v=-iXwvoFhPuU">the GDC talk</a> are exactly
+    chains with tuned resistance to bending.
+  </p>
+
+  <div class="sidebar">
+    <span class="callout-label">Order of operations — muscles propose, constraints dispose</span>
+    <p style="margin:0">
+      Each fixed tick: <strong>1)</strong> integrate, <strong>2)</strong> fire every muscle
+      <em>once</em> (weak, partial corrections), <strong>3)</strong> run the hard constraint
+      sweeps + pins from Lesson 1. The skeleton always gets the last word, so muscles can
+      never tear the body apart — crank any slider to max and the creature stays whole.
+      That guarantee is why this architecture is fearless to tune.
+    </p>
+  </div>
+
+  <h2>The playground</h2>
+  <p>
+    A tentacle with all three muscles. <strong>Move your mouse over the water</strong> — the
+    firefly follows it. Move the mouse away and the firefly resumes its orbit. Defaults are
+    deliberately feeble: it's a corpse with a faint pulse. Wake it up.
+  </p>
+
+  <div class="sim" id="sim">
+    <canvas id="tentacleCanvas" height="380"></canvas>
+    <div class="sim-controls">
+      <label>reach strength <span class="value" id="v-reach">0.02</span>
+        <input type="range" id="s-reach" min="0" max="0.30" step="0.01" value="0.02"></label>
+      <label>muscle tone <span class="value" id="v-tone">0.10</span>
+        <input type="range" id="s-tone" min="0" max="1" step="0.05" value="0.10"></label>
+      <label>wave amplitude <span class="value" id="v-wave">0</span>
+        <input type="range" id="s-wave" min="0" max="3" step="0.1" value="0"></label>
+      <label>wave speed <span class="value" id="v-speed">4</span>
+        <input type="range" id="s-speed" min="1" max="8" step="0.5" value="4"></label>
+    </div>
+    <div class="sim-readout">tip → firefly: <span id="r-dist">–</span>px <span id="r-mode"></span></div>
+  </div>
+
+  <div class="challenge" id="ch1">
+    <span class="status">☐</span> <strong>Challenge 1 — Hunt.</strong>
+    Take your mouse off the water and let the firefly orbit. Tune the muscles until the tip
+    <em>tracks it within 14px for 1.5s</em>. (Strength alone won't do it if the body is
+    too limp to carry the tip there.)
+  </div>
+  <div class="challenge" id="ch2">
+    <span class="status">☐</span> <strong>Challenge 2 — Hunt, alive.</strong>
+    Same tracking (within 20px, 1.5s, orbit mode) but now with <em>wave amplitude ≥ 1.2</em>.
+    Goal + rhythm layered without either winning: this superposition is the whole secret of
+    creatures that feel alive while doing their job.
+  </div>
+
+  <h2>Mapping it to DOTS</h2>
+  <div class="dots-mapping">
+    <span class="callout-label">DOTS mapping</span>
+    <p style="margin-top:0">
+      Muscles are pure per-entity data driving a few extra loops inside the same
+      <code>ChainJob</code> from Lesson 1 — no new sync points, still one
+      <code>IJobEntity</code> across thousands of creatures.
+    </p>
+<pre><code>public struct TentacleMuscles : IComponentData
+{
+    public float2 ReachTarget;      // set by AI/steering systems
+    public float  ReachStrength;    // 0..1 fraction per fixed tick
+    public float  Tone;             // 0..1 posture spring strength
+    public float  WaveAmplitude;    // px per tick, pre-envelope
+    public float  WaveSpeed;        // rad/s
+    public float  WavePhasePerLink; // rad, the travel term
+    public float  Phase;            // advance by WaveSpeed * dt each tick
+}
+
+// Inside ChainJob.Execute, between integration and the constraint sweeps:
+m.Phase += WaveSpeed * DeltaTime;
+
+for (int i = 2; i &lt; pts.Length - 1; i++)          // rhythm
+{
+    float2 dir  = math.normalizesafe(pts[i+1].Position - pts[i-1].Position);
+    float2 perp = new float2(-dir.y, dir.x);
+    float env   = 1f - (float)i / (pts.Length - 1);
+    var p = pts[i];
+    p.Position += perp * (m.WaveAmplitude * env *
+                  math.sin(m.Phase - i * m.WavePhasePerLink));
+    pts[i] = p;
+}
+
+var tip = pts[pts.Length - 1];                     // goal
+tip.Position += (m.ReachTarget - tip.Position) * m.ReachStrength;
+pts[pts.Length - 1] = tip;
+
+for (int i = 1; i &lt; pts.Length - 1; i++)          // tone
+{
+    var a = pts[i-1]; var c = pts[i+1];
+    float2 d = c.Position - a.Position;
+    float len = math.max(math.length(d), 1e-6f);
+    float2 corr = d * (m.Tone * 0.5f * (len - 2f * s.RestLength) / len);
+    a.Position += corr; c.Position -= corr;
+    pts[i-1] = a; pts[i+1] = c;
+}</code></pre>
+    <p style="margin-bottom:0">
+      The strengths are <em>fractions per fixed tick</em> — they only mean anything at a
+      fixed timestep, one more reason this all lives in
+      <code>FixedStepSimulationSystemGroup</code>. Per-creature variation is now trivially
+      data: randomize <code>Tone</code>/<code>WaveSpeed</code> slightly at spawn and a
+      swarm of identical tentacles stops looking cloned.
+    </p>
+  </div>
+
+  <h2>Check yourself</h2>
+  <p>From memory — no scrolling up.</p>
+  <div id="quiz"></div>
+
+  <h2>Where to go deeper</h2>
+  <p>
+    <strong>Primary source:</strong> rewatch
+    <a href="https://www.youtube.com/watch?v=-iXwvoFhPuU">The Rain World Animation Process</a>
+    from about the midpoint, where Joar shows creatures moving — you'll now see every body
+    as chains + weak corrections toward wishes. The one-line spring trick is in
+    <a href="https://github.com/krisives/advanced-character-physics">Jakobsen §5</a>
+    ("springs"), and <a href="https://www.gorillasun.de/blog/spring-physics-and-connecting-particles-with-springs/">
+    Gorilla Sun's spring-physics article</a> is a friendly visual companion.
+  </p>
+  <p>
+    Compressed recipes: <a href="../reference/muscles-cheatsheet.html">muscles cheatsheet</a> ·
+    new terms in the <a href="../reference/glossary.html">glossary</a> ·
+    foundations in the <a href="../reference/verlet-chain-cheatsheet.html">verlet cheatsheet</a>.
+  </p>
+
+  <div class="lesson-footer">
+    <p>
+      <strong>Suggested real-world rep:</strong> add <code>TentacleMuscles</code> to your
+      1,000-chain scratch project and point every <code>ReachTarget</code> at the mouse.
+      A field of seaweed that reaches for the cursor is 30 minutes of work now, and it will
+      teach you more about tuning than any lesson can. Next on the creature path:
+      <em>limbs that plant</em> — analytic 2-bone IK, the first step toward legs.
+    </p>
+    <p>
+      Stuck or curious? Ask your teacher — run <code>/teach</code> and ask follow-ups.
+      (Why does high tone + high wave jitter? What if two goal muscles compete? Good questions,
+      all answerable.)
+    </p>
+  </div>
+</div>
+
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const canvas = document.getElementById('tentacleCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const sliders = {
+    reach: document.getElementById('s-reach'),
+    tone:  document.getElementById('s-tone'),
+    wave:  document.getElementById('s-wave'),
+    speed: document.getElementById('s-speed'),
+  };
+  const labels = {
+    reach: document.getElementById('v-reach'),
+    tone:  document.getElementById('v-tone'),
+    wave:  document.getElementById('v-wave'),
+    speed: document.getElementById('v-speed'),
+  };
+  const distEl = document.getElementById('r-dist');
+  const modeEl = document.getElementById('r-mode');
+
+  const N = 28, REST = 11, ITERS = 12, GRAV = 300, DAMP = 0.01;
+  const WAVE_K = 0.6;
+  let pts = [];
+  let dpr = 1, W = 0, H = 380;
+  let time = 0, phase = 0;
+  const mouse = { x: 0, y: 0, inside: false };
+  const target = { x: 0, y: 0 };
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    W = canvas.clientWidth;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function base() { return { x: W / 2, y: H - 12 }; }
+
+  function rebuild() {
+    const b = base();
+    pts = [];
+    for (let i = 0; i < N; i++) {
+      pts.push({ x: b.x, y: b.y - i * REST, px: b.x, py: b.y - i * REST });
+    }
+  }
+
+  function step(dt) {
+    const b = base();
+    const reach = +sliders.reach.value;
+    const tone  = +sliders.tone.value;
+    const waveA = +sliders.wave.value;
+    const waveW = +sliders.speed.value;
+
+    time += dt;
+    phase += waveW * dt;
+
+    // target: mouse when hovering, else orbit
+    if (mouse.inside) {
+      target.x = mouse.x; target.y = mouse.y;
+    } else {
+      target.x = W / 2 + 90 * Math.cos(0.4 * time);
+      target.y = 175 + 90 * Math.sin(0.4 * time);
+    }
+
+    // 1. integrate
+    for (const p of pts) {
+      const vx = (p.x - p.px) * (1 - DAMP);
+      const vy = (p.y - p.py) * (1 - DAMP);
+      p.px = p.x; p.py = p.y;
+      p.x += vx;
+      p.y += vy + GRAV * dt * dt;
+    }
+
+    // 2. muscles fire once
+    if (waveA > 0) {                                    // rhythm
+      for (let i = 2; i < N - 1; i++) {
+        const dx = pts[i + 1].x - pts[i - 1].x;
+        const dy = pts[i + 1].y - pts[i - 1].y;
+        const d = Math.max(Math.hypot(dx, dy), 1e-6);
+        const env = 1 - i / (N - 1);
+        const s = waveA * env * Math.sin(phase - WAVE_K * i);
+        pts[i].x += (-dy / d) * s;
+        pts[i].y += ( dx / d) * s;
+      }
+    }
+    const tip = pts[N - 1];                             // goal
+    tip.x += (target.x - tip.x) * reach;
+    tip.y += (target.y - tip.y) * reach;
+    if (tone > 0) {                                     // tone
+      const rest2 = 2 * REST;
+      for (let i = 1; i < N - 1; i++) {
+        const a = pts[i - 1], c = pts[i + 1];
+        const dx = c.x - a.x, dy = c.y - a.y;
+        const d = Math.max(Math.hypot(dx, dy), 1e-6);
+        const f = tone * 0.5 * (d - rest2) / d;
+        a.x += dx * f; a.y += dy * f;
+        c.x -= dx * f; c.y -= dy * f;
+      }
+    }
+
+    // 3. skeleton legalizes
+    for (let it = 0; it < ITERS; it++) {
+      pts[0].x = b.x; pts[0].y = b.y;
+      for (let i = 0; i < N - 1; i++) {
+        const p = pts[i], q = pts[i + 1];
+        const dx = q.x - p.x, dy = q.y - p.y;
+        const d = Math.max(Math.hypot(dx, dy), 1e-6);
+        const f = 0.5 * (d - REST) / d;
+        p.x += dx * f; p.y += dy * f;
+        q.x -= dx * f; q.y -= dy * f;
+      }
+    }
+    pts[0].x = b.x; pts[0].y = b.y;
+    for (const p of pts) {
+      if (p.y > H - 6) p.y = H - 6;
+      if (p.x < 6) p.x = 6;
+      if (p.x > W - 6) p.x = W - 6;
+    }
+  }
+
+  // ---------- Challenges ----------
+  const ch = [
+    { el: document.getElementById('ch1'), frames: 0, done: false,
+      test: (d) => !mouse.inside && d < 14 },
+    { el: document.getElementById('ch2'), frames: 0, done: false,
+      test: (d) => !mouse.inside && d < 20 && +sliders.wave.value >= 1.2 },
+  ];
+  function checkChallenges(d) {
+    for (const c of ch) {
+      if (c.done) continue;
+      c.frames = c.test(d) ? c.frames + 1 : 0;
+      if (c.frames > 90) {
+        c.done = true;
+        c.el.classList.add('done');
+        c.el.querySelector('.status').textContent = '✓';
+      }
+    }
+  }
+
+  // ---------- Drawing ----------
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // seabed
+    ctx.fillStyle = '#2a2f38';
+    ctx.fillRect(0, H - 8, W, 8);
+
+    // tentacle body: tapered segments
+    for (let i = 0; i < N - 1; i++) {
+      const w = 9 * (1 - i / N) + 2;
+      ctx.strokeStyle = '#e8b04c';
+      ctx.lineWidth = w;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(pts[i].x, pts[i].y);
+      ctx.lineTo(pts[i + 1].x, pts[i + 1].y);
+      ctx.stroke();
+    }
+    // tip eye
+    const tip = pts[N - 1];
+    ctx.beginPath();
+    ctx.arc(tip.x, tip.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#f6e7c8';
+    ctx.fill();
+
+    // firefly target
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, 10, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(224,93,61,0.25)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#e05d3d';
+    ctx.fill();
+  }
+
+  // ---------- Input ----------
+  canvas.addEventListener('pointermove', (e) => {
+    const r = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top;
+    mouse.inside = true;
+  });
+  canvas.addEventListener('pointerleave', () => { mouse.inside = false; });
+
+  // ---------- Wiring ----------
+  for (const key of Object.keys(sliders)) {
+    sliders[key].addEventListener('input', () => {
+      labels[key].textContent = sliders[key].value;
+    });
+  }
+  new ResizeObserver(() => resize()).observe(canvas);
+
+  resize();
+  rebuild();
+  let last = performance.now();
+  (function loop(now) {
+    const dt = Math.min((now - last) / 1000, 1 / 30);
+    last = now;
+    step(1 / 60);
+    const tip = pts[N - 1];
+    const d = Math.hypot(tip.x - target.x, tip.y - target.y);
+    distEl.textContent = d.toFixed(0);
+    distEl.className = d < 14 ? 'ok' : '';
+    modeEl.textContent = mouse.inside ? '(following your mouse)' : '(orbiting — challenges active)';
+    checkChallenges(d);
+    draw();
+    requestAnimationFrame(loop);
+  })(last);
+
+  // ---------- Quiz ----------
+  Quiz.render(document.getElementById('quiz'), [
+    {
+      prompt: 'In a constraint-based body, what is a muscle?',
+      options: [
+        'A correction toward a wish, applied only partially',
+        'A constraint with an extended rest length limit',
+        'A force accumulated before the integration step',
+      ],
+      answer: 0,
+      explain: 'Bones correct 100% of their error; muscles correct a fraction of the distance to a desired state. Strength is that fraction — Jakobsen’s spring trick pointed at a goal.',
+    },
+    {
+      prompt: 'Why do muscles fire before the constraint sweeps, not after?',
+      options: [
+        'So the skeleton gets the last word every tick',
+        'So the muscles can override rigid distance rules',
+        'So the wave phase stays aligned with the frame',
+      ],
+      answer: 0,
+      explain: 'Muscles propose, constraints dispose. Because hard sweeps run last, no muscle setting can tear the body apart — which is what makes the whole system safe to tune aggressively.',
+    },
+    {
+      prompt: 'What makes the body wave travel instead of rocking in unison?',
+      options: [
+        'The phase offset subtracted per link index',
+        'The amplitude envelope fading toward the tip',
+        'The perpendicular direction changing every frame',
+      ],
+      answer: 0,
+      explain: 'The −i·k term delays each link’s sinusoid slightly, so the crest moves along the body. Without it every point swings in sync and the motion reads as rigid rocking.',
+    },
+    {
+      prompt: 'Why taper the wave to zero near a reaching tip?',
+      options: [
+        'Otherwise rhythm and goal fight over the tip',
+        'Otherwise the tip mass amplifies the sinusoid',
+        'Otherwise constraints stretch beyond their rest',
+      ],
+      answer: 0,
+      explain: 'Both muscles shove the same points; an un-tapered wave keeps knocking the tip off target. Envelopes assign each muscle its own territory on the body — layering without conflict.',
+    },
+  ]);
+})();
+</script>

@@ -1,0 +1,428 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 7 — Batching at Scale: Spending the Frame Budget</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 7</p>
+  <h1>Batching at Scale: Spending the Frame Budget</h1>
+  <p class="lede">
+    Six lessons asked "does it look alive?" This one asks "does it fit the frame?" You already
+    know DOTS — jobs, Burst, chunks. So this isn't about ECS mechanics; it's about the handful
+    of patterns that decide whether your creatures run 200 or 50,000 at a time. The physics is
+    cheap per creature. The scale comes from spending the budget where it's seen.
+  </p>
+
+  <h2>The cost lens</h2>
+  <p>
+    A creature from Lessons 1–6 — a verlet chain, two IK legs, a few second-order filters — is
+    a rounding error on its own: sub-microsecond. But you have thousands, and 60fps gives you
+    16.6ms total to share with rendering, gameplay, and everything else. So think in a budget:
+    <em>per-creature cost × count ≤ your slice of the frame</em>. Every pattern below either
+    shrinks the per-creature cost or shrinks the count you pay full price for.
+  </p>
+
+  <h2>Five patterns for animation workloads</h2>
+  <p>
+    These are the non-obvious ones — the ECS basics you already have; these are what bites
+    specifically when the workload is procedural animation.
+  </p>
+
+  <table>
+    <tr><th>Pattern</th><th>Why it matters here</th></tr>
+    <tr>
+      <td><strong>1 · Parallelize across, never within</strong></td>
+      <td>A chain is sequential — each link reads its neighbour (<a href="0001-verlet-chains.html">L1</a>). Don't fight that. One creature = one entity = one <code>IJobEntity</code> iteration; the parallelism is the ten-thousand <em>creatures</em>, each solved start-to-finish on one thread. Embarrassingly parallel, chunk-friendly, zero contention.</td>
+    </tr>
+    <tr>
+      <td><strong>2 · Keep every creature self-contained</strong></td>
+      <td>Feet pin into the creature's <em>own</em> buffer (<a href="0003-two-bone-ik.html">L3</a>/<a href="0004-gait-stepping.html">L4</a>), so the hot job needs no <code>ComponentLookup</code> random access — the cache killer. When a creature must react to <em>another</em> (flocking, threat), gather what it needs into a read-only snapshot in a prior job, then run the hot job lookup-free.</td>
+    </tr>
+    <tr>
+      <td><strong>3 · Structural change is the enemy</strong></td>
+      <td>Spawning, despawning, adding/removing components moves archetypes and forces sync points that stall every worker. Make "dead", "grab-active", "swinging" into <a href="https://docs.unity3d.com/Packages/com.unity.entities@1.0/manual/components-enableable-intro.html">enableable components</a>: toggling them changes no archetype and needs no ECB. Pool creatures; disable, don't destroy.</td>
+    </tr>
+    <tr>
+      <td><strong>4 · Keep buffers in the chunk</strong></td>
+      <td>Size <a href="https://docs.unity3d.com/Packages/com.unity.entities@1.3/manual/components-buffer-set-capacity.html"><code>[InternalBufferCapacity]</code></a> to your typical chain length so points live inline in the chunk. Overflow spills the whole buffer to the heap <em>and</em> wastes the inline slot — a double cache penalty, per creature, forever. A 30-point chain wants a capacity of ~32, not the default.</td>
+    </tr>
+    <tr>
+      <td><strong>5 · Branchless inner loops</strong></td>
+      <td>The gait state switch and IK <code>bendSign</code> are branches; scattered across a Burst job they block vectorization. Prefer <code>math.select</code>, sign multiplies, and masks so the solver stays SIMD-wide. Burst can then do four creatures' worth of <code>float2</code> math per instruction.</td>
+    </tr>
+  </table>
+
+  <h2>The multiplier: simulation LOD</h2>
+  <p>
+    Patterns 1–5 shave the per-creature cost. Simulation LOD attacks the other factor — how
+    many you pay full price for — and it's where the orders of magnitude live. A creature
+    forty tiles away and three pixels tall does not need ten constraint sweeps at 60Hz. Split
+    the herd:
+  </p>
+  <ul>
+    <li><strong>Near</strong> (on screen, large): full fidelity — every sweep, every frame.</li>
+    <li><strong>Far</strong> (distant, tiny): fewer iterations, and updated every Nth frame,
+      round-robined by entity index so the cost spreads evenly across frames.</li>
+  </ul>
+  <p>
+    The eye can't tell. The budget very much can — a small near-band at high fidelity plus a
+    cheap amortized far-band routinely turns a 50ms frame into a 5ms one. That's the whole game
+    at scale, and the playground lets you feel exactly where the wall is.
+  </p>
+
+  <h2>The playground: the frame budget</h2>
+  <p>
+    The bar is your 16.6ms frame (the ✦ mark is a tighter 8ms target). Crank the count and
+    watch the bar fill; the field shows a representative <em>sample</em> — near creatures
+    (bottom, bright) simulate every frame, far ones (top, dim) update choppily under LOD. Your
+    job: keep the bar in the black.
+  </p>
+
+  <div class="sim" id="sim">
+    <canvas id="scaleCanvas" height="360"></canvas>
+    <div class="sim-controls">
+      <label>creatures <span class="value" id="v-count">2000</span>
+        <input type="range" id="s-count" min="500" max="50000" step="500" value="2000"></label>
+      <label>near fidelity (iters) <span class="value" id="v-iter">8</span>
+        <input type="range" id="s-iter" min="1" max="16" value="8"></label>
+      <label>near band % <span class="value" id="v-near">100</span>
+        <input type="range" id="s-near" min="2" max="100" value="100"></label>
+      <label>far update ÷ <span class="value" id="v-div">1</span>
+        <input type="range" id="s-div" min="1" max="8" value="1"></label>
+    </div>
+    <div class="sim-readout">
+      modeled: <span id="r-ms">–</span>ms / 16.6ms · <span id="r-pct">–</span>% budget
+      · near <span id="r-near">–</span> / far <span id="r-far">–</span>
+    </div>
+  </div>
+
+  <div class="challenge" id="ch1">
+    <span class="status">☐</span> <strong>Challenge 1 — The wall.</strong>
+    Simulate <em>15,000</em> creatures at <em>near fidelity ≥ 8</em>, under 16.6ms. Push the
+    count first with no LOD and watch the bar go red at ~21ms — then discover what brings it
+    back without dropping near fidelity.
+  </div>
+  <div class="challenge" id="ch2">
+    <span class="status">☐</span> <strong>Challenge 2 — The crowd.</strong>
+    Now <em>40,000</em> creatures, near fidelity ≥ 6, under the ✦ <em>8ms</em> mark (half the
+    frame — the rest belongs to rendering and gameplay). Only aggressive LOD gets you there:
+    a small near band and a high far divisor.
+  </div>
+
+  <h2>The assembled pipeline</h2>
+  <div class="dots-mapping">
+    <span class="callout-label">DOTS mapping — all six lessons, ordered and gated</span>
+    <p style="margin-top:0">
+      The full creature is a fixed chain of systems, one dependency line, gated by a per-entity
+      LOD tier. Everything runs in <code>FixedStepSimulationSystemGroup</code> — every lesson
+      assumed a fixed timestep, and this is where that promise is kept.
+    </p>
+<pre><code>// One enableable tier tag flips near/far with no structural change:
+public struct FarLOD : IComponentData, IEnableableComponent { }
+
+// System order = the data-flow you built across six lessons:
+//   1. SecondOrderJob   — juice filters advance          (L6)
+//   2. GaitSystem       — writes IK targets              (L4)
+//   3. IkSolveJob       — 2-bone analytic / FABRIK       (L3/L5)
+//   4. MuscleJob        — goal/rhythm/tone + grab blend   (L2/L5)
+//   5. ChainSolveJob    — verlet integrate + pin + sweeps (L1)
+// Each is one IJobEntity; dependencies chain 1→5, no sync points between.
+
+[BurstCompile]
+partial struct ChainSolveJob : IJobEntity
+{
+    public float T;
+    public int   FrameParity;   // for round-robin far updates
+
+    void Execute(Entity e, ref DynamicBuffer&lt;VerletPoint&gt; pts,
+                 in ChainSettings s, EnabledRefRO&lt;FarLOD&gt; far)
+    {
+        // LOD gate: far creatures run fewer sweeps, and only every Nth frame
+        int iters = s.Iterations;
+        if (far.ValueRO)
+        {
+            if ((e.Index & 3) != FrameParity) return;   // ~1/4 frames, spread by index
+            iters = math.min(iters, 2);
+        }
+        Integrate(pts, s, T);
+        for (int k = 0; k &lt; iters; k++) Relax(pts, s);
+    }
+}</code></pre>
+    <p style="margin-bottom:0">
+      Note what makes this scale: no lookups (Pattern 2), the buffer is inline (Pattern 4),
+      the LOD gate is a branch on a cheap enableable flag not a structural query (Pattern 3),
+      and the far round-robin (<code>e.Index &amp; 3</code>) amortizes the far herd across four
+      frames so no single frame spikes. Assign the <code>FarLOD</code> flag in a lightweight
+      culling system from on-screen bounds; it's the only cross-cutting decision the whole
+      pipeline needs.
+    </p>
+  </div>
+
+  <h2>Check yourself</h2>
+  <p>From memory — you're reasoning about a budget now, not a behaviour.</p>
+  <div id="quiz"></div>
+
+  <h2>Where to go deeper</h2>
+  <p>
+    <strong>Primary sources:</strong> Unity's
+    <a href="https://learn.unity.com/course/dots-best-practices">DOTS Best Practices</a> course
+    (the "minimizing cache misses" unit is the one that pays off here), the
+    <a href="https://docs.unity3d.com/Packages/com.unity.entities@1.0/manual/components-enableable-intro.html">enableable
+    components</a> manual (Pattern 3), and
+    <a href="https://docs.unity3d.com/Packages/com.unity.entities@1.3/manual/components-buffer-set-capacity.html">setting
+    buffer capacity</a> (Pattern 4). Verify against your installed Entities version — these are
+    live APIs that shift between minor releases.
+  </p>
+  <p>
+    Compressed patterns + the cost model: <a href="../reference/scale-cheatsheet.html">scale
+    cheatsheet</a> · new terms in the <a href="../reference/glossary.html">glossary</a>.
+  </p>
+
+  <div class="lesson-footer">
+    <p>
+      <strong>Suggested real-world rep:</strong> take your graduation-build creature to a
+      thousand instances, then profile it. Find your real per-creature cost, then add the
+      <code>FarLOD</code> gate and watch the count you can afford multiply. The numbers in the
+      playground are illustrative; <em>your</em> numbers come from the profiler, and learning
+      to read them is the skill. Last lesson on the spine: wrapping all of this into a clean
+      toolkit <em>package</em> — the interface your future games consume.
+    </p>
+    <p>
+      Stuck or curious? Run <code>/teach</code> and ask. Sharp questions here: "how do I keep
+      determinism with round-robin far updates?" (fixed step + index-stable ordering) and
+      "when is a chunk component better than an enableable flag for LOD tiers?" (when tiers are
+      stable for many frames — fewer branches, better packing).
+    </p>
+  </div>
+</div>
+
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const canvas = document.getElementById('scaleCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const S = {
+    count: document.getElementById('s-count'),
+    iter:  document.getElementById('s-iter'),
+    near:  document.getElementById('s-near'),
+    div:   document.getElementById('s-div'),
+  };
+  const Vl = {
+    count: document.getElementById('v-count'),
+    iter:  document.getElementById('v-iter'),
+    near:  document.getElementById('v-near'),
+    div:   document.getElementById('v-div'),
+  };
+  const rMs = document.getElementById('r-ms'), rPct = document.getElementById('r-pct'),
+        rNear = document.getElementById('r-near'), rFar = document.getElementById('r-far');
+
+  // cost model (mirrors budget_check.py exactly)
+  const BASE = 0.4, PER_ITER = 0.13, FAR_ITERS = 2, BUDGET = 16.6;
+  function model() {
+    const count = +S.count.value, iters = +S.iter.value;
+    const nearBand = +S.near.value / 100, farDiv = +S.div.value;
+    const near = Math.round(count * nearBand);
+    const far = count - near;
+    const nearEach = BASE + iters * PER_ITER;
+    const farEach = (BASE + FAR_ITERS * PER_ITER) / farDiv;
+    const ms = (near * nearEach + far * farEach) / 1000;
+    return { count, iters, nearBand, farDiv, near, far, ms };
+  }
+
+  let dpr = 1, W = 0, H = 360;
+  const BUDGET_AREA = 54;          // px reserved at bottom for the budget bar
+  let frame = 0;
+
+  // sample field of creatures (fixed count, representative of the distribution)
+  const COLS = 26, ROWS = 9;
+  const sample = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const depth = r / (ROWS - 1);           // 0 = near (bottom drawn), 1 = far (top)
+      sample.push({
+        col: c, row: r, depth,
+        phase: Math.random() * Math.PI * 2,
+        y: 0, yd: 0,                            // tiny second-order bob state
+        drawn: Math.random(),
+      });
+    }
+  }
+
+  function resize() {
+    dpr = window.devicePixelRatio || 1;
+    W = canvas.clientWidth;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  // second-order bob constants (fixed lively feel; callback to L6)
+  const k1 = 1 / (Math.PI * 2.2), k2 = 1 / ((2 * Math.PI * 2.2) ** 2), k3 = 0;
+
+  function step(dt, m) {
+    frame++;
+    const fieldH = H - BUDGET_AREA;
+    for (let i = 0; i < sample.length; i++) {
+      const cr = sample[i];
+      const isNear = (1 - cr.depth) <= m.nearBand;   // depth 0 (bottom) is nearest camera
+      const doUpdate = isNear || (frame % m.farDiv === i % m.farDiv);
+      if (doUpdate) {
+        cr.phase += dt * (2.0 + cr.depth * 0.0) * m.farDiv * (isNear ? 1 / m.farDiv : 1);
+        const target = Math.sin(cr.phase) * 6;
+        const T = dt * (isNear ? 1 : m.farDiv);       // far integrates larger steps (amortized)
+        const k2s = Math.max(k2, T * T / 2 + T * k1 / 2, T * k1);
+        cr.y += T * cr.yd;
+        cr.yd += T * (target + k3 * 0 - cr.y - k1 * cr.yd) / k2s;
+      }
+      cr.isNear = isNear;
+    }
+  }
+
+  function draw(m) {
+    ctx.clearRect(0, 0, W, H);
+    const fieldH = H - BUDGET_AREA;
+    const cw = W / COLS, chh = fieldH / ROWS;
+
+    for (const cr of sample) {
+      const cx = (cr.col + 0.5) * cw;
+      const cy = (cr.row + 0.5) * chh + cr.y;
+      const near = cr.isNear;
+      const scale = near ? 1 : 0.55;
+      const base = Math.min(cw, chh) * 0.24 * scale;
+      const stretch = Math.min(Math.abs(cr.yd) / 90, 0.6);
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, base * (1 + stretch), base / (1 + stretch), 0, 0, Math.PI * 2);
+      ctx.fillStyle = near ? 'rgba(232,176,76,0.95)' : 'rgba(120,140,160,0.38)';
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // divider
+    ctx.strokeStyle = 'rgba(217,210,196,0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, fieldH + 2); ctx.lineTo(W, fieldH + 2); ctx.stroke();
+
+    // budget bar
+    const barX = 16, barY = fieldH + 20, barW = W - 32, barH = 20;
+    const over = m.ms > BUDGET;
+    const fill = Math.min(m.ms / BUDGET, 1) * barW;
+    ctx.fillStyle = '#20242b';
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = over ? '#e05d3d' : '#3a9d5f';
+    ctx.fillRect(barX, barY, over ? barW : fill, barH);
+    if (over) {
+      // striped overflow hint
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.fillRect(barX, barY, barW, barH);
+    }
+    // 8ms mark
+    const mark8 = barX + (8 / BUDGET) * barW;
+    ctx.strokeStyle = '#f6e7c8'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(mark8, barY - 3); ctx.lineTo(mark8, barY + barH + 3); ctx.stroke();
+    ctx.fillStyle = '#f6e7c8'; ctx.font = '11px sans-serif';
+    ctx.fillText('✦ 8ms', mark8 + 4, barY - 5);
+    // budget label
+    ctx.fillStyle = over ? '#e05d3d' : '#3a9d5f';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(over ? 'OVER BUDGET' : 'within budget', barX + barW, barY - 5);
+    ctx.textAlign = 'left';
+
+    // readouts
+    rMs.textContent = m.ms.toFixed(1);
+    rMs.className = over ? '' : 'ok';
+    rPct.textContent = (m.ms / BUDGET * 100).toFixed(0);
+    rNear.textContent = m.near.toLocaleString();
+    rFar.textContent = m.far.toLocaleString();
+  }
+
+  // ---------- challenges ----------
+  const ch = [
+    { el: document.getElementById('ch1'), frames: 0, done: false,
+      test: (m) => m.count >= 15000 && m.iters >= 8 && m.ms <= BUDGET },
+    { el: document.getElementById('ch2'), frames: 0, done: false,
+      test: (m) => m.count >= 40000 && m.iters >= 6 && m.ms <= 8.0 },
+  ];
+  function checkChallenges(m) {
+    for (const c of ch) {
+      if (c.done) continue;
+      c.frames = c.test(m) ? c.frames + 1 : 0;
+      if (c.frames > 45) {
+        c.done = true;
+        c.el.classList.add('done');
+        c.el.querySelector('.status').textContent = '✓';
+      }
+    }
+  }
+
+  // ---------- wiring ----------
+  for (const key of Object.keys(S)) {
+    S[key].addEventListener('input', () => {
+      Vl[key].textContent = key === 'count' ? (+S[key].value).toLocaleString() : S[key].value;
+    });
+  }
+  Vl.count.textContent = (+S.count.value).toLocaleString();
+  new ResizeObserver(() => resize()).observe(canvas);
+
+  resize();
+  let last = performance.now();
+  (function loop(now) {
+    const dt = Math.min((now - last) / 1000, 1 / 30);
+    last = now;
+    const m = model();
+    step(1 / 60, m);
+    draw(m);
+    checkChallenges(m);
+    requestAnimationFrame(loop);
+  })(last);
+
+  // ---------- quiz ----------
+  Quiz.render(document.getElementById('quiz'), [
+    {
+      prompt: 'Why parallelize across creatures rather than within a chain?',
+      options: [
+        'A chain is sequential; independent creatures are not',
+        'A chain has too few points to fill a job worker',
+        'A chain must finish before rendering can begin',
+      ],
+      answer: 0,
+      explain: 'Each link reads its neighbour, so a chain resists internal parallelism. But ten thousand creatures are fully independent — one IJobEntity solves each start-to-finish, contention-free and chunk-friendly.',
+    },
+    {
+      prompt: 'What is the point of making "dead" or "swinging" enableable components?',
+      options: [
+        'Toggling them causes no structural change or sync point',
+        'They compress better than boolean fields in the chunk',
+        'They can be read from other entities without a lookup',
+      ],
+      answer: 0,
+      explain: 'Adding/removing components moves archetypes and stalls all workers at a sync point. An enableable flag flips in place — no archetype change, no ECB — so state churn stays cheap at scale.',
+    },
+    {
+      prompt: 'Where do the orders-of-magnitude scale wins actually come from?',
+      options: [
+        'Simulation LOD — cheap, amortized updates for the far herd',
+        'Higher iteration counts so fewer frames are needed',
+        'Larger internal buffer capacities on every chain',
+      ],
+      answer: 0,
+      explain: 'Per-creature tuning has a floor. LOD attacks the other factor — how many you pay full price for — by dropping distant creatures to few iterations updated every Nth frame. The eye misses it; the budget doesn’t.',
+    },
+    {
+      prompt: 'Why round-robin far updates by entity index (e.Index & 3)?',
+      options: [
+        'To spread the far herd’s cost evenly across frames',
+        'To randomize which creatures look highest fidelity',
+        'To avoid reading the same chunk twice per frame',
+      ],
+      answer: 0,
+      explain: 'If all far creatures updated on the same frame, that frame spikes. Gating by index parity means ~1/4 update each frame, so the amortized cost is smooth instead of a periodic stutter.',
+    },
+  ]);
+})();
+</script>

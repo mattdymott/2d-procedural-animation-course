@@ -1,0 +1,69 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Gait Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Gait Cheatsheet</h1>
+  <p class="lede">Event-driven stepping for IK legs. Taught in
+    <a href="../lessons/0004-gait-stepping.html">Lesson 4</a>; composes
+    <a href="two-bone-ik-cheatsheet.html">two-bone IK</a> with a two-state machine per foot.</p>
+
+  <h2>The state machine</h2>
+<pre><code>PLANTED  — IK target = plant point (a kept promise; body moves past it)
+SWINGING — IK target = arc from old plant to new (fixed duration)
+
+PLANTED → SWINGING:  stress > comfort  AND  partner is planted
+SWINGING → PLANTED:  swing timer reaches 1</code></pre>
+
+  <h2>The three rules</h2>
+  <table>
+    <tr><th>Rule</th><th>Formula</th><th>Tuning</th></tr>
+    <tr>
+      <td><strong>Trigger</strong></td>
+      <td><code>stress = |plant − home|</code>, step when <code>&gt; comfort</code>, partner planted</td>
+      <td>Comfort ≲ half of max ground reach. Partner guard = whole coordination system; alternation is emergent</td>
+    </tr>
+    <tr>
+      <td><strong>Target</strong></td>
+      <td><code>target = home + bodyVel · lead</code>, clamped to reach annulus</td>
+      <td>lead 0.1–0.3s. Zero lead → lands already stressed → limping. The highest-value dial</td>
+    </tr>
+    <tr>
+      <td><strong>Swing</strong></td>
+      <td><code>x: lerp(from, to, smoothstep(t))</code> · <code>y: ground − h·4t(1−t)</code></td>
+      <td>Fixed duration 0.1–0.4s. Parabola lands soft automatically. Faster body ⇒ more steps, not faster swings</td>
+    </tr>
+  </table>
+
+  <h2>What emerges (never author these)</h2>
+  <ul>
+    <li>Step frequency and stride length — consequences of speed × the three dials.</li>
+    <li>Alternation — from the partner guard alone (quadrupeds: partner = diagonal pair).</li>
+    <li>Idle shuffling, turnaround steps — the trigger fires whenever circumstances demand.</li>
+  </ul>
+
+  <h2>Reading strain (IK clamp as diagnostic)</h2>
+  <table>
+    <tr><th>Pattern</th><th>Meaning</th><th>Fix</th></tr>
+    <tr><td>Strain blip (1–2 frames) at direction change</td><td>Natural pivot stress</td><td>None — it reads as animal</td></tr>
+    <tr><td>Sustained strain while cruising</td><td>Stress outgrows reach during partner's swing</td><td>comfort ↓, duration ↓, lead ↑ (any/all)</td></tr>
+    <tr><td>Foot lands then immediately re-steps (limp)</td><td>No lead — landing already stressed</td><td>lead ↑</td></tr>
+    <tr><td>Both feet frozen, body stretching away</td><td>Partner guard deadlock (both over comfort, neither yields)</td><td>Let the more-stressed leg win, or force-step past hard limit</td></tr>
+  </table>
+
+  <h2>Extensions</h2>
+  <ul>
+    <li><strong>Uneven ground:</strong> home = raycast down from hip; plant on the hit point.</li>
+    <li><strong>Phase-driven alternative:</strong> pin feet on a per-leg sine metronome (offset π) —
+      regular, confident gaits; see <a href="https://blog.littlepolygon.com/posts/loco2/">Little
+      Polygon loco series</a>. Event-driven reads reactive/animal; pick per creature personality.</li>
+    <li><strong>Full creature tick order:</strong> body/verlet + muscles → gait writes IK targets →
+      IK solve → feet pinned into verlet buffer → hard sweeps.</li>
+  </ul>
+
+  <div class="lesson-footer">
+    <p>See also: <a href="glossary.html">glossary</a> · <a href="two-bone-ik-cheatsheet.html">two-bone IK</a> · <a href="muscles-cheatsheet.html">muscles</a> · <a href="verlet-chain-cheatsheet.html">verlet chains</a></p>
+  </div>
+</div>
