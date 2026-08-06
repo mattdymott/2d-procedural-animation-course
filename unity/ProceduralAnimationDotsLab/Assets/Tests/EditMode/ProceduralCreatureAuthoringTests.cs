@@ -62,6 +62,9 @@ namespace ProceduralAnimationDotsLab.Tests
                 Assert.That(world.EntityManager.GetBuffer<ContactPlane>(entity).Length, Is.EqualTo(1));
                 Assert.That(world.EntityManager.GetBuffer<FootholdCandidate>(entity).Length, Is.EqualTo(0));
 
+                Assert.That(world.EntityManager.HasComponent<CreatureLocomotion>(entity), Is.True,
+                    "The package front door must bake package-owned locomotion input for consumers.");
+
                 var firstPoint = world.EntityManager.GetBuffer<VerletPoint>(entity)[0];
                 Assert.That(firstPoint.Position, Is.EqualTo(new float2(3f, -1f)));
                 Assert.That(firstPoint.PreviousPosition, Is.EqualTo(firstPoint.Position));

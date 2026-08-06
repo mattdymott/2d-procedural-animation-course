@@ -32,6 +32,20 @@ plants, swing progress, support relations, and carry state are initialized by
 the Baker or established during the first simulation tick; consumers should
 not construct or mutate them directly.
 
+## Supplying world facts
+
+Before the package solve runs, a consumer writes `CreatureLocomotion` with the
+desired root velocity and refreshes the creature's `FootholdCandidate` buffer.
+`CreatureLocomotionSystem` applies desired and carry velocity to the private
+body state; package systems then integrate the chain, advance gait, and solve
+the legs. A terrain, physics, or support adapter may also create entities with
+`SupportPose` and `SupportKinematics` for moving and conveyor surfaces.
+
+The in-project `PackageConsumer` assembly is a compile-time tracer for this
+interface. It references only the package assemblies, authors a creature with
+`ProceduralCreatureAuthoring`, and supplies patrol plus flat-ground adapters
+without referencing the lab runtime assembly.
+
 ## Runtime dependencies
 
 The core package depends only on `com.unity.entities` (and its transitive

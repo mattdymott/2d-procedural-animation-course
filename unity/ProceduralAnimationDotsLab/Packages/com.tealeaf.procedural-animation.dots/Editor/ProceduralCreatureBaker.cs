@@ -21,6 +21,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
                 MuscleStrength = math.max(0f, authoring.MuscleStrength),
             });
             AddComponent(entity, new CreatureBody { RootPosition = root });
+            AddComponent<CreatureLocomotion>(entity);
 
             var points = AddBuffer<VerletPoint>(entity);
             for (var index = 0; index < segmentCount; index++)

@@ -1,0 +1,23 @@
+{
+  "name": "PackageConsumer.Tests",
+  "rootNamespace": "ProceduralAnimationPackageConsumer.Tests",
+  "references": [
+    "PackageConsumer.Runtime",
+    "PackageConsumer.Editor",
+    "Tealeaf.ProceduralAnimation.Dots.Editor",
+    "Tealeaf.ProceduralAnimation.Dots.Runtime",
+    "Unity.Entities",
+    "Unity.Collections",
+    "Unity.Core"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

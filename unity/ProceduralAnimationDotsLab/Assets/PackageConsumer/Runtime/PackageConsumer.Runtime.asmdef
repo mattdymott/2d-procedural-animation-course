@@ -1,0 +1,10 @@
+{
+  "name": "PackageConsumer.Runtime",
+  "rootNamespace": "ProceduralAnimationPackageConsumer",
+  "references": [
+    "Tealeaf.ProceduralAnimation.Dots.Runtime",
+    "Unity.Entities",
+    "Unity.Collections",
+    "Unity.Mathematics"
+  ]
+}

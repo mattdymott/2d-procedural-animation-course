@@ -10,8 +10,11 @@ namespace Tealeaf.ProceduralAnimation.Dots
 
     public struct ChainTarget : IComponentData { public float2 Position; }
 
-    /// <summary>Runtime-owned body root and liftoff carry state. Consumers write RootPosition.</summary>
+    /// <summary>Runtime-owned body root and liftoff carry state.</summary>
     public struct CreatureBody : IComponentData { public float2 RootPosition; public float2 CarryVelocity; }
+
+    /// <summary>Consumer-owned desired root velocity, applied at the start of each package tick.</summary>
+    public struct CreatureLocomotion : IComponentData { public float2 DesiredVelocity; }
 
     public struct ContactPlane : IBufferElementData { public float2 Point; public float2 Normal; public float Radius; public float Friction; }
 
