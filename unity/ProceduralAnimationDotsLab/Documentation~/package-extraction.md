@@ -139,6 +139,19 @@ that order; callers target the group rather than its internal systems. The
 fresh `PackageConsumer` tracer supplies patrol and flat-ground adapters without
 referencing the lab runtime assembly.
 
+The solver, gait, and authoring tests now live in the package's own
+`Tests/Editor` assembly, and the project manifest lists the package under
+`testables`.
+
+The lab is now the package's `Samples~/Lab` sample. Its creature and elevator
+are authored in a sub scene with `ProceduralCreatureAuthoring` plus three small
+lab adapter components, so no consumer code constructs chain points, plants, or
+swing state. `VerletChainDemo` is read-only presentation bound to baked
+entities, and `LabSampleBakingTests` traces the whole sample through the public
+interface. The repository also commits the imported copy under
+`Assets/Samples/…` so a clone can open `Scenes/Lab.unity` and press play;
+`Samples~/Lab` remains the source of truth.
+
 ## What moves and what remains a sample
 
 | Current lab responsibility | Package destination | Notes |
@@ -170,9 +183,10 @@ abstraction until there are multiple contact providers.
 5. Move `VerletChainDemo` and the lesson scene into Samples~, and add one
    end-to-end bake-and-tick test through the public interface.
 
-Each step leaves the lab runnable. The package is ready to publish only after a
-fresh consumer can author a creature and provide its own world facts without
-referencing the sample assembly.
+All five steps are done. Each step left the lab runnable. The remaining work
+before publishing is packaging polish rather than interface extraction:
+`Documentation~` inside the package, a changelog and licence, and a second real
+consumer to justify widening scope.
 
 ## Acceptance checks
 

@@ -1,21 +1,26 @@
 # Tealeaf Procedural Animation DOTS
 
-An embedded-package scaffold for the 2D grounded-appendage runtime extracted
-from `ProceduralAnimationDotsLab`.
+An embedded package holding the 2D grounded-appendage runtime extracted from
+`ProceduralAnimationDotsLab`.
 
 The package owns the 2D Verlet-chain, gait, contact, and two-bone IK solve
-pipeline. The lab consumes it through an assembly reference while retaining
-only demo patrol intent, world-fact adapters, and line-renderer presentation.
+pipeline. The teaching lab is now the `Lab` sample: patrol policy, world-fact
+adapters, and line-renderer presentation, all outside the package Runtime.
 
-## Intended layout
+## Layout
 
 ```text
 Runtime/        Package-owned solve group, state, helpers, and creature recipe
 Editor/         Creature Baker, validation, and derived previews
-Tests/Editor/   Public-interface bake-and-tick coverage
-Samples~/Lab/   The current demo, terrain/support adapters, and presentation
+Tests/Editor/   Solver, gait, and authoring coverage
+Samples~/Lab/   The teaching lab: adapters, presentation, and its scenes
 Documentation~/ Package usage and integration contract
 ```
+
+Install the `Lab` sample from the Package Manager to get a runnable scene. In
+this repository the imported copy is already committed under
+`Assets/Samples/Tealeaf Procedural Animation DOTS/<version>/Lab`, so
+`Scenes/Lab.unity` opens and plays from a fresh clone.
 
 The extraction contract lives at
 [`../../Documentation~/package-extraction.md`](../../Documentation~/package-extraction.md).
@@ -48,7 +53,10 @@ schedule adapters before this group; they do not schedule individual solvers.
 The in-project `PackageConsumer` assembly is a compile-time tracer for this
 interface. It references only the package assemblies, authors a creature with
 `ProceduralCreatureAuthoring`, and supplies patrol plus flat-ground adapters
-without referencing the lab runtime assembly.
+without referencing the sample assembly.
+
+The `Lab` sample is the worked example of the same seam with a moving support
+and non-flat terrain. See its README for what belongs to a consumer.
 
 ## Runtime dependencies
 

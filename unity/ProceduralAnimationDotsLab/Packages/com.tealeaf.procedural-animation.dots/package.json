@@ -6,5 +6,12 @@
   "description": "2D grounded procedural appendage animation for Unity DOTS.",
   "dependencies": {
     "com.unity.entities": "6.5.0"
-  }
+  },
+  "samples": [
+    {
+      "displayName": "Lab",
+      "description": "The teaching lab: an authored creature, lesson terrain and moving-support adapters, and line-renderer presentation.",
+      "path": "Samples~/Lab"
+    }
+  ]
 }
