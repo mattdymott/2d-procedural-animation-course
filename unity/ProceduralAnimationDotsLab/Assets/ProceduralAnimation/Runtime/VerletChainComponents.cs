@@ -3,10 +3,16 @@ using Unity.Mathematics;
 
 namespace ProceduralAnimationDotsLab
 {
-    /// <summary>Lesson-only patrol intent. Gameplay owns root motion in a consuming project.</summary>
-    public struct CreatureIntent : IComponentData
+    /// <summary>
+    /// Lesson-only patrol policy. It writes <c>CreatureLocomotion</c> before the package
+    /// solve group; gameplay owns that decision in a consuming project.
+    /// </summary>
+    public struct LabCreaturePatrol : IComponentData
     {
-        public float2 DesiredVelocity;
+        public float Speed;
+        public float Direction;
+        public float MinimumX;
+        public float MaximumX;
     }
 
     public struct DemoMovingSupport : IComponentData

@@ -93,7 +93,6 @@ namespace ProceduralAnimationDotsLab
             var points = entityManager.GetBuffer<VerletPoint>(entity, true);
             var target = entityManager.GetComponentData<ChainTarget>(entity).Position;
             var body = entityManager.GetComponentData<CreatureBody>(entity);
-            UpdatePatrolIntent(entity, body);
             UpdateCamera(body);
             var limbs = entityManager.GetBuffer<Limb2BoneLeg>(entity, true);
             var gaitLegs = entityManager.GetBuffer<GaitLeg>(entity, true);
@@ -149,7 +148,7 @@ namespace ProceduralAnimationDotsLab
                 ComponentType.ReadOnly<VerletChain>(),
                 ComponentType.ReadOnly<VerletPoint>(),
                 ComponentType.ReadOnly<ChainTarget>(),
-                ComponentType.ReadOnly<CreatureIntent>(),
+                ComponentType.ReadOnly<CreatureLocomotion>(),
                 ComponentType.ReadOnly<CreatureBody>(),
                 ComponentType.ReadOnly<GaitSettings>(),
                 ComponentType.ReadOnly<GaitLeg>(),
@@ -187,7 +186,8 @@ namespace ProceduralAnimationDotsLab
                 ComponentType.ReadWrite<VerletChain>(),
                 ComponentType.ReadWrite<VerletPoint>(),
                 ComponentType.ReadWrite<ChainTarget>(),
-                ComponentType.ReadWrite<CreatureIntent>(),
+                ComponentType.ReadWrite<CreatureLocomotion>(),
+                ComponentType.ReadWrite<LabCreaturePatrol>(),
                 ComponentType.ReadWrite<CreatureBody>(),
                 ComponentType.ReadWrite<Limb2BoneLeg>(),
                 ComponentType.ReadWrite<GaitLeg>(),
@@ -201,9 +201,12 @@ namespace ProceduralAnimationDotsLab
                 Damping = 0.992f,
                 MuscleStrength = 0.08f,
             });
-            entityManager.SetComponentData(entity, new CreatureIntent
+            entityManager.SetComponentData(entity, new LabCreaturePatrol
             {
-                DesiredVelocity = new float2(0.8f, 0f),
+                Speed = 0.8f,
+                Direction = 1f,
+                MinimumX = -4f,
+                MaximumX = 0f,
             });
             entityManager.SetComponentData(entity, new CreatureBody
             {
@@ -406,17 +409,6 @@ namespace ProceduralAnimationDotsLab
             camera.orthographicSize = 4.5f;
             camera.transform.position = new Vector3(0f, 0f, -10f);
             camera.backgroundColor = new Color(0.06f, 0.09f, 0.14f);
-        }
-
-        void UpdatePatrolIntent(Entity entity, CreatureBody body)
-        {
-            var intent = entityManager.GetComponentData<CreatureIntent>(entity);
-            if (body.RootPosition.x > 0f)
-                intent.DesiredVelocity = new float2(-0.8f, 0f);
-            else if (body.RootPosition.x < -4f)
-                intent.DesiredVelocity = new float2(0.8f, 0f);
-
-            entityManager.SetComponentData(entity, intent);
         }
 
         void UpdateCamera(CreatureBody body)
