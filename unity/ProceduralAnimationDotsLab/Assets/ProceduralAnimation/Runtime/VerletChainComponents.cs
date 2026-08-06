@@ -22,4 +22,15 @@ namespace ProceduralAnimationDotsLab
     {
         public float2 Position;
     }
+
+    public struct Limb2Bone : IComponentData
+    {
+        public float2 Root;
+        public float2 Target;
+        public float LengthA;
+        public float LengthB;
+        public float BendSign;
+        public float2 Knee;
+        public float2 Foot;
+    }
 }

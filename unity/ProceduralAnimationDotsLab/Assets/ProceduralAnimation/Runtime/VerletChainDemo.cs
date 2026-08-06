@@ -11,6 +11,8 @@ namespace ProceduralAnimationDotsLab
         EntityQuery chainQuery;
         LineRenderer chainLine;
         LineRenderer targetMarker;
+        LineRenderer legLine;
+        LineRenderer footTargetMarker;
         bool isReady;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -25,6 +27,8 @@ namespace ProceduralAnimationDotsLab
             ConfigureCamera();
             chainLine = CreateLine("Chain", new Color(0.4f, 0.9f, 1f), 0.13f);
             targetMarker = CreateLine("Muscle Target", new Color(1f, 0.65f, 0.25f), 0.06f);
+            legLine = CreateLine("Two Bone Leg", new Color(0.96f, 0.4f, 0.65f), 0.11f);
+            footTargetMarker = CreateLine("Foot Target", new Color(0.98f, 0.86f, 0.4f), 0.06f);
             CreateChainWhenWorldIsReady();
         }
 
@@ -42,6 +46,7 @@ namespace ProceduralAnimationDotsLab
             var entity = chainQuery.GetSingletonEntity();
             var points = entityManager.GetBuffer<VerletPoint>(entity, true);
             var target = entityManager.GetComponentData<ChainTarget>(entity).Position;
+            var limb = entityManager.GetComponentData<Limb2Bone>(entity);
 
             chainLine.positionCount = points.Length;
             for (var index = 0; index < points.Length; index++)
@@ -50,6 +55,15 @@ namespace ProceduralAnimationDotsLab
             targetMarker.positionCount = 2;
             targetMarker.SetPosition(0, new Vector3(target.x - 0.16f, target.y, 0f));
             targetMarker.SetPosition(1, new Vector3(target.x + 0.16f, target.y, 0f));
+
+            legLine.positionCount = 3;
+            legLine.SetPosition(0, new Vector3(limb.Root.x, limb.Root.y, 0f));
+            legLine.SetPosition(1, new Vector3(limb.Knee.x, limb.Knee.y, 0f));
+            legLine.SetPosition(2, new Vector3(limb.Foot.x, limb.Foot.y, 0f));
+
+            footTargetMarker.positionCount = 2;
+            footTargetMarker.SetPosition(0, new Vector3(limb.Target.x - 0.18f, limb.Target.y, 0f));
+            footTargetMarker.SetPosition(1, new Vector3(limb.Target.x + 0.18f, limb.Target.y, 0f));
         }
 
         void CreateChainWhenWorldIsReady()
@@ -73,12 +87,20 @@ namespace ProceduralAnimationDotsLab
             var entity = entityManager.CreateEntity(
                 ComponentType.ReadWrite<VerletChain>(),
                 ComponentType.ReadWrite<VerletPoint>(),
-                ComponentType.ReadWrite<ChainTarget>());
+                ComponentType.ReadWrite<ChainTarget>(),
+                ComponentType.ReadWrite<Limb2Bone>());
             entityManager.SetComponentData(entity, new VerletChain
             {
                 LinkLength = 0.48f,
                 Damping = 0.992f,
                 MuscleStrength = 0.08f,
+            });
+            entityManager.SetComponentData(entity, new Limb2Bone
+            {
+                Target = new float2(0.6f, -2.5f),
+                LengthA = 1.2f,
+                LengthB = 1.45f,
+                BendSign = -1f,
             });
 
             var points = entityManager.GetBuffer<VerletPoint>(entity);

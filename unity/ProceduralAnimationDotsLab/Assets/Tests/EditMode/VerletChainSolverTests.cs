@@ -28,4 +28,62 @@ namespace ProceduralAnimationDotsLab.Tests
             Assert.That(second.Position, Is.EqualTo(new float2(2f, 3f)));
         }
     }
+
+    public sealed class TwoBoneIkSolverTests
+    {
+        [Test]
+        public void Solve_ProducesBothConfiguredBoneLengthsForAReachableTarget()
+        {
+            var limb = new Limb2Bone
+            {
+                Root = float2.zero,
+                Target = new float2(2.5f, 0f),
+                LengthA = 2f,
+                LengthB = 2f,
+                BendSign = 1f,
+            };
+
+            TwoBoneIkSolver.Solve(ref limb);
+
+            Assert.That(math.distance(limb.Root, limb.Knee), Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(math.distance(limb.Knee, limb.Foot), Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(limb.Knee.y, Is.GreaterThan(0f));
+        }
+
+        [Test]
+        public void Solve_ClampsAnUnreachableTargetToTheOuterReach()
+        {
+            var limb = new Limb2Bone
+            {
+                Root = float2.zero,
+                Target = new float2(10f, 0f),
+                LengthA = 2f,
+                LengthB = 1f,
+                BendSign = -1f,
+            };
+
+            TwoBoneIkSolver.Solve(ref limb);
+
+            Assert.That(math.distance(limb.Root, limb.Foot), Is.LessThan(3f));
+            Assert.That(math.distance(limb.Root, limb.Foot), Is.GreaterThan(2.999f));
+        }
+
+        [Test]
+        public void Solve_UsesAStableFallbackDirectionAtTheRoot()
+        {
+            var limb = new Limb2Bone
+            {
+                Root = new float2(3f, 4f),
+                Target = new float2(3f, 4f),
+                LengthA = 3f,
+                LengthB = 1f,
+                BendSign = 1f,
+            };
+
+            TwoBoneIkSolver.Solve(ref limb);
+
+            Assert.That(math.distance(limb.Root, limb.Foot), Is.GreaterThan(2f));
+            Assert.That(limb.Foot.x, Is.GreaterThan(limb.Root.x));
+        }
+    }
 }
