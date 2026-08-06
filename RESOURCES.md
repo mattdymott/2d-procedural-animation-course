@@ -33,6 +33,14 @@
 - [Docs: Baker overview & baking workflow — Unity Entities manual](https://docs.unity3d.com/Packages/com.unity.entities@1.0/manual/baking-baker-overview.html)
   Use for: the config-baked-once pattern (L8) — authoring MonoBehaviour + Baker<T> → immutable runtime IComponentData. Verified: bakers convert authoring components, must declare dependencies to re-run on change.
 
+- [Docs: Rigidbody2D.GetPointVelocity — Unity Scripting API](https://docs.unity3d.com/ScriptReference/Rigidbody2D.GetPointVelocity.html)
+  Use for: dynamic-support liftoff (L14). It defines velocity at a global contact point and includes the support's angular velocity, which prevents a rotating platform from incorrectly imparting only root motion.
+
+- [Docs: Programming with Gizmos and Handles — Unity Manual](https://docs.unity3d.com/Manual/gizmos-handles-programming.html)
+  Use for: authoring-time creature tools (L15). Unity positions scene handles as interactive editors for procedural, invisible, and grouped content—ideal for rest skeletons, reach guides, and gait zones.
+- [Docs: SerializedObject.ApplyModifiedProperties — Unity Scripting API](https://docs.unity3d.com/ScriptReference/SerializedObject.ApplyModifiedProperties.html)
+  Use for: custom-inspector and handle edits (L15). It applies pending serialized-property changes and records Undo before syncing the target object.
+
 ## Wisdom (Communities)
 
 - [Unity Discussions — Entity Component System forum](https://discussions.unity.com/tag/entities)

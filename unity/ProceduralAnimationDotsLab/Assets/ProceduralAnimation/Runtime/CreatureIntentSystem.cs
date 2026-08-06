@@ -1,4 +1,5 @@
 using Unity.Entities;
+using Unity.Mathematics;
 
 namespace ProceduralAnimationDotsLab
 {
@@ -10,7 +11,11 @@ namespace ProceduralAnimationDotsLab
         {
             var deltaTime = SystemAPI.Time.DeltaTime;
             foreach (var (body, intent) in SystemAPI.Query<RefRW<CreatureBody>, RefRO<CreatureIntent>>())
-                body.ValueRW.RootPosition += intent.ValueRO.DesiredVelocity * deltaTime;
+            {
+                var carryVelocity = body.ValueRO.CarryVelocity;
+                body.ValueRW.RootPosition += (intent.ValueRO.DesiredVelocity + carryVelocity) * deltaTime;
+                body.ValueRW.CarryVelocity = math.lerp(carryVelocity, float2.zero, math.saturate(deltaTime * 8f));
+            }
         }
     }
 }

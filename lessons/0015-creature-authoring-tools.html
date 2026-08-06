@@ -1,0 +1,85 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Lesson 15 — Creature Authoring Tools</title>
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="stylesheet" href="../assets/decision-grid.css">
+<style>
+.blueprint-lab{padding:1rem 1.1rem;font-family:-apple-system,"Segoe UI",sans-serif;background:#fff}.blueprint-lab canvas{width:100%;background:#20242b;cursor:default}.blueprint-lab .lab-row{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem 1.15rem;margin-top:.85rem;font-size:.84rem}.blueprint-lab label{display:flex;align-items:center;gap:.4rem;color:var(--muted)}.blueprint-lab input{accent-color:var(--accent);width:8.8rem}.blueprint-lab output{font-weight:700;color:var(--ink);min-width:2.2rem}.blueprint-lab .legend{font-size:.78rem;color:var(--muted)}.decision-card small{display:block;color:var(--muted);margin-top:.35rem;line-height:1.35}
+</style>
+<div class="page">
+<p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 15</p>
+<h1>Creature Authoring: Rules In, Preview Out</h1>
+<p class="lede">A creature editor should let you see and change the rules that produce motion. It should not serialize yesterday’s simulation or quietly turn a preview into the runtime authority.</p>
+
+<h2>The one move: author the recipe, derive the picture</h2>
+<p>Give a designer a small, meaningful <strong>blueprint</strong>: body segment count and length, leg reach, and comfort radius. From that blueprint, derive scene handles, guide lines, and a rest-pose preview every editor repaint. The preview is disposable; the blueprint is the only authored truth.</p>
+<div class="recipe"><span class="callout-label">Recipe · one-way authoring data flow</span><pre><code>// Saved and baked: stable inputs a designer can intentionally change.
+[Serializable]
+public struct CreatureBlueprint
+{
+    public int BodySegments;
+    public float SegmentLength;
+    public float LegReach;
+    public float StepRadius;
+}
+
+// Editor-only: derive visuals from the serialized blueprint.
+serializedObject.Update();
+DrawCreaturePreview(blueprint);              // handles, guides, labels
+DrawEditableRadiusHandle(stepRadiusProperty);
+serializedObject.ApplyModifiedProperties();  // edits + Undo
+
+// Never save or edit these as authoring data:
+// previousPosition, currentWorldPlant, gaitPhase, solverIteration</code></pre></div>
+<p>Unity’s <a href="https://docs.unity3d.com/Manual/gizmos-handles-programming.html">Gizmos and Handles guidance</a> calls out scene handles as tools for editing procedurally generated or invisible content. Pair them with <a href="https://docs.unity3d.com/ScriptReference/SerializedObject.ApplyModifiedProperties.html">SerializedObject.ApplyModifiedProperties</a>: edits flow back to serialized targets with Undo recorded, while your runtime starts cleanly from baked configuration.</p>
+
+<h2>The playground: a blueprint is not a snapshot</h2>
+<p>Adjust the four authoring controls. The drawing is an editor preview—helpful because it is immediately derived, safe because no slider stores a simulated joint or planted foot.</p>
+<div class="sim"><div class="blueprint-lab"><canvas id="lab" width="680" height="345" aria-label="Creature blueprint preview"></canvas><div class="lab-row"><label>Segments <input id="segments" type="range" min="3" max="10" value="6" step="1"><output id="segmentsOut"></output></label><label>Length <input id="length" type="range" min="24" max="58" value="38" step="2"><output id="lengthOut"></output></label><label>Leg reach <input id="reach" type="range" min="45" max="105" value="72" step="3"><output id="reachOut"></output></label><label>Comfort <input id="comfort" type="range" min="12" max="48" value="28" step="2"><output id="comfortOut"></output></label></div><p class="legend">gold = authored structure · rust rings = gait comfort zones · teal = derived rest-pose legs</p></div></div>
+
+<h2>Practice the boundary</h2>
+<p>Click every value that belongs in a reusable creature blueprint. When you have selected exactly the stable configuration, check your answer.</p>
+<div class="decision-grid" id="choices"></div><button type="button" id="check">Check selection</button><div class="decision-feedback" id="feedback">Select the values you would deliberately author and bake.</div>
+<div class="challenge" id="ch1"><span class="status">☐</span> <strong>Challenge 1 — Save rules, not history.</strong> Identify all and only the authoring configuration.</div>
+
+<h2>Scene handles are a view, not another model</h2>
+<table><tr><th>Layer</th><th>Owns</th><th>May persist?</th></tr><tr><td>Blueprint</td><td>Intentional, inspectable creature parameters</td><td>Yes—serialize and bake.</td></tr><tr><td>Editor preview</td><td>Rest skeleton, reach circles, labels, warnings</td><td>No—derive every repaint.</td></tr><tr><td>Runtime state</td><td>Verlet history, plant relation, gait phase, solver state</td><td>No—initialize or simulate after baking.</td></tr></table>
+<p>This is Lesson 8’s config/state split applied to tools. It keeps a scene handle from becoming a second source of truth, and keeps a paused, half-solved creature from becoming an asset default. A useful editor tool makes the invisible <em>legible</em>; it does not make the transient <em>authoritative</em>.</p>
+
+<div class="dots-mapping"><span class="callout-label">DOTS mapping</span><p style="margin-top:0">Treat the authoring component as the front door to the package. Its Baker copies only blueprint fields into immutable config components and allocates predictable runtime state separately. Preview code stays in an Editor assembly and uses the same pure geometry helpers where possible, but it never reads a live world to decide what the asset means.</p><pre><code>// Baker: stable recipe crosses the authoring/runtime boundary.
+AddComponent(entity, new ChainConfig
+{
+    SegmentCount = authoring.BodySegments,
+    RestLength   = authoring.SegmentLength,
+});
+AddComponent(entity, new GaitConfig
+{
+    LegReach = authoring.LegReach,
+    StepRadius = authoring.StepRadius,
+});
+
+// Runtime systems create and evolve their own positions, phases and plants.</code></pre><p style="margin-bottom:0">A second authoring lesson can add validation: warn when a requested leg reach cannot satisfy the two-bone annulus, before entering Play mode.</p></div>
+
+<h2>Check yourself</h2>
+<p>Retrieve the one-way data flow: configuration creates a preview; the preview never becomes configuration.</p>
+<div id="quiz"></div>
+
+<h2>Where to go deeper</h2>
+<p><strong>Primary source:</strong> Unity’s <a href="https://docs.unity3d.com/Manual/gizmos-handles-programming.html">Programming with Gizmos and Handles</a> manual explains why scene tools are particularly useful for procedurally generated and otherwise invisible content. Use it when you turn this blueprint into a real handle-based editor.</p>
+<p>Keep the <a href="../reference/creature-authoring-cheatsheet.html">creature authoring cheatsheet</a> beside <a href="../reference/package-design-cheatsheet.html">package API design</a> and <a href="../reference/creature-tick-cheatsheet.html">the creature tick</a>.</p>
+<div class="lesson-footer"><p><strong>Suggested real-world rep:</strong> make a <code>CreatureAuthoring</code> component for the L9 lizard with the four fields above. Draw its chain rest pose, each leg’s reach circle, and each home comfort circle in Scene view. Edit only through serialized properties; enter Play mode twice and verify neither a prior plant nor a verlet velocity survives.</p><p>Stuck or curious? Ask about Scene handles, authoring validation, live preview worlds, or turning this blueprint into a package-level EditorTool.</p></div>
+</div>
+<script src="../assets/quiz.js"></script>
+<script>
+(function(){'use strict';
+const ids=['segments','length','reach','comfort'],els=Object.fromEntries(ids.map(id=>[id,document.getElementById(id)])),outs=Object.fromEntries(ids.map(id=>[id,document.getElementById(id+'Out')])),canvas=document.getElementById('lab'),ctx=canvas.getContext('2d');
+function render(){const n=+els.segments.value,len=+els.length.value,reach=+els.reach.value,comfort=+els.comfort.value;outs.segments.value=n;outs.length.value=len;outs.reach.value=reach;outs.comfort.value=comfort;ctx.fillStyle='#20242b';ctx.fillRect(0,0,canvas.width,canvas.height);const root={x:105,y:145},points=[root];for(let i=1;i<=n;i++)points.push({x:root.x+i*len,y:root.y+14*Math.sin(i*.72)});ctx.strokeStyle='#f6d365';ctx.lineWidth=5;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(root.x,root.y);points.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));ctx.stroke();ctx.fillStyle='#f6d365';points.forEach((p,i)=>{ctx.beginPath();ctx.arc(p.x,p.y,i===0?8:5,0,Math.PI*2);ctx.fill();});const hips=[points[2],points[Math.max(3,n-1)]],side=[-1,1];hips.forEach((hip,i)=>{const home={x:hip.x+12,y:hip.y+78};ctx.strokeStyle='#b5442d';ctx.lineWidth=2;ctx.setLineDash([5,5]);ctx.beginPath();ctx.arc(home.x,home.y,comfort,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.strokeStyle='#3ed1c2';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(hip.x,hip.y);ctx.lineTo(home.x+side[i]*Math.min(comfort,reach*.18),home.y);ctx.stroke();ctx.fillStyle='#e9f7f4';ctx.beginPath();ctx.arc(home.x,home.y,5,0,Math.PI*2);ctx.fill();});ctx.fillStyle='#d9e0e8';ctx.font='13px system-ui';ctx.fillText('derived rest-pose preview',20,28);ctx.fillStyle='#f6d365';ctx.fillText('serialized body rule',20,310);ctx.fillStyle='#b5442d';ctx.fillText('serialized gait rule',260,310);}
+ids.forEach(id=>els[id].addEventListener('input',render));render();
+const cards=[{t:'Segment length',d:'Stable body proportion.',save:true},{t:'Leg reach',d:'Intentional limb proportion.',save:true},{t:'Comfort radius',d:'Gait tuning rule.',save:true},{t:'Previous position',d:'Verlet history from runtime.',save:false},{t:'Current world plant',d:'Temporary gait promise.',save:false},{t:'Solver iteration',d:'Transient solve progress.',save:false}],box=document.getElementById('choices'),check=document.getElementById('check'),feedback=document.getElementById('feedback'),selected=new Set();cards.forEach((x,i)=>{const b=document.createElement('button');b.type='button';b.className='decision-card';b.innerHTML='<strong>'+x.t+'</strong><small>'+x.d+'</small>';b.addEventListener('click',()=>{if(b.disabled)return;selected.has(i)?selected.delete(i):selected.add(i);b.classList.toggle('selected',selected.has(i));});box.appendChild(b);});check.addEventListener('click',()=>{const correct=cards.every((x,i)=>selected.has(i)===x.save);[...box.children].forEach((b,i)=>b.classList.add(cards[i].save?'correct':'incorrect'));if(correct){feedback.className='decision-feedback ok';feedback.textContent='✓ Correct. The blueprint holds stable intent; history and promises are born at runtime.';const ch=document.getElementById('ch1');ch.classList.add('done');ch.querySelector('.status').textContent='✓';}else{feedback.textContent='Not yet. Keep deliberate proportions and gait rules; exclude values that only exist because the simulation has already run.';}});
+Quiz.render(document.getElementById('quiz'),[
+{prompt:'What should the Scene-view creature preview be derived from?',options:['Serialized blueprint parameters such as segment lengths and gait limits','Mutable solver history such as previous positions and current phases','Rendered sprite transforms after presentation smoothing has already run'],answer:0,explain:'The preview makes durable authored intent visible. Runtime history is neither stable nor meaningful as an asset default.'},
+{prompt:'Which category should a Baker copy into runtime configuration?',options:['Stable authoring rules that define the creature before simulation begins','Transient positions and foot plants produced after simulation begins','Editor drawing colours and labels used only for scene inspection'],answer:0,explain:'Bake the recipe. Allocate and evolve runtime state separately; keep editor presentation in the Editor assembly.'},
+{prompt:'Why use serialized property editing for a custom authoring tool?',options:['It applies pending edits to targets and records Undo for those changes','It keeps per-frame gait simulation running while the inspector repaints','It converts a Scene handle directly into an ECS dynamic buffer entry'],answer:0,explain:'Unity’s SerializedObject workflow is the safe editing boundary. It changes intentional serialized fields rather than hidden runtime state.'},
+{prompt:'Who owns the final simulated foot plant during Play mode?',options:['Gait and support systems after the baked runtime world starts','The authoring Scene handle that drew the foot comfort circle','The rest-pose preview that was visible before entering Play mode'],answer:0,explain:'The preview is observational. Runtime systems own their mutable plants and must start them from explicit initialization.'}
+]);
+})();
+</script>

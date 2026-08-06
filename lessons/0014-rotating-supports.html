@@ -1,0 +1,75 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Lesson 14 — Rotating Supports</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.support-lab{padding:1rem 1.1rem;font-family:-apple-system,"Segoe UI",sans-serif;background:#fff}.support-lab canvas{width:100%;background:#20242b;cursor:default}.support-lab .lab-row{display:flex;flex-wrap:wrap;align-items:center;gap:.8rem 1.25rem;margin-top:.85rem;font-size:.86rem}.support-lab label{display:flex;align-items:center;gap:.45rem;color:var(--muted)}.support-lab input[type="range"]{accent-color:var(--accent);width:12rem}.support-lab output{font-weight:700;color:var(--ink);min-width:4rem}.answers{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.65rem;margin:1rem 0}.answer{min-height:6.9rem;border:1px solid var(--rule);border-radius:7px;background:var(--bg);color:var(--ink);padding:.75rem;text-align:left;font:inherit;cursor:pointer}.answer:hover:not(:disabled){border-color:var(--accent)}.answer:disabled{cursor:default;opacity:.8}.answer.good{border-color:var(--good);background:#eef6f0}.answer.bad{border-color:var(--bad);background:#f9ece8}.feedback{min-height:2.7rem;padding:.7rem .8rem;background:var(--sidebar-bg);border-left:3px solid var(--rule)}.feedback.ok{border-color:var(--good);background:#eef6f0}
+</style>
+<div class="page">
+<p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 14</p>
+<h1>Rotating Supports: Carry the Contact Point</h1>
+<p class="lede">A planted foot already rides a support by keeping a local point. At liftoff, though, the creature needs the velocity of <em>that point</em>. A turntable’s centre can be still while its rim is moving quickly.</p>
+
+<h2>The one move: evaluate velocity where the promise is</h2>
+<p>Use the same committed world plant that you feed to IK. Its support-point velocity is the support’s linear velocity plus a tangential term from rotation. In 2D, counter-clockwise angular velocity uses the perpendicular vector <code>perp(x, y) = (-y, x)</code>.</p>
+<div class="recipe"><span class="callout-label">Recipe · a relative plant on a rotating support</span><pre><code>// Planted: unchanged from Lesson 12.
+worldPlant = pose.TransformPoint(localPlant);
+ik.Target  = worldPlant;
+
+// Liftoff: sample the velocity of THIS material point.
+radius        = worldPlant - support.PivotWorld;
+pointVelocity = support.LinearVelocity
+              + support.AngularVelocityRad * Perp(radius);
+
+// If Lesson 13's belt is present, add its world surface travel too.
+carryVelocity = pointVelocity
+              + pose.TransformDirection(belt.VelocityLocal);</code></pre></div>
+<p><strong>The support root is not the contact point.</strong> On a static turntable, root velocity is zero; a planted rim point still moves tangentially. The point on the opposite side moves equally fast in the opposite direction. This is exactly what Unity’s <a href="https://docs.unity3d.com/ScriptReference/Rigidbody2D.GetPointVelocity.html">Rigidbody2D.GetPointVelocity</a> contract accounts for: velocity at a world point includes angular velocity.</p>
+
+<h2>The playground: read the tangent, not the centre</h2>
+<p>The platform centre is fixed. Move the planted foot around the rim and reverse the rotation. The teal arrow is the contact-point carry velocity that should be handed to the next swing; the short grey arrow is the root velocity.</p>
+<div class="sim"><div class="support-lab"><canvas id="lab" width="680" height="330" aria-label="Rotating support velocity playground"></canvas><div class="lab-row"><label>Angular speed <input id="omega" type="range" min="-180" max="180" value="90" step="15"><output id="omegaOut"></output></label><label>Plant angle <input id="angle" type="range" min="0" max="330" value="0" step="30"><output id="angleOut"></output></label></div><div class="sim-readout" id="readout"></div></div></div>
+<div class="challenge" id="ch1"><span class="status">☐</span> <strong>Challenge 1 — Name the carried motion.</strong> Choose what must be sampled when a planted foot leaves a rotating platform.</div>
+<div class="answers" id="answers"></div><div class="feedback" id="feedback">Choose the value that preserves continuity into the swing.</div>
+
+<h2>Keep the authority boundary</h2>
+<table><tr><th>Moment</th><th>Authority</th><th>Value</th></tr><tr><td>Landing</td><td>Gait</td><td>One support entity + one local plant.</td></tr><tr><td>Planted tick</td><td>Support adapter</td><td>Current world target from the local plant.</td></tr><tr><td>Liftoff</td><td>Support adapter → locomotion</td><td>Velocity at the current world plant.</td></tr><tr><td>Swing</td><td>Gait + IK</td><td>New world-space arc and its promise.</td></tr></table>
+<p>Do not infer this velocity from a renderer’s filtered transform, and do not substitute the platform’s centre velocity. The adapter evaluates an existing relation; gait still decides <em>whether</em> to release. This keeps the rule from Lessons 12–13 intact: sensing chooses a foothold once, then the relative promise carries it.</p>
+
+<div class="dots-mapping"><span class="callout-label">DOTS mapping</span><p style="margin-top:0">Snapshot support motion alongside pose data. The hot leg loop needs only a pivot, a linear velocity, an angular velocity in radians per second, and the already-resolved <code>WorldPlant</code>. That makes contact carry a pure <code>float2</code> calculation.</p><pre><code>public struct SupportMotion : IComponentData
+{
+    public float2 PivotWorld;
+    public float2 LinearVelocity;
+    public float AngularVelocityRad;
+}
+
+static float2 PointVelocity(in SupportMotion motion, float2 worldPoint)
+{
+    float2 r = worldPoint - motion.PivotWorld;
+    return motion.LinearVelocity + motion.AngularVelocityRad * new float2(-r.y, r.x);
+}</code></pre><p style="margin-bottom:0">If your support originates in Unity 2D physics, convert its documented degrees-per-second <code>angularVelocity</code> to radians once at the adapter boundary. The rest of the animation package stays unit-consistent.</p></div>
+
+<h2>Check yourself</h2>
+<p>Retrieve the contact-point rule before reading the answer. The options are deliberately close because this mistake often looks fine until liftoff.</p>
+<div id="quiz"></div>
+
+<h2>Where to go deeper</h2>
+<p><strong>Primary source:</strong> Unity’s <a href="https://docs.unity3d.com/ScriptReference/Rigidbody2D.GetPointVelocity.html">Rigidbody2D.GetPointVelocity reference</a> defines the relevant engine-level question—velocity at a specified global point—and states that angular velocity is included. This lesson extracts the small position-based recipe needed by a DOTS support adapter.</p>
+<p>Keep the <a href="../reference/rotating-support-cheatsheet.html">rotating support cheatsheet</a> beside <a href="../reference/conveyor-support-cheatsheet.html">conveyor supports</a> and <a href="../reference/moving-platform-cheatsheet.html">moving platforms</a>.</p>
+<div class="lesson-footer"><p><strong>Suggested real-world rep:</strong> add a rotating stone under the L9 lizard. Draw its current <code>WorldPlant</code>, <code>perp(WorldPlant − Pivot)</code>, and computed carry arrow. Step off at opposite rim points: the two launch velocities should oppose each other even while the stone centre remains fixed.</p><p>Stuck or curious? Ask about a support that disappears mid-plant, a rotating handhold, or friction/slipping policies. I can help you take the next branch.</p></div>
+</div>
+<script src="../assets/quiz.js"></script>
+<script>
+(function(){'use strict';
+const omega=document.getElementById('omega'),angle=document.getElementById('angle'),omegaOut=document.getElementById('omegaOut'),angleOut=document.getElementById('angleOut'),readout=document.getElementById('readout'),canvas=document.getElementById('lab'),ctx=canvas.getContext('2d');
+function drawArrow(x,y,dx,dy,color,label){ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+dx,y+dy);ctx.stroke();let a=Math.atan2(dy,dx);ctx.beginPath();ctx.moveTo(x+dx,y+dy);ctx.lineTo(x+dx-10*Math.cos(a-.45),y+dy-10*Math.sin(a-.45));ctx.lineTo(x+dx-10*Math.cos(a+.45),y+dy-10*Math.sin(a+.45));ctx.closePath();ctx.fill();ctx.font='12px system-ui';ctx.fillText(label,x+dx+7,y+dy+4);}
+function render(){let deg=+omega.value,theta=(+angle.value)*Math.PI/180,w=deg*Math.PI/180,cx=245,cy=165,R=100,px=cx+R*Math.cos(theta),py=cy-R*Math.sin(theta),vx=-w*(py-cy),vy=w*(px-cx);omegaOut.value=deg+'°/s';angleOut.value=angle.value+'°';ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#2b313a';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.strokeStyle='#697483';ctx.lineWidth=3;ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.stroke();ctx.strokeStyle='#697483';ctx.setLineDash([5,5]);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(px,py);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#f6d365';ctx.beginPath();ctx.arc(cx,cy,7,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f2f6f8';ctx.beginPath();ctx.arc(px,py,9,0,Math.PI*2);ctx.fill();let length=Math.min(105,Math.hypot(vx,vy)*.55);let n=Math.hypot(vx,vy)||1;drawArrow(px,py,vx/n*length,-vy/n*length,'#3ed1c2','contact velocity');ctx.strokeStyle='#9da7b3';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx-26,cy);ctx.lineTo(cx+26,cy);ctx.stroke();ctx.font='13px system-ui';ctx.fillStyle='#d9e0e8';ctx.fillText('root velocity = 0',395,72);ctx.fillStyle='#9da7b3';ctx.fillText('same rotating support; different contact point',395,100);readout.innerHTML='ω = <strong>'+deg+'°/s</strong> · radius = <strong>('+Math.round(px-cx)+', '+Math.round(cy-py)+')</strong> · point carry ≈ <strong>('+vx.toFixed(1)+', '+vy.toFixed(1)+')</strong> units/s';}
+omega.addEventListener('input',render);angle.addEventListener('input',render);render();
+const data=[{t:'The support centre’s linear velocity',d:'At a stationary turntable this says zero, so the foot loses the rim’s motion.',ok:false},{t:'Velocity at the current world plant',d:'It includes linear and tangential rotation motion at the contact point.',ok:true},{t:'The prior frame’s rendered foot velocity',d:'Presentation is not the authority for the physical handoff.',ok:false}],box=document.getElementById('answers'),out=document.getElementById('feedback');data.forEach(x=>{const b=document.createElement('button');b.type='button';b.className='answer';b.innerHTML='<strong>'+x.t+'</strong><small>'+x.d+'</small>';b.addEventListener('click',()=>{document.querySelectorAll('.answer').forEach(y=>y.disabled=true);b.classList.add(x.ok?'good':'bad');if(x.ok){out.className='feedback ok';out.textContent='✓ Correct. Evaluate the relation at the contact point: linear velocity + ω·perp(radius).';const c=document.getElementById('ch1');c.classList.add('done');c.querySelector('.status').textContent='✓';}else{out.textContent='That is incomplete. '+x.d;document.querySelectorAll('.answer')[1].classList.add('good');}});box.appendChild(b);});
+Quiz.render(document.getElementById('quiz'),[
+{prompt:'A platform rotates counter-clockwise with zero linear velocity. What is the velocity at its rightmost rim point?',options:['Upward because angular velocity multiplied by perpendicular radius is upward','Downward because the support centre has zero linear velocity there','Zero because a planted relative point cannot have a world velocity'],answer:0,explain:'For r = (R, 0), perp(r) = (0, R). Positive counter-clockwise angular velocity therefore produces an upward tangent.'},
+{prompt:'Which point should provide carry velocity when a foot lifts?',options:['The current world plant after the support pose has been evaluated','The support pivot before its local plant is transformed to world','The next raycast hit before gait has committed a new foothold'],answer:0,explain:'Carry is continuity from the relation that is ending. It is evaluated at the current committed contact point, not a root or a future sensing result.'},
+{prompt:'What extra term does a conveyor add to rotating-support carry?',options:['Surface velocity transformed from support-local into world direction','The support root position transformed from world into local point','A new contact normal queried beneath the planted foot every frame'],answer:0,explain:'Lesson 13 separates moving coordinates from material travelling through them. Add the latter to the point velocity at liftoff.'},
+{prompt:'Who still decides whether the foot releases from the support?',options:['The gait state machine using its existing plant and recovery rules','The support adapter whenever angular velocity crosses a threshold','The presentation filter after it has smoothed the rendered foot'],answer:0,explain:'The support adapter evaluates the existing relative promise. It does not decide locomotion state transitions.'}
+]);
+})();
+</script>

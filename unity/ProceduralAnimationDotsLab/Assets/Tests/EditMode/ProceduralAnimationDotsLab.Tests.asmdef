@@ -2,7 +2,9 @@
   "name": "ProceduralAnimationDotsLab.Tests",
   "rootNamespace": "ProceduralAnimationDotsLab.Tests",
   "references": [
-    "ProceduralAnimationDotsLab.Runtime"
+    "ProceduralAnimationDotsLab.Runtime",
+    "Unity.Entities",
+    "Unity.Collections"
   ],
   "includePlatforms": [
     "Editor"

@@ -257,6 +257,9 @@
       <td><a href="../lessons/0011-ground-aware-stepping.html">L11</a></td>
     </tr>
     <tr><td><strong>Relative plant</strong></td><td>A planted foot stored as a support entity plus a support-local point. Its world target is recomputed from the support transform each tick, so the promise rides a moving platform without skating.</td><td><a href="../lessons/0012-moving-platforms.html">L12</a></td></tr>
+    <tr><td><strong>Support-point velocity</strong></td><td>The world velocity at the current committed contact point: support linear velocity plus angular velocity times the perpendicular radius. It is the carry velocity source when the plant releases.</td><td><a href="../lessons/0014-rotating-supports.html">L14</a></td></tr>
+    <tr><td><strong>Creature blueprint</strong></td><td>The small serialized set of stable, deliberate creature rules (for example proportions, reach, and step radius) that an editor previews and a Baker turns into runtime configuration.</td><td><a href="../lessons/0015-creature-authoring-tools.html">L15</a></td></tr>
+    <tr><td><strong>Derived preview</strong></td><td>Editor-only handles, guide geometry, labels, and warnings recomputed from the creature blueprint each repaint. It makes the rules legible but is never saved as simulation state.</td><td><a href="../lessons/0015-creature-authoring-tools.html">L15</a></td></tr>
   </table>
 
   <div class="lesson-footer">

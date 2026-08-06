@@ -1,3 +1,4 @@
+using Unity.Entities;
 using Unity.Mathematics;
 
 namespace ProceduralAnimationDotsLab
@@ -6,6 +7,40 @@ namespace ProceduralAnimationDotsLab
     {
         // Keep authored zero-duration settings finite while the edit-time data is being assembled.
         const float MinimumDuration = 0.0001f;
+
+        public static bool TryChooseFoothold(
+            in GroundHit hit,
+            float2 hip,
+            float2 home,
+            float2 bodyVelocity,
+            float minimumReach,
+            float maximumReach,
+            in GaitSettings settings,
+            out float2 foothold)
+        {
+            foothold = float2.zero;
+            if (hit.Exists == 0)
+                return false;
+
+            var normal = math.normalizesafe(hit.Normal, new float2(0f, 1f));
+            if (math.dot(normal, new float2(0f, 1f)) < settings.MinimumSupport)
+                return false;
+
+            var offset = hit.Point - hip;
+            var distance = math.length(offset);
+            if (distance < minimumReach || distance > maximumReach)
+                return false;
+
+            if (math.lengthsq(bodyVelocity) > 0.000001f)
+            {
+                var forward = math.dot(hit.Point - home, math.normalize(bodyVelocity));
+                if (forward < settings.MinimumForward)
+                    return false;
+            }
+
+            foothold = hit.Point;
+            return true;
+        }
 
         public static float2 Update(
             ref GaitLeg leg,
@@ -16,13 +51,85 @@ namespace ProceduralAnimationDotsLab
             in GaitSettings settings,
             float deltaTime)
         {
+            return UpdateInternal(
+                ref leg,
+                partnerState,
+                hip,
+                bodyVelocity,
+                minimumReach: 0f,
+                maximumReach,
+                settings,
+                deltaTime,
+                default,
+                useGroundQuery: false);
+        }
+
+        public static float2 Update(
+            ref GaitLeg leg,
+            FootState partnerState,
+            float2 hip,
+            float2 bodyVelocity,
+            float minimumReach,
+            float maximumReach,
+            in GaitSettings settings,
+            float deltaTime,
+            in GroundHit groundHit)
+        {
+            return UpdateInternal(
+                ref leg,
+                partnerState,
+                hip,
+                bodyVelocity,
+                minimumReach,
+                maximumReach,
+                settings,
+                deltaTime,
+                groundHit,
+                useGroundQuery: true);
+        }
+
+        static float2 UpdateInternal(
+            ref GaitLeg leg,
+            FootState partnerState,
+            float2 hip,
+            float2 bodyVelocity,
+            float minimumReach,
+            float maximumReach,
+            in GaitSettings settings,
+            float deltaTime,
+            in GroundHit groundHit,
+            bool useGroundQuery)
+        {
             if (leg.State == FootState.Planted)
             {
                 var home = hip + leg.HomeOffset;
                 if (math.distance(leg.Plant, home) > settings.Comfort && partnerState == FootState.Planted)
                 {
+                    var foothold = home;
+                    if (useGroundQuery)
+                    {
+                        if (!TryChooseFoothold(
+                                groundHit,
+                                hip,
+                                home,
+                                bodyVelocity,
+                                minimumReach,
+                                maximumReach,
+                                settings,
+                                out foothold))
+                            return leg.Plant;
+                    }
+
                     leg.SwingFrom = leg.Plant;
-                    leg.SwingTo = ClampToReach(home + bodyVelocity * settings.StepLead, hip, maximumReach);
+                    leg.SwingSupport = useGroundQuery ? groundHit.Support : Entity.Null;
+                    leg.SwingLocalPlant = useGroundQuery ? groundHit.LocalPoint : float2.zero;
+                    leg.Support = Entity.Null;
+                    leg.LocalPlant = float2.zero;
+                    leg.SurfaceOffset = float2.zero;
+                    leg.CarryVelocity = float2.zero;
+                    leg.SwingTo = useGroundQuery
+                        ? foothold
+                        : ClampToReach(home + bodyVelocity * settings.StepLead, hip, maximumReach);
                     leg.SwingT = 0f;
                     leg.State = FootState.Swinging;
                     return leg.Plant;
@@ -36,6 +143,12 @@ namespace ProceduralAnimationDotsLab
             {
                 leg.SwingT = 1f;
                 leg.Plant = leg.SwingTo;
+                leg.Support = leg.SwingSupport;
+                leg.LocalPlant = leg.SwingLocalPlant;
+                leg.SurfaceOffset = float2.zero;
+                leg.CarryVelocity = float2.zero;
+                leg.SwingSupport = Entity.Null;
+                leg.SwingLocalPlant = float2.zero;
                 leg.State = FootState.Planted;
                 return leg.Plant;
             }
