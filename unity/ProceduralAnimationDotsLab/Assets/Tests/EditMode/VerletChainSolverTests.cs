@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Tealeaf.ProceduralAnimation.Dots;
 using Unity.Mathematics;
 
 namespace ProceduralAnimationDotsLab.Tests
@@ -49,7 +50,7 @@ namespace ProceduralAnimationDotsLab.Tests
         [Test]
         public void Solve_ProducesBothConfiguredBoneLengthsForAReachableTarget()
         {
-            var limb = new Limb2Bone
+            var request = new TwoBoneIkRequest
             {
                 Root = float2.zero,
                 Target = new float2(2.5f, 0f),
@@ -58,17 +59,17 @@ namespace ProceduralAnimationDotsLab.Tests
                 BendSign = 1f,
             };
 
-            TwoBoneIkSolver.Solve(ref limb);
+            var pose = TwoBoneIk.Solve(request);
 
-            Assert.That(math.distance(limb.Root, limb.Knee), Is.EqualTo(2f).Within(0.0001f));
-            Assert.That(math.distance(limb.Knee, limb.Foot), Is.EqualTo(2f).Within(0.0001f));
-            Assert.That(limb.Knee.y, Is.GreaterThan(0f));
+            Assert.That(math.distance(request.Root, pose.Knee), Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(math.distance(pose.Knee, pose.Foot), Is.EqualTo(2f).Within(0.0001f));
+            Assert.That(pose.Knee.y, Is.GreaterThan(0f));
         }
 
         [Test]
         public void Solve_ClampsAnUnreachableTargetToTheOuterReach()
         {
-            var limb = new Limb2Bone
+            var request = new TwoBoneIkRequest
             {
                 Root = float2.zero,
                 Target = new float2(10f, 0f),
@@ -77,16 +78,16 @@ namespace ProceduralAnimationDotsLab.Tests
                 BendSign = -1f,
             };
 
-            TwoBoneIkSolver.Solve(ref limb);
+            var pose = TwoBoneIk.Solve(request);
 
-            Assert.That(math.distance(limb.Root, limb.Foot), Is.LessThan(3f));
-            Assert.That(math.distance(limb.Root, limb.Foot), Is.GreaterThan(2.999f));
+            Assert.That(math.distance(request.Root, pose.Foot), Is.LessThan(3f));
+            Assert.That(math.distance(request.Root, pose.Foot), Is.GreaterThan(2.999f));
         }
 
         [Test]
         public void Solve_UsesAStableFallbackDirectionAtTheRoot()
         {
-            var limb = new Limb2Bone
+            var request = new TwoBoneIkRequest
             {
                 Root = new float2(3f, 4f),
                 Target = new float2(3f, 4f),
@@ -95,10 +96,10 @@ namespace ProceduralAnimationDotsLab.Tests
                 BendSign = 1f,
             };
 
-            TwoBoneIkSolver.Solve(ref limb);
+            var pose = TwoBoneIk.Solve(request);
 
-            Assert.That(math.distance(limb.Root, limb.Foot), Is.GreaterThan(2f));
-            Assert.That(limb.Foot.x, Is.GreaterThan(limb.Root.x));
+            Assert.That(math.distance(request.Root, pose.Foot), Is.GreaterThan(2f));
+            Assert.That(pose.Foot.x, Is.GreaterThan(request.Root.x));
         }
     }
 

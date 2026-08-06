@@ -2,6 +2,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using Tealeaf.ProceduralAnimation.Dots;
 
 namespace ProceduralAnimationDotsLab
 {
@@ -97,7 +98,7 @@ namespace ProceduralAnimationDotsLab
             var limbs = entityManager.GetBuffer<Limb2BoneLeg>(entity, true);
             var gaitLegs = entityManager.GetBuffer<GaitLeg>(entity, true);
             var contacts = entityManager.GetBuffer<ContactPlane>(entity, true);
-            var groundHits = entityManager.GetBuffer<GroundHit>(entity, true);
+            var groundDebugHits = entityManager.GetBuffer<GroundQueryDebugHit>(entity, true);
 
             chainLine.positionCount = points.Length;
             for (var index = 0; index < points.Length; index++)
@@ -126,7 +127,7 @@ namespace ProceduralAnimationDotsLab
             }
 
             UpdateContactPresentation(contacts);
-            UpdateGroundPresentation(groundHits);
+            UpdateGroundPresentation(groundDebugHits);
             UpdateSupportPresentation();
         }
 
@@ -138,7 +139,8 @@ namespace ProceduralAnimationDotsLab
 
             entityManager = world.EntityManager;
             supportQuery = entityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<SupportMotion>(),
+                ComponentType.ReadOnly<DemoMovingSupport>(),
+                ComponentType.ReadOnly<SupportKinematics>(),
                 ComponentType.ReadOnly<SupportPose>());
             if (!supportQuery.IsEmptyIgnoreFilter)
                 supportEntity = supportQuery.GetSingletonEntity();
@@ -153,7 +155,8 @@ namespace ProceduralAnimationDotsLab
                 ComponentType.ReadOnly<GaitLeg>(),
                 ComponentType.ReadOnly<Limb2BoneLeg>(),
                 ComponentType.ReadOnly<ContactPlane>(),
-                ComponentType.ReadOnly<GroundHit>());
+                ComponentType.ReadOnly<FootholdCandidate>(),
+                ComponentType.ReadOnly<GroundQueryDebugHit>());
 
             if (!chainQuery.IsEmptyIgnoreFilter)
             {
@@ -162,21 +165,23 @@ namespace ProceduralAnimationDotsLab
             }
 
             supportEntity = entityManager.CreateEntity(
-                ComponentType.ReadWrite<SupportMotion>(),
-                ComponentType.ReadWrite<SupportPose>());
+                ComponentType.ReadWrite<DemoMovingSupport>(),
+                ComponentType.ReadWrite<SupportPose>(),
+                ComponentType.ReadWrite<SupportKinematics>());
             var supportOrigin = new float2(-1.1f, -1.75f);
-            entityManager.SetComponentData(supportEntity, new SupportMotion
+            entityManager.SetComponentData(supportEntity, new DemoMovingSupport
             {
                 Origin = supportOrigin,
                 Amplitude = new float2(0f, 0.28f),
                 Frequency = 1.1f,
-                BeltVelocityLocal = new float2(0.55f, 0f),
+                SurfaceVelocityLocal = new float2(0.55f, 0f),
             });
             entityManager.SetComponentData(supportEntity, new SupportPose
             {
                 Position = supportOrigin,
-                Rotation = 0f,
+                RotationRadians = 0f,
             });
+            entityManager.SetComponentData(supportEntity, new SupportKinematics());
 
             var entity = entityManager.CreateEntity(
                 ComponentType.ReadWrite<VerletChain>(),
@@ -188,7 +193,8 @@ namespace ProceduralAnimationDotsLab
                 ComponentType.ReadWrite<GaitLeg>(),
                 ComponentType.ReadWrite<GaitSettings>(),
                 ComponentType.ReadWrite<ContactPlane>(),
-                ComponentType.ReadWrite<GroundHit>());
+                ComponentType.ReadWrite<FootholdCandidate>(),
+                ComponentType.ReadWrite<GroundQueryDebugHit>());
             entityManager.SetComponentData(entity, new VerletChain
             {
                 LinkLength = 0.48f,
@@ -248,7 +254,7 @@ namespace ProceduralAnimationDotsLab
             gaitLegs.Add(new GaitLeg
             {
                 State = FootState.Planted,
-                Plant = SupportPoseMath.TransformPoint(new SupportPose { Position = supportOrigin }, new float2(-0.2f, 0f)),
+                Plant = SupportMath.TransformPoint(new SupportPose { Position = supportOrigin }, new float2(-0.2f, 0f)),
                 HomeOffset = new float2(-0.2f, -2.6f),
                 PartnerIndex = 1,
                 Support = supportEntity,
@@ -292,15 +298,15 @@ namespace ProceduralAnimationDotsLab
             var pose = entityManager.GetComponentData<SupportPose>(supportEntity);
             supportLine.enabled = true;
             supportLine.positionCount = 2;
-            var left = SupportPoseMath.TransformPoint(pose, new float2(-1.35f, 0f));
-            var right = SupportPoseMath.TransformPoint(pose, new float2(1.35f, 0f));
+            var left = SupportMath.TransformPoint(pose, new float2(-1.35f, 0f));
+            var right = SupportMath.TransformPoint(pose, new float2(1.35f, 0f));
             supportLine.SetPosition(0, new Vector3(left.x, left.y, 0f));
             supportLine.SetPosition(1, new Vector3(right.x, right.y, 0f));
 
-            var arrowStart = SupportPoseMath.TransformPoint(pose, new float2(-0.35f, 0.16f));
-            var arrowTip = SupportPoseMath.TransformPoint(pose, new float2(0.35f, 0.16f));
-            var arrowUpper = SupportPoseMath.TransformPoint(pose, new float2(0.2f, 0.28f));
-            var arrowLower = SupportPoseMath.TransformPoint(pose, new float2(0.2f, 0.04f));
+            var arrowStart = SupportMath.TransformPoint(pose, new float2(-0.35f, 0.16f));
+            var arrowTip = SupportMath.TransformPoint(pose, new float2(0.35f, 0.16f));
+            var arrowUpper = SupportMath.TransformPoint(pose, new float2(0.2f, 0.28f));
+            var arrowLower = SupportMath.TransformPoint(pose, new float2(0.2f, 0.04f));
             beltArrowLine.enabled = true;
             beltArrowLine.positionCount = 4;
             beltArrowLine.SetPosition(0, new Vector3(arrowStart.x, arrowStart.y, 0f));
@@ -309,11 +315,11 @@ namespace ProceduralAnimationDotsLab
             beltArrowLine.SetPosition(3, new Vector3(arrowTip.x, arrowTip.y, 0f));
         }
 
-        void UpdateGroundPresentation(DynamicBuffer<GroundHit> hits)
+        void UpdateGroundPresentation(DynamicBuffer<GroundQueryDebugHit> hits)
         {
             for (var index = 0; index < groundProbeMarkers.Length; index++)
             {
-                var hit = FindGroundHit(hits, (byte)index);
+                var hit = FindGroundDebugHit(hits, (byte)index);
                 var active = hit.Exists != 0;
                 groundProbeMarkers[index].enabled = active;
                 groundHitMarkers[index].enabled = active;
@@ -336,7 +342,7 @@ namespace ProceduralAnimationDotsLab
             }
         }
 
-        static GroundHit FindGroundHit(DynamicBuffer<GroundHit> hits, byte legIndex)
+        static GroundQueryDebugHit FindGroundDebugHit(DynamicBuffer<GroundQueryDebugHit> hits, byte legIndex)
         {
             for (var index = 0; index < hits.Length; index++)
             {

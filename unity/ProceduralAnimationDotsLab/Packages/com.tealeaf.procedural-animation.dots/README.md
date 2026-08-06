@@ -3,15 +3,15 @@
 An embedded-package scaffold for the 2D grounded-appendage runtime extracted
 from `ProceduralAnimationDotsLab`.
 
-This package intentionally contains no assemblies or implementation yet. It
-establishes the publishable identity and layout before moving behaviour, so the
-sample remains runnable throughout the extraction.
+The package owns the 2D Verlet-chain, gait, contact, and two-bone IK solve
+pipeline. The lab consumes it through an assembly reference while retaining
+only demo patrol intent, world-fact adapters, and line-renderer presentation.
 
 ## Intended layout
 
 ```text
-Runtime/        Package-owned solve group, configuration, state, and helpers
-Editor/         Creature authoring, Baker, validation, and derived previews
+Runtime/        Package-owned solve group, state, helpers, and creature recipe
+Editor/         Creature Baker, validation, and derived previews
 Tests/Editor/   Public-interface bake-and-tick coverage
 Samples~/Lab/   The current demo, terrain/support adapters, and presentation
 Documentation~/ Package usage and integration contract
@@ -19,6 +19,18 @@ Documentation~/ Package usage and integration contract
 
 The extraction contract lives at
 [`../../Documentation~/package-extraction.md`](../../Documentation~/package-extraction.md).
+
+## Authoring a creature
+
+Add `ProceduralCreatureAuthoring` to a GameObject and set its chain, gait,
+leg, and optional contact-plane recipe. Its Editor-side Baker creates the
+complete creature entity: chain/body/target/gait settings plus point, limb,
+gait-leg, contact-plane, and foothold-candidate buffers.
+
+The recipe deliberately excludes solver history. Point previous positions,
+plants, swing progress, support relations, and carry state are initialized by
+the Baker or established during the first simulation tick; consumers should
+not construct or mutate them directly.
 
 ## Runtime dependencies
 

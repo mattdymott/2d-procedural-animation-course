@@ -1,5 +1,6 @@
 using Unity.Entities;
 using Unity.Mathematics;
+using Tealeaf.ProceduralAnimation.Dots;
 
 namespace ProceduralAnimationDotsLab
 {

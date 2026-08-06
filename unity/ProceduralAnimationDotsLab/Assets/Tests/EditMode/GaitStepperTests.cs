@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Tealeaf.ProceduralAnimation.Dots;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -17,17 +18,17 @@ namespace ProceduralAnimationDotsLab.Tests
         };
 
         [Test]
-        public void SupportPoseMath_TransformsAndInvertsALocalPlant()
+        public void SupportMath_TransformsAndInvertsALocalPlant()
         {
             var pose = new SupportPose
             {
                 Position = new float2(3f, 2f),
-                Rotation = math.PI * 0.5f,
+                RotationRadians = math.PI * 0.5f,
             };
             var localPlant = new float2(1f, 0f);
 
-            var worldPlant = SupportPoseMath.TransformPoint(pose, localPlant);
-            var roundTrip = SupportPoseMath.InverseTransformPoint(pose, worldPlant);
+            var worldPlant = SupportMath.TransformPoint(pose, localPlant);
+            var roundTrip = SupportMath.InverseTransformPoint(pose, worldPlant);
 
             Assert.That(worldPlant.x, Is.EqualTo(3f).Within(0.0001f));
             Assert.That(worldPlant.y, Is.EqualTo(3f).Within(0.0001f));
@@ -58,7 +59,8 @@ namespace ProceduralAnimationDotsLab.Tests
                 3f,
                 Settings,
                 0.1f,
-                default);
+                hasFootholdCandidate: false,
+                footholdCandidate: default);
 
             Assert.That(leg.State, Is.EqualTo(FootState.Planted));
             Assert.That(leg.Support, Is.EqualTo(support));
@@ -73,7 +75,7 @@ namespace ProceduralAnimationDotsLab.Tests
             var pose = new SupportPose
             {
                 Position = new float2(2f, 1f),
-                Rotation = 0f,
+                RotationRadians = 0f,
             };
 
             var found = GroundQuery.TrySampleSupport(
@@ -87,26 +89,26 @@ namespace ProceduralAnimationDotsLab.Tests
             Assert.That(hit.Support, Is.EqualTo(support));
             Assert.That(hit.Point.x, Is.EqualTo(2.5f).Within(0.0001f));
             Assert.That(hit.Point.y, Is.EqualTo(1f).Within(0.0001f));
-            Assert.That(hit.LocalPoint.x, Is.EqualTo(0.5f).Within(0.0001f));
-            Assert.That(hit.LocalPoint.y, Is.EqualTo(0f).Within(0.0001f));
+            Assert.That(hit.SupportLocalPoint.x, Is.EqualTo(0.5f).Within(0.0001f));
+            Assert.That(hit.SupportLocalPoint.y, Is.EqualTo(0f).Within(0.0001f));
         }
 
         [Test]
-        public void SupportVelocityMath_CombinesSupportPointAndBeltVelocity()
+        public void SupportMath_CombinesSupportPointAndBeltVelocity()
         {
             var pose = new SupportPose
             {
                 Position = float2.zero,
-                Rotation = math.PI * 0.5f,
+                RotationRadians = math.PI * 0.5f,
             };
-            var motion = new SupportMotion
+            var kinematics = new SupportKinematics
             {
-                WorldVelocity = new float2(0.5f, 0f),
-                AngularVelocity = 0.2f,
-                BeltVelocityLocal = new float2(1f, 0f),
+                LinearVelocity = new float2(0.5f, 0f),
+                AngularVelocityRadians = 0.2f,
+                SurfaceVelocityLocal = new float2(1f, 0f),
             };
 
-            var velocity = SupportVelocityMath.PointVelocity(pose, motion, new float2(0f, 1f));
+            var velocity = SupportMath.PointVelocity(pose, kinematics, new float2(0f, 1f));
 
             Assert.That(velocity.x, Is.EqualTo(0.5f).Within(0.0001f));
             Assert.That(velocity.y, Is.EqualTo(0.8f).Within(0.0001f));
@@ -124,9 +126,8 @@ namespace ProceduralAnimationDotsLab.Tests
                 Support = support,
                 LocalPlant = new float2(0.25f, 0f),
             };
-            var hit = new GroundHit
+            var candidate = new FootholdCandidate
             {
-                Exists = 1,
                 Point = new float2(0.5f, -2f),
                 Normal = new float2(0f, 1f),
             };
@@ -140,7 +141,8 @@ namespace ProceduralAnimationDotsLab.Tests
                 3f,
                 Settings,
                 0f,
-                hit);
+                hasFootholdCandidate: true,
+                footholdCandidate: candidate);
 
             Assert.That(leg.State, Is.EqualTo(FootState.Swinging));
             Assert.That(leg.Support, Is.EqualTo(Entity.Null));
@@ -149,15 +151,14 @@ namespace ProceduralAnimationDotsLab.Tests
         [Test]
         public void TryChooseFoothold_AcceptsASupportiveReachableForwardHit()
         {
-            var hit = new GroundHit
+            var candidate = new FootholdCandidate
             {
-                Exists = 1,
                 Point = new float2(0.5f, -2f),
                 Normal = new float2(0f, 1f),
             };
 
             var accepted = GaitStepper.TryChooseFoothold(
-                hit,
+                candidate,
                 hip: float2.zero,
                 home: new float2(0f, -2f),
                 bodyVelocity: new float2(1f, 0f),
@@ -167,21 +168,20 @@ namespace ProceduralAnimationDotsLab.Tests
                 out var foothold);
 
             Assert.That(accepted, Is.True);
-            Assert.That(foothold, Is.EqualTo(hit.Point));
+            Assert.That(foothold, Is.EqualTo(candidate.Point));
         }
 
         [Test]
         public void TryChooseFoothold_RejectsAnUnsupportedHit()
         {
-            var hit = new GroundHit
+            var candidate = new FootholdCandidate
             {
-                Exists = 1,
                 Point = new float2(0.5f, -2f),
                 Normal = new float2(1f, 0f),
             };
 
             var accepted = GaitStepper.TryChooseFoothold(
-                hit,
+                candidate,
                 float2.zero,
                 new float2(0f, -2f),
                 new float2(1f, 0f),
@@ -196,15 +196,14 @@ namespace ProceduralAnimationDotsLab.Tests
         [Test]
         public void TryChooseFoothold_RejectsAHitOutsideTheIkAnnulus()
         {
-            var hit = new GroundHit
+            var candidate = new FootholdCandidate
             {
-                Exists = 1,
                 Point = new float2(0.2f, -0.1f),
                 Normal = new float2(0f, 1f),
             };
 
             var accepted = GaitStepper.TryChooseFoothold(
-                hit,
+                candidate,
                 float2.zero,
                 new float2(0f, -2f),
                 new float2(1f, 0f),
@@ -219,15 +218,14 @@ namespace ProceduralAnimationDotsLab.Tests
         [Test]
         public void TryChooseFoothold_RejectsAHitBehindTheForwardPolicy()
         {
-            var hit = new GroundHit
+            var candidate = new FootholdCandidate
             {
-                Exists = 1,
                 Point = new float2(-0.5f, -2f),
                 Normal = new float2(0f, 1f),
             };
 
             var accepted = GaitStepper.TryChooseFoothold(
-                hit,
+                candidate,
                 float2.zero,
                 new float2(0f, -2f),
                 new float2(1f, 0f),
@@ -240,7 +238,7 @@ namespace ProceduralAnimationDotsLab.Tests
         }
 
         [Test]
-        public void Update_KeepsTheExistingPlantWhenNoGroundHitIsValid()
+        public void Update_KeepsTheExistingPlantWhenNoFootholdCandidateIsAvailable()
         {
             var leg = new GaitLeg
             {
@@ -248,13 +246,6 @@ namespace ProceduralAnimationDotsLab.Tests
                 Plant = new float2(-2f, -2f),
                 HomeOffset = new float2(0f, -2f),
             };
-            var invalidHit = new GroundHit
-            {
-                Exists = 1,
-                Point = new float2(0.5f, -2f),
-                Normal = new float2(1f, 0f),
-            };
-
             var target = GaitStepper.Update(
                 ref leg,
                 FootState.Planted,
@@ -264,14 +255,15 @@ namespace ProceduralAnimationDotsLab.Tests
                 3f,
                 Settings,
                 0.1f,
-                invalidHit);
+                hasFootholdCandidate: false,
+                footholdCandidate: default);
 
             Assert.That(leg.State, Is.EqualTo(FootState.Planted));
             Assert.That(target, Is.EqualTo(leg.Plant));
         }
 
         [Test]
-        public void Update_CommitsTheAcceptedGroundHitOnlyWhenSwingBegins()
+        public void Update_CommitsTheAcceptedFootholdOnlyWhenSwingBegins()
         {
             var leg = new GaitLeg
             {
@@ -279,15 +271,13 @@ namespace ProceduralAnimationDotsLab.Tests
                 Plant = new float2(-2f, -2f),
                 HomeOffset = new float2(0f, -2f),
             };
-            var firstHit = new GroundHit
+            var firstCandidate = new FootholdCandidate
             {
-                Exists = 1,
                 Point = new float2(0.5f, -2f),
                 Normal = new float2(0f, 1f),
             };
-            var secondHit = new GroundHit
+            var secondCandidate = new FootholdCandidate
             {
-                Exists = 1,
                 Point = new float2(2f, -2f),
                 Normal = new float2(0f, 1f),
             };
@@ -301,7 +291,8 @@ namespace ProceduralAnimationDotsLab.Tests
                 3f,
                 Settings,
                 0f,
-                firstHit);
+                hasFootholdCandidate: true,
+                footholdCandidate: firstCandidate);
             var committedTarget = leg.SwingTo;
 
             GaitStepper.Update(
@@ -313,7 +304,8 @@ namespace ProceduralAnimationDotsLab.Tests
                 3f,
                 Settings,
                 0.1f,
-                secondHit);
+                hasFootholdCandidate: true,
+                footholdCandidate: secondCandidate);
 
             Assert.That(leg.State, Is.EqualTo(FootState.Swinging));
             Assert.That(leg.SwingTo, Is.EqualTo(committedTarget));

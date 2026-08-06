@@ -1,5 +1,6 @@
 using Unity.Entities;
 using Unity.Mathematics;
+using Tealeaf.ProceduralAnimation.Dots;
 
 namespace ProceduralAnimationDotsLab
 {
@@ -14,7 +15,7 @@ namespace ProceduralAnimationDotsLab
         public void OnCreate(ref SystemState state)
         {
             supportQuery = state.GetEntityQuery(
-                ComponentType.ReadOnly<SupportMotion>(),
+                ComponentType.ReadOnly<SupportKinematics>(),
                 ComponentType.ReadOnly<SupportPose>());
         }
 
@@ -29,10 +30,12 @@ namespace ProceduralAnimationDotsLab
                 supportPose = state.EntityManager.GetComponentData<SupportPose>(supportEntity);
             }
 
-            foreach (var (settings, gaitLegs, limbs, points, hits) in SystemAPI.Query<RefRO<GaitSettings>, DynamicBuffer<GaitLeg>, DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>, DynamicBuffer<GroundHit>>())
+            foreach (var (settings, gaitLegs, limbs, points, candidates, debugHits) in SystemAPI.Query<RefRO<GaitSettings>, DynamicBuffer<GaitLeg>, DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>, DynamicBuffer<FootholdCandidate>, DynamicBuffer<GroundQueryDebugHit>>())
             {
-                var mutableHits = hits;
-                mutableHits.Clear();
+                var mutableCandidates = candidates;
+                var mutableDebugHits = debugHits;
+                mutableCandidates.Clear();
+                mutableDebugHits.Clear();
                 var legCount = math.min(gaitLegs.Length, limbs.Length);
                 for (var index = 0; index < legCount; index++)
                 {
@@ -47,10 +50,17 @@ namespace ProceduralAnimationDotsLab
                     var probe = hipPoint.Position + gaitLegs[index].HomeOffset + bodyVelocity * settings.ValueRO.StepLead;
                     var legIndex = (byte)index;
                     if (supportEntity != Entity.Null
-                        && GroundQuery.TrySampleSupport(legIndex, probe, supportEntity, supportPose, out var supportHit))
-                        mutableHits.Add(supportHit);
+                        && GroundQuery.TrySampleSupport(legIndex, probe, supportEntity, supportPose, out var supportCandidate))
+                    {
+                        mutableCandidates.Add(supportCandidate);
+                        mutableDebugHits.Add(GroundQuery.CreateDebugHit(legIndex, probe, supportCandidate));
+                    }
                     else
-                        mutableHits.Add(GroundQuery.Sample(legIndex, probe));
+                    {
+                        var candidate = GroundQuery.Sample(legIndex, probe);
+                        mutableCandidates.Add(candidate);
+                        mutableDebugHits.Add(GroundQuery.CreateDebugHit(legIndex, probe, candidate));
+                    }
                 }
             }
         }

@@ -1,0 +1,14 @@
+{
+  "name": "Tealeaf.ProceduralAnimation.Dots.Editor",
+  "rootNamespace": "Tealeaf.ProceduralAnimation.Dots",
+  "references": [
+    "Tealeaf.ProceduralAnimation.Dots.Runtime",
+    "Unity.Entities",
+    "Unity.Entities.Hybrid",
+    "Unity.Collections",
+    "Unity.Mathematics"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}

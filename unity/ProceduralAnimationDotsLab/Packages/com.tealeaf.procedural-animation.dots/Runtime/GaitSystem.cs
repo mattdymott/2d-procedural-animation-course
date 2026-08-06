@@ -1,7 +1,8 @@
 using Unity.Entities;
 using Unity.Mathematics;
+using Tealeaf.ProceduralAnimation.Dots;
 
-namespace ProceduralAnimationDotsLab
+namespace Tealeaf.ProceduralAnimation.Dots
 {
     [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
     [UpdateAfter(typeof(VerletChainSystem))]
@@ -12,9 +13,9 @@ namespace ProceduralAnimationDotsLab
         {
             var deltaTime = SystemAPI.Time.DeltaTime;
             var supportPoses = state.GetComponentLookup<SupportPose>(true);
-            var supportMotions = state.GetComponentLookup<SupportMotion>(true);
+            var supportKinematics = state.GetComponentLookup<SupportKinematics>(true);
 
-            foreach (var (settings, body, gaitLegs, limbs, points, groundHits) in SystemAPI.Query<RefRO<GaitSettings>, RefRW<CreatureBody>, DynamicBuffer<GaitLeg>, DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>, DynamicBuffer<GroundHit>>())
+            foreach (var (settings, body, gaitLegs, limbs, points, footholdCandidates) in SystemAPI.Query<RefRO<GaitSettings>, RefRW<CreatureBody>, DynamicBuffer<GaitLeg>, DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>, DynamicBuffer<FootholdCandidate>>())
             {
                 var mutableGaitLegs = gaitLegs;
                 var mutableLimbs = limbs;
@@ -36,9 +37,9 @@ namespace ProceduralAnimationDotsLab
                         && gaitLeg.Support != Entity.Null
                         && supportPoses.HasComponent(gaitLeg.Support))
                     {
-                        if (supportMotions.HasComponent(gaitLeg.Support))
-                            gaitLeg.SurfaceOffset += supportMotions[gaitLeg.Support].BeltVelocityLocal * deltaTime;
-                        gaitLeg.Plant = SupportPoseMath.TransformPoint(supportPoses[gaitLeg.Support], gaitLeg.LocalPlant + gaitLeg.SurfaceOffset);
+                        if (supportKinematics.HasComponent(gaitLeg.Support))
+                            gaitLeg.SurfaceOffset += supportKinematics[gaitLeg.Support].SurfaceVelocityLocal * deltaTime;
+                        gaitLeg.Plant = SupportMath.TransformPoint(supportPoses[gaitLeg.Support], gaitLeg.LocalPlant + gaitLeg.SurfaceOffset);
                     }
                     var liftoffLocalPoint = gaitLeg.LocalPlant + gaitLeg.SurfaceOffset;
 
@@ -46,7 +47,7 @@ namespace ProceduralAnimationDotsLab
                         ? (hipPoint.Position - hipPoint.PreviousPosition) / deltaTime
                         : float2.zero;
                     var partnerState = GetPartnerState(mutableGaitLegs, gaitLeg.PartnerIndex);
-                    var groundHit = GetGroundHit(groundHits, (byte)index);
+                    var hasFootholdCandidate = TryGetFootholdCandidate(footholdCandidates, (byte)index, out var footholdCandidate);
                     var target = GaitStepper.Update(
                         ref gaitLeg,
                         partnerState,
@@ -56,16 +57,17 @@ namespace ProceduralAnimationDotsLab
                         limb.LengthA + limb.LengthB,
                         settings.ValueRO,
                         deltaTime,
-                        groundHit);
+                        hasFootholdCandidate,
+                        footholdCandidate);
                     if (wasPlanted
                         && gaitLeg.State == FootState.Swinging
                         && liftoffSupport != Entity.Null
                         && supportPoses.HasComponent(liftoffSupport)
-                        && supportMotions.HasComponent(liftoffSupport))
+                        && supportKinematics.HasComponent(liftoffSupport))
                     {
-                        var liftoffVelocity = SupportVelocityMath.PointVelocity(
+                        var liftoffVelocity = SupportMath.PointVelocity(
                             supportPoses[liftoffSupport],
-                            supportMotions[liftoffSupport],
+                            supportKinematics[liftoffSupport],
                             liftoffLocalPoint);
                         gaitLeg.CarryVelocity = liftoffVelocity;
                         carryVelocity += liftoffVelocity;
@@ -74,7 +76,7 @@ namespace ProceduralAnimationDotsLab
                         && gaitLeg.Support != Entity.Null
                         && supportPoses.HasComponent(gaitLeg.Support))
                     {
-                        gaitLeg.Plant = SupportPoseMath.TransformPoint(supportPoses[gaitLeg.Support], gaitLeg.LocalPlant + gaitLeg.SurfaceOffset);
+                        gaitLeg.Plant = SupportMath.TransformPoint(supportPoses[gaitLeg.Support], gaitLeg.LocalPlant + gaitLeg.SurfaceOffset);
                         target = gaitLeg.Plant;
                     }
 
@@ -95,15 +97,19 @@ namespace ProceduralAnimationDotsLab
                 : FootState.Swinging;
         }
 
-        static GroundHit GetGroundHit(DynamicBuffer<GroundHit> hits, byte legIndex)
+        static bool TryGetFootholdCandidate(DynamicBuffer<FootholdCandidate> candidates, byte legIndex, out FootholdCandidate candidate)
         {
-            for (var index = 0; index < hits.Length; index++)
+            for (var index = 0; index < candidates.Length; index++)
             {
-                if (hits[index].LegIndex == legIndex)
-                    return hits[index];
+                if (candidates[index].LegIndex != legIndex)
+                    continue;
+
+                candidate = candidates[index];
+                return true;
             }
 
-            return default;
+            candidate = default;
+            return false;
         }
     }
 }

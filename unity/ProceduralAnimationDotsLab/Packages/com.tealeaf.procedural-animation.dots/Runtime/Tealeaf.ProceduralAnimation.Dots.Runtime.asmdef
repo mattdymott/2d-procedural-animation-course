@@ -1,0 +1,9 @@
+{
+  "name": "Tealeaf.ProceduralAnimation.Dots.Runtime",
+  "rootNamespace": "Tealeaf.ProceduralAnimation.Dots",
+  "references": [
+    "Unity.Entities",
+    "Unity.Collections",
+    "Unity.Mathematics"
+  ]
+}

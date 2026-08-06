@@ -111,6 +111,31 @@ The package may change internal systems, jobs, or constraint passes without
 changing the interface. Presentation runs afterwards and never writes solver
 state.
 
+## Current extraction progress
+
+The first functional migration is complete: `TwoBoneIkRequest`,
+`TwoBoneIkPose`, and `TwoBoneIk.Solve` now live in the package Runtime
+assembly. The lab's `TwoBoneIkSystem` and its focused IK tests consume that
+interface directly. This establishes a real package-to-lab dependency before
+the higher-level, stateful simulation is moved.
+
+`SupportPose`, `SupportKinematics`, and `SupportMath` are also now package
+Runtime types. The lesson elevator/conveyor writes them through its
+`DemoMovingSupport` adapter; gait, terrain discovery, and presentation consume
+the package seam without depending on the demo animator.
+
+`FootholdCandidate` is now the package terrain/physics/custom-world seam. The
+lab's deterministic `GroundQuery` writes candidate evidence, while its probe
+markers use a separate `GroundQueryDebugHit` buffer that remains sample-only.
+
+The core creature chain, contact, limb, gait, and body state now also live in
+the package Runtime assembly. The lab retains only its `CreatureIntent`,
+moving-support animation, terrain adapter, and debug presentation state.
+
+The package now also owns Verlet distance repair, one-sided contact projection,
+and the hard-resolve pass. IK and gait system ordering move next so this stage
+can join a package-owned solve group without referring back to the lab.
+
 ## What moves and what remains a sample
 
 | Current lab responsibility | Package destination | Notes |

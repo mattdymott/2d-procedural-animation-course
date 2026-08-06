@@ -3,7 +3,10 @@
   "rootNamespace": "ProceduralAnimationDotsLab.Tests",
   "references": [
     "ProceduralAnimationDotsLab.Runtime",
+    "Tealeaf.ProceduralAnimation.Dots.Editor",
+    "Tealeaf.ProceduralAnimation.Dots.Runtime",
     "Unity.Entities",
+    "Unity.Core",
     "Unity.Collections"
   ],
   "includePlatforms": [

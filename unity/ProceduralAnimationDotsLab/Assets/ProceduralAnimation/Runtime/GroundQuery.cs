@@ -1,5 +1,6 @@
 using Unity.Entities;
 using Unity.Mathematics;
+using Tealeaf.ProceduralAnimation.Dots;
 
 namespace ProceduralAnimationDotsLab
 {
@@ -11,7 +12,7 @@ namespace ProceduralAnimationDotsLab
         const float RampRise = 0.35f;
         const float SupportHalfWidth = 1.35f;
 
-        public static GroundHit Sample(byte legIndex, float2 probe)
+        public static FootholdCandidate Sample(byte legIndex, float2 probe)
         {
             var slope = 0f;
             var height = BaseHeight;
@@ -25,14 +26,11 @@ namespace ProceduralAnimationDotsLab
                 height += RampRise;
             }
 
-            return new GroundHit
+            return new FootholdCandidate
             {
-                Exists = 1,
                 LegIndex = legIndex,
-                Probe = probe,
                 Point = new float2(probe.x, height),
                 Normal = math.normalizesafe(new float2(-slope, 1f), new float2(0f, 1f)),
-                Surface = (byte)(slope == 0f ? 0 : 1),
             };
         }
 
@@ -41,28 +39,40 @@ namespace ProceduralAnimationDotsLab
             float2 probe,
             Entity support,
             in SupportPose pose,
-            out GroundHit hit)
+            out FootholdCandidate candidate)
         {
-            var localProbe = SupportPoseMath.InverseTransformPoint(pose, probe);
+            var localProbe = SupportMath.InverseTransformPoint(pose, probe);
             if (math.abs(localProbe.x) > SupportHalfWidth)
             {
-                hit = default;
+                candidate = default;
                 return false;
             }
 
             var localPoint = new float2(localProbe.x, 0f);
-            hit = new GroundHit
+            candidate = new FootholdCandidate
+            {
+                LegIndex = legIndex,
+                Point = SupportMath.TransformPoint(pose, localPoint),
+                Normal = SupportMath.TransformDirection(pose, new float2(0f, 1f)),
+                Support = support,
+                SupportLocalPoint = localPoint,
+            };
+            return true;
+        }
+
+        public static GroundQueryDebugHit CreateDebugHit(
+            byte legIndex,
+            float2 probe,
+            in FootholdCandidate candidate)
+        {
+            return new GroundQueryDebugHit
             {
                 Exists = 1,
                 LegIndex = legIndex,
                 Probe = probe,
-                Point = SupportPoseMath.TransformPoint(pose, localPoint),
-                Normal = SupportPoseMath.TransformDirection(pose, new float2(0f, 1f)),
-                Support = support,
-                LocalPoint = localPoint,
-                Surface = 2,
+                Point = candidate.Point,
+                Normal = candidate.Normal,
             };
-            return true;
         }
     }
 }
