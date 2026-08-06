@@ -18,6 +18,8 @@ Open `index.html` directly in a browser, or serve the folder locally (e.g.
 - `assets/` — shared CSS/JS
 - `MISSION.md` / `NOTES.md` — course goals and teaching notes
 
+- `unity/` — runnable DOTS companion project; it is not linked from the published course
+
 ## Note
 
 This course was built using the [`teach` skill](https://github.com/mattpocock/skills/tree/main/skills/productivity/teach)

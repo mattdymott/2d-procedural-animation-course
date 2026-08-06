@@ -1,0 +1,13 @@
+{
+  "name": "ProceduralAnimationDotsLab.Tests",
+  "rootNamespace": "ProceduralAnimationDotsLab.Tests",
+  "references": [
+    "ProceduralAnimationDotsLab.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

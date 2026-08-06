@@ -1,0 +1,9 @@
+{
+  "name": "ProceduralAnimationDotsLab.Runtime",
+  "rootNamespace": "ProceduralAnimationDotsLab",
+  "references": [
+    "Unity.Entities",
+    "Unity.Collections",
+    "Unity.Mathematics"
+  ]
+}
