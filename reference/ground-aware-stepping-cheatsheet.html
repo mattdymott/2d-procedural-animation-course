@@ -1,0 +1,13 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Reference — Ground-Aware Stepping Cheatsheet</title><link rel="stylesheet" href="../assets/course.css">
+<div class="page"><p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p><h1>Ground-Aware Stepping Cheatsheet</h1><p class="lede">Turning an L4 home point into a reliable terrain foothold, taught in <a href="../lessons/0011-ground-aware-stepping.html">Lesson 11</a>.</p>
+<h2>The contract</h2><p><strong>Sample terrain at swing start; commit one accepted hit as the target; preserve it while planted.</strong> Gait owns the promise. The query supplies candidates, never a live replacement for a planted foot.</p>
+<h2>Foothold recipe</h2><pre><code>candidate = GroundQuery.CastDown(home + velocity * lead)
+if (candidate.hit
+    &amp;&amp; dot(candidate.normal, up) &gt;= minSupport
+    &amp;&amp; IsWithinIkReach(hip, candidate.point)
+    &amp;&amp; IsForwardEnough(candidate.point, home, velocity))
+    beginSwing(from: plant, to: candidate.point)
+else
+    keepPlantOrUseSafeFallback()</code></pre>
+<h2>Ownership</h2><table><tr><th>State</th><th>Owner</th></tr><tr><td>Terrain hit, normal, material</td><td>Ground-query adapter</td></tr><tr><td>Accept/reject and target commitment</td><td>Gait state machine</td></tr><tr><td>Reachability clamp / knee pose</td><td>IK</td></tr><tr><td>Foot surface contact after landing</td><td>Contact constraint solve</td></tr></table>
+<h2>Failure-safe order</h2><ol><li>Reject a ceiling, wall, or slope beyond the supported normal.</li><li>Reject a hit outside the IK annulus.</li><li>Reject a backwards target unless deliberately stepping backwards.</li><li>If nothing is valid, retain the old plant or shorten the step — never teleport to a bad hit.</li></ol><div class="lesson-footer"><p>See also: <a href="gait-cheatsheet.html">gait</a> · <a href="two-bone-ik-cheatsheet.html">two-bone IK</a> · <a href="contact-constraints-cheatsheet.html">contact constraints</a>.</p></div></div>

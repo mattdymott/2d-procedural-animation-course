@@ -231,6 +231,32 @@
       <td>Sensible defaults make the common case zero-config; advanced knobs exist but never block the beginner. The component surface is the stable contract.</td>
       <td><a href="../lessons/0008-package-api-design.html">L8</a></td>
     </tr>
+    <tr>
+      <td><strong>Creature tick</strong></td>
+      <td>The ordered hand-off that makes a composed creature coherent: intent → body wishes → gait promises → IK → hard constraint resolve → presentation. Each stage reads the authority produced before it.</td>
+      <td><a href="../lessons/0009-lizard-capstone.html">L9</a></td>
+    </tr>
+    <tr>
+      <td><strong>Simulation authority</strong></td>
+      <td>The state a subsystem is allowed to make true. Muscles suggest positions, gait owns foot targets, IK owns joint positions, constraints own final legal geometry, and presentation only reads the resolved result.</td>
+      <td><a href="../lessons/0009-lizard-capstone.html">L9</a></td>
+    </tr>
+    <tr>
+      <td><strong>Unilateral contact</strong></td>
+      <td>A one-sided inequality constraint: a point may remain outside a surface but must never penetrate it. It can push a point to legality, never pull it toward contact.</td>
+      <td><a href="../lessons/0010-contact-constraints.html">L10</a></td>
+    </tr>
+    <tr>
+      <td><strong>Contact normal / tangent</strong></td>
+      <td>The outward direction used to remove penetration, and the perpendicular direction retained for sliding friction. Remove into-surface normal velocity; damp only the tangent.</td>
+      <td><a href="../lessons/0010-contact-constraints.html">L10</a></td>
+    </tr>
+    <tr>
+      <td><strong>Foothold</strong></td>
+      <td>A terrain sample accepted as a foot target after support-normal, range, and direction checks. It becomes a gait promise for the plant, not a continuously refreshed raycast result.</td>
+      <td><a href="../lessons/0011-ground-aware-stepping.html">L11</a></td>
+    </tr>
+    <tr><td><strong>Relative plant</strong></td><td>A planted foot stored as a support entity plus a support-local point. Its world target is recomputed from the support transform each tick, so the promise rides a moving platform without skating.</td><td><a href="../lessons/0012-moving-platforms.html">L12</a></td></tr>
   </table>
 
   <div class="lesson-footer">

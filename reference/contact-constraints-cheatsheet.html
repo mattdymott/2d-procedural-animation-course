@@ -1,0 +1,29 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Contact Constraints Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Contact Constraints Cheatsheet</h1>
+  <p class="lede">World contact for procedural chains, taught in <a href="../lessons/0010-contact-constraints.html">Lesson 10</a>.</p>
+  <h2>The contract</h2>
+  <p><strong>Contact is a temporary, unilateral constraint.</strong> It pushes a penetrating point to the nearest legal position. It never attracts a point toward a wall or ground.</p>
+  <h2>Circle or point against a surface</h2>
+<pre><code>// n points out of the solid; signed distance d is positive outside
+penetration = radius - d
+if (penetration &gt; 0) {
+    p += n * penetration                 // project to legal position
+    v  = p - prev
+    vn = dot(v, n)
+    vt = v - n * vn
+    if (vn &lt; 0) vn = 0                   // remove velocity into the surface
+    prev = p - (n * vn + vt * (1-friction))
+}</code></pre>
+  <h2>Order</h2>
+  <p><strong>Integrate → muscles → [distance constraints → contacts → joint limits] × sweeps → presentation.</strong> Interleave contacts with hard constraints: a contact correction changes link lengths; a link correction can reintroduce penetration.</p>
+  <h2>Joint limit</h2>
+  <p>Measure the signed 2D angle at a joint, clamp it to the authored interval, and rotate the child endpoint onto that boundary while preserving link length. A limit is also one-sided: it only acts outside the allowed interval.</p>
+  <h2>Debug order</h2>
+  <ol><li>Draw contact point, normal, and penetration depth.</li><li>Disable friction: can the point cleanly project out?</li><li>Interleave the contact constraint with length sweeps.</li><li>Add joint limits after collision is independently legal.</li></ol>
+  <div class="lesson-footer"><p>See also: <a href="verlet-chain-cheatsheet.html">verlet</a> · <a href="creature-tick-cheatsheet.html">creature tick</a> · <a href="gait-cheatsheet.html">gait</a>.</p></div>
+</div>

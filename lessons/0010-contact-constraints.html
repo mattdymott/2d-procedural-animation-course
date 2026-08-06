@@ -1,0 +1,99 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 10 — Contact Constraints: World Promises</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  .order-palette { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:.55rem; margin:1rem 0; }
+  .order-card { min-height:6.7rem; text-align:left; border:1px solid var(--rule); border-radius:7px; padding:.7rem; background:var(--bg); color:var(--ink); cursor:pointer; font:inherit; }
+  .order-card:hover:not(:disabled) { border-color:var(--accent); }.order-card:disabled { cursor:default; opacity:.8; }.order-card.on { border-color:var(--accent); background:var(--accent-soft); }
+  .order-card small { color:var(--muted); display:block; line-height:1.35; margin-top:.3rem; }.contact-result { min-height:2.7rem; padding:.65rem .8rem; background:var(--sidebar-bg); border-left:3px solid var(--rule); font-size:.9rem; }.contact-result.ok { background:#eef6f0; border-color:var(--good); }
+</style>
+<div class="page">
+  <p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 10</p>
+  <h1>Contact Constraints: World Promises</h1>
+  <p class="lede">Your lizard can now keep promises to itself. This lesson lets it keep a promise
+    to the world: a spine point may touch the ground, but it must never be inside it. Collision
+    is not a separate physics universe. In a position-based creature, it is one more constraint.</p>
+
+  <h2>The one idea: contact is a one-sided constraint</h2>
+  <p>A distance constraint says “be exactly this far apart.” A contact says “be <em>at least</em>
+    this far outside the wall.” That asymmetry is the whole idea. It is a <strong>unilateral</strong>
+    constraint: dormant while legal, active only for penetration, and it only pushes outward.
+    A contact that pulls toward the ground is glue, not collision.</p>
+  <p>This is why the technique fits your Verlet body so naturally. You already correct positions
+    into legality. A wall simply supplies a surface normal and the nearest legal point. The
+    position-based dynamics paper formalizes the same advantage: collision constraints can be
+    resolved by projecting penetrations to valid locations.</p>
+
+  <h2>The recipe: project, then preserve the right velocity</h2>
+  <div class="recipe"><span class="callout-label">Recipe · point against a ground or wall</span>
+<pre><code>// n = outward normal; d = signed distance from p to the surface
+penetration = radius - d
+if (penetration &gt; 0) {
+    p += n * penetration               // position is legal now
+
+    v  = p - prev                      // Verlet's implied velocity
+    vn = dot(v, n)                     // normal: into or away from surface
+    vt = v - n * vn                    // tangent: along the surface
+    if (vn &lt; 0) vn = 0                 // no velocity into a solid
+    prev = p - (n * vn + vt * (1 - friction))
+}</code></pre></div>
+  <p>The projection fixes <em>where</em> the point is. Updating <code>prev</code> fixes what it
+    tries to do next frame. Remove the into-wall normal velocity; damp only the tangent when you
+    want friction. Leave tangent velocity alone for ice, reduce it for a sticky crawl.</p>
+
+  <h2>Contacts belong inside the hard solve</h2>
+  <p>A wall correction changes a spine link’s length. A distance sweep can then push that same
+    point back into the wall. So do not save collision for a final cosmetic cleanup. Interleave
+    it with the hard constraints:</p>
+<pre><code>integrate → muscles → repeat N times {
+    solve distance constraints
+    project contacts
+    clamp joint limits
+} → presentation</code></pre>
+
+  <h2>The playground: place the contact in the solve</h2>
+  <p>Choose the next operation until the solver is complete. The readout tells you whether the
+    chain can be both legal <em>and</em> the right length. This is the exact reasoning you use
+    when a tail buzzes against a tile edge.</p>
+  <div class="sim"><div class="sim-controls" style="display:block;"><strong style="font-size:.9rem;">Build one hard-constraint sweep</strong><div class="order-palette" id="palette"></div><div class="contact-result" id="result">Start from a predicted, potentially penetrating point.</div><button id="reset" type="button" style="margin-top:.7rem;">Reset sweep</button></div></div>
+  <div class="challenge" id="ch1"><span class="status">☐</span> <strong>Challenge 1 — Legal and linked.</strong> Put contact between hard distance passes: the body must be outside the wall <em>and</em> allowed to repair the link it disturbed.</div>
+
+  <h2>Joint limits use the same shape</h2>
+  <p>A 2D joint limit is another one-sided correction. Compute the signed angle from parent link
+    to child link. If it lies within <code>[minAngle, maxAngle]</code>, do nothing. If it escapes,
+    clamp the angle and rotate the child endpoint onto that boundary, preserving its distance to
+    the joint. Do not “spring toward” the limit while legal: that makes the creature prefer a
+    pose instead of merely refusing an impossible one.</p>
+  <div class="sidebar"><span class="callout-label">Contact order in the creature tick</span><p style="margin:0">L9’s hard-resolve stage grows internally: <strong>distance → contacts → joint limits</strong>, repeated for a small fixed number of sweeps. Presentation still reads the result last. A filtered sprite cannot fix penetration.</p></div>
+
+  <h2>Mapping it to DOTS</h2>
+  <div class="dots-mapping"><span class="callout-label">DOTS mapping</span><p style="margin-top:0">Keep terrain queries out of the innermost chain math. Gather a small contact description first (ground plane, tile edge, or collision normal), then run the hot per-creature buffer loop with that data. For a world raycast, gather in a prior job or use a physics query strategy appropriate to your project; the creature solve itself remains self-contained.</p>
+<pre><code>public struct ContactPlane : IBufferElementData
+{ public float2 Point, Normal; public float Friction; }
+
+// inside ConstraintResolveSystem, per creature, per sweep:
+SolveDistances(ref spine);
+ProjectContacts(ref spine, contacts);   // only moves penetrating points out
+ClampJointLimits(ref limbs, limits);    // only moves out-of-range joints in
+// presentation runs after this system and never writes spine/limb buffers</code></pre><p style="margin-bottom:0">Treat authoring limits and friction as baked configuration; penetration, previous position, and current contact state are runtime state. That preserves L8’s config/state split while making terrain another deep module seam.</p></div>
+
+  <h2>Check yourself</h2><p>From memory — choose the constraint’s authority, not the prettiest visual result.</p><div id="quiz"></div>
+  <h2>Where to go deeper</h2><p><strong>Primary source:</strong> Müller et al.’s <a href="https://diglib.eg.org/items/deb0a7a1-2ddf-496f-889a-fe0df1feeb73">Position Based Dynamics</a> is the direct foundation: position constraints make contact projection controllable and complete. Return to Jakobsen’s <a href="https://media.gdcvault.com/GD_Mag_Archives/GDM_August_2001.pdf">Advanced Character Physics</a> for the game-facing Verlet treatment, including collision and friction.</p><p>Keep the <a href="../reference/contact-constraints-cheatsheet.html">contact constraints cheatsheet</a> with the <a href="../reference/creature-tick-cheatsheet.html">creature tick</a> when implementing.</p>
+  <div class="lesson-footer"><p><strong>Suggested real-world rep:</strong> add one ground plane and one box collider to the L9 lizard. Draw every normal and penetration. First prove no point stays inside; then add tangent damping; only then author knee and tail limits.</p><p>Stuck or curious? Ask about signed-distance fields for tilemaps, corner contacts, self-collision, or how a stepping foot should choose a ground point. Those are the next useful collision depths.</p></div>
+</div>
+<script src="../assets/quiz.js"></script>
+<script>
+(function(){'use strict';
+ const steps=[{id:'distance',n:'Solve distance',d:'repair the link after its predicted move'},{id:'contact',n:'Project contact',d:'push a penetrating point outside the wall'},{id:'distance2',n:'Solve distance again',d:'repair the link that contact disturbed'},{id:'limit',n:'Clamp joint limit',d:'correct only an out-of-range angle'}],wanted=steps.map(x=>x.id),chosen=[],pal=document.getElementById('palette'),out=document.getElementById('result');let buttons=[];
+ function redraw(){buttons.forEach((b,i)=>{let q=chosen.indexOf(steps[i].id);b.disabled=q>=0;b.classList.toggle('on',q>=0);});}
+ function choose(s){let expected=wanted[chosen.length];if(s.id!==expected){out.className='contact-result';out.textContent=s.n+' is too early. It needs '+steps.find(x=>x.id===expected).n+' first.';return;}chosen.push(s.id);if(chosen.length===wanted.length){out.className='contact-result ok';out.textContent='✓ Legal contact, repaired link, and bounded joint. This sweep can be repeated.';let c=document.getElementById('ch1');c.classList.add('done');c.querySelector('.status').textContent='✓';}else out.textContent=chosen.map(id=>steps.find(x=>x.id===id).n).join(' → ')+' → next: '+steps.find(x=>x.id===wanted[chosen.length]).n;redraw();}
+ steps.forEach(s=>{let b=document.createElement('button');b.type='button';b.className='order-card';b.innerHTML='<strong>'+s.n+'</strong><small>'+s.d+'</small>';b.addEventListener('click',()=>choose(s));buttons.push(b);pal.appendChild(b);});document.getElementById('reset').addEventListener('click',()=>{chosen.length=0;out.className='contact-result';out.textContent='Start from a predicted, potentially penetrating point.';redraw();});redraw();
+ Quiz.render(document.getElementById('quiz'),[
+  {prompt:'When should a unilateral contact constraint change a point position?',options:['Only when the point has penetrated the surface and needs pushing out','Whenever the point gets close enough that it might hit the surface','Every frame so the point remains attracted to the legal surface'],answer:0,explain:'Contact is an inequality: legal points receive no correction. Acting early makes glue or a force field; acting on penetration projects the point back to the boundary.'},
+  {prompt:'After projection, which implied-velocity part should friction damp?',options:['The tangent along the surface while removing only into-surface normal velocity','The normal away from the surface while retaining all into-surface velocity','Both directions equally so a collision always stops at the contact point'],answer:0,explain:'Removing into-surface normal velocity prevents the immediate re-penetration. Tangent damping is friction, and leaves the useful choice between ice and a sticky crawl.'},
+  {prompt:'Why interleave contacts with distance constraints during a sweep?',options:['Each correction can invalidate the other, so both need repeated legalising','Contacts are visual details that need drawing between solver iterations','Distance constraints only work when all collisions happen before integration'],answer:0,explain:'Pushing a point from a wall can stretch a link; repairing that link can push it into the wall. Repeated alternating projections reach a compromise that obeys both.'},
+  {prompt:'What is the correct role of a 2D joint limit in this body?',options:['Correct only an angle outside its authored interval while preserving link length','Pull every joint toward the centre of its authored interval each frame','Replace the two-bone IK target whenever a gait foot begins to swing'],answer:0,explain:'Like contact, a limit is inactive while legal and only corrects violation. A permanent centring force would be a posture muscle, which is a different authored behaviour.'}
+ ]);
+})();
+</script>

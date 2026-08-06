@@ -1,0 +1,67 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Creature Tick Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Creature Tick Cheatsheet</h1>
+  <p class="lede">The end-to-end walking-lizard hand-off, taught in
+    <a href="../lessons/0009-lizard-capstone.html">Lesson 9</a>. The creature is a composed
+    package API; the tick tells each component who is authoritative, and when.</p>
+
+  <h2>The invariant</h2>
+  <p><strong>Wishes first. Promises next. Legality last. Presentation never writes back.</strong>
+    This lets every subsystem stay deep: it writes only the state it owns and consumes the
+    result it is meant to see.</p>
+
+  <h2>One fixed tick</h2>
+  <table>
+    <tr><th>Stage</th><th>Writes</th><th>Why it belongs here</th></tr>
+    <tr><td>1. Intent</td><td>Desired root motion / steering</td><td>Gameplay says where the creature wants to go; it does not pose bones.</td></tr>
+    <tr><td>2. Body wishes</td><td>Verlet points, muscle proposals</td><td>Integrate the previous state, then make partial rhythm/tone corrections.</td></tr>
+    <tr><td>3. Gait promises</td><td>Foot targets</td><td>Read current hips and body velocity; decide planted versus swinging feet.</td></tr>
+    <tr><td>4. IK</td><td>Knee and ankle positions</td><td>Solve each leg against the target gait authored. Clamp reachability here.</td></tr>
+    <tr><td>5. Hard resolve</td><td>Final legal body / pins</td><td>Relax distance constraints and feet pins. This is the last simulation authority.</td></tr>
+    <tr><td>6. Presentation</td><td>Render transform, sprite / mesh parameters</td><td>Read the resolved pose; second-order juice may lag or stretch the picture, never physics.</td></tr>
+  </table>
+
+  <h2>Ownership map</h2>
+  <table>
+    <tr><th>State</th><th>Owner</th><th>Never let it be overwritten by</th></tr>
+    <tr><td>Root desire</td><td>Gameplay / steering</td><td>IK or a renderer</td></tr>
+    <tr><td>Spine points</td><td>Verlet + constraint solve</td><td>Presentation smoothing</td></tr>
+    <tr><td>Foot target / phase</td><td>Gait state machine</td><td>IK solver</td></tr>
+    <tr><td>Joint pose</td><td>2-bone IK</td><td>Gait after it has written targets</td></tr>
+    <tr><td>Screen-space bounce</td><td>Second-order presentation state</td><td>The constraint solve</td></tr>
+  </table>
+
+  <h2>DOTS shape</h2>
+<pre><code>// Config: baked once. State: mutable at runtime.
+CreatureIntent        // desired velocity / facing
+DynamicBuffer&lt;VerletPoint&gt;
+MuscleSettings        // rhythm + tone configuration
+DynamicBuffer&lt;GaitLeg&gt;
+DynamicBuffer&lt;Limb2Bone&gt;
+PresentationFollow    // optional SecondOrder state
+
+// One fixed-step group, ordered by data hand-off:
+IntentSystem
+  → BodyWishSystem
+  → GaitSystem
+  → TwoBoneIkSystem
+  → ConstraintResolveSystem
+  → PresentationSystem</code></pre>
+
+  <h2>Debug in hand-off order</h2>
+  <ol>
+    <li>Freeze presentation. Is the resolved simulation legal?</li>
+    <li>Freeze gait. Do body points remain healthy with their existing foot targets?</li>
+    <li>Draw intent, foot targets, and pins in different colours. Which owner last wrote the wrong value?</li>
+    <li>Only then tune values. A wrong authority boundary cannot be fixed with a slider.</li>
+  </ol>
+
+  <div class="lesson-footer">
+    <p>See also: <a href="verlet-chain-cheatsheet.html">verlet</a> · <a href="gait-cheatsheet.html">gait</a> · <a href="two-bone-ik-cheatsheet.html">two-bone IK</a> · <a href="second-order-cheatsheet.html">second-order dynamics</a> · <a href="package-design-cheatsheet.html">package design</a>.</p>
+  </div>
+</div>

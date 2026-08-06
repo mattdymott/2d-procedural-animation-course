@@ -8,6 +8,8 @@
   Written companion/summary of the talk. Use for: quick review without rewatching the video.
 - [Paper: "Advanced Character Physics" — Thomas Jakobsen, GDC 2001 (community transcription)](https://github.com/krisives/advanced-character-physics)
   The foundational verlet + constraint-relaxation paper (Hitman: Codename 47). Use for: verlet integration, distance constraints, stiffness via iteration, particle-based bodies. This is the math bedrock of everything Rain World-like.
+- [Paper: "Position Based Dynamics" — Müller, Heidelberger, Hennix & Ratcliff, 2007](https://diglib.eg.org/items/deb0a7a1-2ddf-496f-889a-fe0df1feeb73)
+  Primary position-based-dynamics source. Use for: treating collision as a temporary unilateral positional constraint and projecting penetrations to a legal position.
 - [Video: "Giving Personality to Procedural Animations using Math" — t3ssel8r](https://www.youtube.com/watch?v=KPoeNZZ6H4s)
   Second-order dynamics (frequency / damping / response) as a universal "juice" filter. Use for: the toolkit's spring/follow module, squash-stretch drivers, procedural lean and overshoot. Also: [text transcription](https://github.com/SalvatoreScalia/Giving-Personality-to-Procedural-Animations-using-Math).
 - [Tutorial series: "Inverse Kinematics in 2D" Parts 1 & 2 — Alan Zucconi](https://www.alanzucconi.com/2018/05/02/ik-2d-1/)
