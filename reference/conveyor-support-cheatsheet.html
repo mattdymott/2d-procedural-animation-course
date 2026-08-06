@@ -1,0 +1,13 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Reference — Conveyor Support Cheatsheet</title><link rel="stylesheet" href="../assets/course.css"><div class="page"><p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p><h1>Conveyor Support Cheatsheet</h1><p class="lede">Keeping a planted foot attached to material travelling through a moving support, taught in <a href="../lessons/0013-conveyor-supports.html">Lesson 13</a>.</p><h2>The contract</h2><p><strong>Support pose moves coordinates. Surface velocity moves material inside those coordinates.</strong> A conveyor plant is a support entity, a local landing point, and a local offset accumulated only while the foot remains planted.</p><pre><code>// landing
+leg.Support       = hit.Entity;
+leg.LocalPlant    = InverseTransformPoint(hit.Entity, hit.Point);
+leg.SurfaceOffset = 0;
+
+// planted ticks
+leg.SurfaceOffset += belt.VelocityLocal * dt;
+localTarget        = leg.LocalPlant + leg.SurfaceOffset;
+leg.WorldPlant     = pose.TransformPoint(localTarget);
+
+// liftoff continuity
+carryVelocity = pose.PointVelocity(localTarget)
+              + pose.TransformDirection(belt.VelocityLocal);</code></pre><h2>Never confuse these</h2><table><tr><th>Motion</th><th>State that represents it</th></tr><tr><td>Elevator / rotation / translation</td><td>Current support pose applied to a local point.</td></tr><tr><td>Belt / treadmill / moving tread</td><td>Integrated surface offset in support-local coordinates.</td></tr><tr><td>New foothold decision</td><td>Gait transition, queried and committed once—not an update to a planted foot.</td></tr></table><h2>Failure modes</h2><table><tr><th>Shortcut</th><th>Result</th></tr><tr><td>Only transform the original local plant</td><td>Foot rides the platform but not the belt material.</td></tr><tr><td>Only use belt world velocity</td><td>Breaks when the support rotates; loses support-point velocity at liftoff.</td></tr><tr><td>Re-query while planted</td><td>Turns a stable material promise into sensor-following.</td></tr></table><div class="lesson-footer"><p>See also: <a href="moving-platform-cheatsheet.html">moving platforms</a> · <a href="ground-aware-stepping-cheatsheet.html">ground-aware stepping</a> · <a href="gait-cheatsheet.html">gait</a>.</p></div></div>
