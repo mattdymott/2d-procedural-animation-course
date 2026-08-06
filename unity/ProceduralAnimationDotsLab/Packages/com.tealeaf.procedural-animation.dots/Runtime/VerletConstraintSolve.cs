@@ -34,9 +34,10 @@ namespace Tealeaf.ProceduralAnimation.Dots
         }
     }
 
-    [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
+    [DisableAutoCreation]
+    [UpdateInGroup(typeof(ProceduralAnimationSolveSystemGroup))]
     [UpdateAfter(typeof(TwoBoneIkSystem))]
-    public partial struct HardResolveSystem : ISystem
+    internal partial struct HardResolveSystem : ISystem
     {
         const int ConstraintIterations = 2;
         public void OnUpdate(ref SystemState state)

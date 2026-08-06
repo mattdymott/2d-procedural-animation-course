@@ -11,3 +11,7 @@ start. Consumers write `CreatureLocomotion.DesiredVelocity`, provide those
 facts, and read resolved poses; they do not construct or mutate solver history
 directly. `CreatureLocomotionSystem` applies the desired velocity and any
 package-owned carry velocity at the start of the fixed-step solve.
+
+`ProceduralAnimationSolveSystemGroup` is the consumer-facing fixed-step entry
+point. The locomotion, chain, gait, IK, and hard-resolve systems remain
+implementation details behind it.

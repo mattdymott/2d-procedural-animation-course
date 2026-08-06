@@ -2,9 +2,10 @@ using Unity.Entities;
 
 namespace Tealeaf.ProceduralAnimation.Dots
 {
-    [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
+    [DisableAutoCreation]
+    [UpdateInGroup(typeof(ProceduralAnimationSolveSystemGroup))]
     [UpdateAfter(typeof(VerletChainSystem))]
-    public partial struct TwoBoneIkSystem : ISystem
+    internal partial struct TwoBoneIkSystem : ISystem
     {
         public void OnUpdate(ref SystemState state)
         {

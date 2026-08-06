@@ -36,11 +36,8 @@ namespace ProceduralAnimationPackageConsumer.Tests
 
                 world.SetTime(new TimeData(0.02, 0.02f));
                 world.GetOrCreateSystem<SampleCreaturePatrolSystem>().Update(world.Unmanaged);
-                world.GetOrCreateSystem<CreatureLocomotionSystem>().Update(world.Unmanaged);
-                world.GetOrCreateSystem<VerletChainSystem>().Update(world.Unmanaged);
                 world.GetOrCreateSystem<FlatGroundFootholdAdapterSystem>().Update(world.Unmanaged);
-                world.GetOrCreateSystem<GaitSystem>().Update(world.Unmanaged);
-                world.GetOrCreateSystem<TwoBoneIkSystem>().Update(world.Unmanaged);
+                world.GetOrCreateSystemManaged<ProceduralAnimationSolveSystemGroup>().Update();
 
                 Assert.That(world.EntityManager.GetComponentData<CreatureBody>(entity).RootPosition.x, Is.GreaterThan(-3f));
                 var footholds = world.EntityManager.GetBuffer<FootholdCandidate>(entity);

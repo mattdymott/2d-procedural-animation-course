@@ -4,10 +4,11 @@ using Tealeaf.ProceduralAnimation.Dots;
 
 namespace Tealeaf.ProceduralAnimation.Dots
 {
-    [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
+    [DisableAutoCreation]
+    [UpdateInGroup(typeof(ProceduralAnimationSolveSystemGroup))]
     [UpdateAfter(typeof(VerletChainSystem))]
     [UpdateBefore(typeof(TwoBoneIkSystem))]
-    public partial struct GaitSystem : ISystem
+    internal partial struct GaitSystem : ISystem
     {
         public void OnUpdate(ref SystemState state)
         {

@@ -3,8 +3,9 @@ using Unity.Mathematics;
 
 namespace Tealeaf.ProceduralAnimation.Dots
 {
-    [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
-    public partial struct VerletChainSystem : ISystem
+    [DisableAutoCreation]
+    [UpdateInGroup(typeof(ProceduralAnimationSolveSystemGroup))]
+    internal partial struct VerletChainSystem : ISystem
     {
         const int ConstraintIterations = 8;
         public void OnUpdate(ref SystemState state)

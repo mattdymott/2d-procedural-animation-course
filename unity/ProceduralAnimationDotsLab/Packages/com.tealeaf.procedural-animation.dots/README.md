@@ -41,6 +41,10 @@ body state; package systems then integrate the chain, advance gait, and solve
 the legs. A terrain, physics, or support adapter may also create entities with
 `SupportPose` and `SupportKinematics` for moving and conveyor surfaces.
 
+`ProceduralAnimationSolveSystemGroup` is the fixed-step package entry point.
+It owns locomotion, chain, gait, IK, and hard-resolve ordering. Consumers
+schedule adapters before this group; they do not schedule individual solvers.
+
 The in-project `PackageConsumer` assembly is a compile-time tracer for this
 interface. It references only the package assemblies, authors a creature with
 `ProceduralCreatureAuthoring`, and supplies patrol plus flat-ground adapters

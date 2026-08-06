@@ -3,9 +3,10 @@ using Unity.Mathematics;
 
 namespace Tealeaf.ProceduralAnimation.Dots
 {
-    [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
+    [DisableAutoCreation]
+    [UpdateInGroup(typeof(ProceduralAnimationSolveSystemGroup))]
     [UpdateBefore(typeof(VerletChainSystem))]
-    public partial struct CreatureLocomotionSystem : ISystem
+    internal partial struct CreatureLocomotionSystem : ISystem
     {
         public void OnUpdate(ref SystemState state)
         {

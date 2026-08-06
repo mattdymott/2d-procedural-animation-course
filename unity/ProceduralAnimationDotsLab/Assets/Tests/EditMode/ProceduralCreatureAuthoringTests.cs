@@ -70,9 +70,7 @@ namespace ProceduralAnimationDotsLab.Tests
                 Assert.That(firstPoint.PreviousPosition, Is.EqualTo(firstPoint.Position));
 
                 world.SetTime(new TimeData(0.02, 0.02f));
-                world.GetOrCreateSystem<VerletChainSystem>().Update(world.Unmanaged);
-                world.GetOrCreateSystem<GaitSystem>().Update(world.Unmanaged);
-                world.GetOrCreateSystem<TwoBoneIkSystem>().Update(world.Unmanaged);
+                world.GetOrCreateSystemManaged<ProceduralAnimationSolveSystemGroup>().Update();
 
                 Assert.That(world.EntityManager.GetComponentData<VerletChain>(entity).Time, Is.EqualTo(0.02f).Within(0.0001f));
                 Assert.That(math.length(world.EntityManager.GetBuffer<Limb2BoneLeg>(entity)[0].Limb.Foot), Is.GreaterThan(0f));

@@ -5,7 +5,7 @@ using Tealeaf.ProceduralAnimation.Dots;
 namespace ProceduralAnimationDotsLab
 {
     [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
-    [UpdateBefore(typeof(VerletChainSystem))]
+    [UpdateBefore(typeof(ProceduralAnimationSolveSystemGroup))]
     public partial struct CreatureIntentSystem : ISystem
     {
         public void OnUpdate(ref SystemState state)

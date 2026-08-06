@@ -18,7 +18,7 @@ namespace ProceduralAnimationPackageConsumer
     }
 
     [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
-    [UpdateBefore(typeof(CreatureLocomotionSystem))]
+    [UpdateBefore(typeof(ProceduralAnimationSolveSystemGroup))]
     public partial struct SampleCreaturePatrolSystem : ISystem
     {
         public void OnUpdate(ref SystemState state)
@@ -38,8 +38,7 @@ namespace ProceduralAnimationPackageConsumer
     }
 
     [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
-    [UpdateAfter(typeof(VerletChainSystem))]
-    [UpdateBefore(typeof(GaitSystem))]
+    [UpdateBefore(typeof(ProceduralAnimationSolveSystemGroup))]
     public partial struct FlatGroundFootholdAdapterSystem : ISystem
     {
         EntityQuery groundQuery;

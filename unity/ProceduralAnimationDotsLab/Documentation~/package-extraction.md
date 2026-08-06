@@ -133,8 +133,11 @@ the package Runtime assembly. The lab retains only its `CreatureIntent`,
 moving-support animation, terrain adapter, and debug presentation state.
 
 The package now also owns Verlet distance repair, one-sided contact projection,
-and the hard-resolve pass. IK and gait system ordering move next so this stage
-can join a package-owned solve group without referring back to the lab.
+the hard-resolve pass, and the `ProceduralAnimationSolveSystemGroup`. The
+group contains locomotion, chain integration, gait, IK, and hard resolve in
+that order; callers target the group rather than its internal systems. The
+fresh `PackageConsumer` tracer supplies patrol and flat-ground adapters without
+referencing the lab runtime assembly.
 
 ## What moves and what remains a sample
 

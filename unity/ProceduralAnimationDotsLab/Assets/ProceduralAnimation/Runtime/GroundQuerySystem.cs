@@ -5,9 +5,8 @@ using Tealeaf.ProceduralAnimation.Dots;
 namespace ProceduralAnimationDotsLab
 {
     [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
-    [UpdateAfter(typeof(VerletChainSystem))]
     [UpdateAfter(typeof(MovingSupportSystem))]
-    [UpdateBefore(typeof(GaitSystem))]
+    [UpdateBefore(typeof(ProceduralAnimationSolveSystemGroup))]
     public partial struct GroundQuerySystem : ISystem
     {
         EntityQuery supportQuery;
