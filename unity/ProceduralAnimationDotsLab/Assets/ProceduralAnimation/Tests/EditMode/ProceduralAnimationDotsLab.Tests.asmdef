@@ -1,0 +1,29 @@
+{
+  "name": "ProceduralAnimationDotsLab.Tests",
+  "rootNamespace": "ProceduralAnimationDotsLab.Tests",
+  "references": [
+    "ProceduralAnimationDotsLab.Runtime",
+    "ProceduralAnimationDotsLab.Editor",
+    "Tealeaf.ProceduralAnimation.Dots.Runtime",
+    "Tealeaf.ProceduralAnimation.Dots.Editor",
+    "Unity.Entities",
+    "Unity.Core",
+    "Unity.Collections",
+    "Unity.Mathematics"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

@@ -1,17 +1,19 @@
-using Unity.Collections;
-using Unity.Entities;
+﻿using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 using Tealeaf.ProceduralAnimation.Dots;
 
 namespace ProceduralAnimationDotsLab
 {
+    /// <summary>
+    /// Read-only presentation for the baked lesson creature. It draws resolved package
+    /// output and sample-side debug data; it never creates or writes solver state.
+    /// </summary>
     public sealed class VerletChainDemo : MonoBehaviour
     {
         EntityManager entityManager;
         EntityQuery chainQuery;
         EntityQuery supportQuery;
-        Entity supportEntity;
         Camera demoCamera;
         LineRenderer chainLine;
         LineRenderer targetMarker;
@@ -25,13 +27,6 @@ namespace ProceduralAnimationDotsLab
         LineRenderer supportLine;
         LineRenderer beltArrowLine;
         bool isReady;
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void CreateDemo()
-        {
-            if (FindAnyObjectByType<VerletChainDemo>() == null)
-                new GameObject("Verlet Chain Demo").AddComponent<VerletChainDemo>();
-        }
 
         void Start()
         {
@@ -75,17 +70,15 @@ namespace ProceduralAnimationDotsLab
             };
             supportLine = CreateLine("Moving Support", new Color(0.8f, 0.4f, 1f), 0.1f);
             beltArrowLine = CreateLine("Conveyor Direction", new Color(1f, 0.75f, 0.25f), 0.05f);
-            CreateChainWhenWorldIsReady();
+            TryBindWorld();
         }
 
         void Update()
         {
-            if (!isReady)
-            {
-                CreateChainWhenWorldIsReady();
+            if (!TryBindWorld())
                 return;
-            }
 
+            // The creature is baked in a sub scene, so it appears a frame or more after load.
             if (chainQuery.IsEmptyIgnoreFilter)
                 return;
 
@@ -130,20 +123,20 @@ namespace ProceduralAnimationDotsLab
             UpdateSupportPresentation();
         }
 
-        void CreateChainWhenWorldIsReady()
+        bool TryBindWorld()
         {
+            if (isReady)
+                return true;
+
             var world = World.DefaultGameObjectInjectionWorld;
             if (world == null || !world.IsCreated)
-                return;
+                return false;
 
             entityManager = world.EntityManager;
             supportQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<DemoMovingSupport>(),
                 ComponentType.ReadOnly<SupportKinematics>(),
                 ComponentType.ReadOnly<SupportPose>());
-            if (!supportQuery.IsEmptyIgnoreFilter)
-                supportEntity = supportQuery.GetSingletonEntity();
-
             chainQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<VerletChain>(),
                 ComponentType.ReadOnly<VerletPoint>(),
@@ -157,148 +150,20 @@ namespace ProceduralAnimationDotsLab
                 ComponentType.ReadOnly<FootholdCandidate>(),
                 ComponentType.ReadOnly<GroundQueryDebugHit>());
 
-            if (!chainQuery.IsEmptyIgnoreFilter)
-            {
-                isReady = true;
-                return;
-            }
-
-            supportEntity = entityManager.CreateEntity(
-                ComponentType.ReadWrite<DemoMovingSupport>(),
-                ComponentType.ReadWrite<SupportPose>(),
-                ComponentType.ReadWrite<SupportKinematics>());
-            var supportOrigin = new float2(-1.1f, -1.75f);
-            entityManager.SetComponentData(supportEntity, new DemoMovingSupport
-            {
-                Origin = supportOrigin,
-                Amplitude = new float2(0f, 0.28f),
-                Frequency = 1.1f,
-                SurfaceVelocityLocal = new float2(0.55f, 0f),
-            });
-            entityManager.SetComponentData(supportEntity, new SupportPose
-            {
-                Position = supportOrigin,
-                RotationRadians = 0f,
-            });
-            entityManager.SetComponentData(supportEntity, new SupportKinematics());
-
-            var entity = entityManager.CreateEntity(
-                ComponentType.ReadWrite<VerletChain>(),
-                ComponentType.ReadWrite<VerletPoint>(),
-                ComponentType.ReadWrite<ChainTarget>(),
-                ComponentType.ReadWrite<CreatureLocomotion>(),
-                ComponentType.ReadWrite<LabCreaturePatrol>(),
-                ComponentType.ReadWrite<CreatureBody>(),
-                ComponentType.ReadWrite<Limb2BoneLeg>(),
-                ComponentType.ReadWrite<GaitLeg>(),
-                ComponentType.ReadWrite<GaitSettings>(),
-                ComponentType.ReadWrite<ContactPlane>(),
-                ComponentType.ReadWrite<FootholdCandidate>(),
-                ComponentType.ReadWrite<GroundQueryDebugHit>());
-            entityManager.SetComponentData(entity, new VerletChain
-            {
-                LinkLength = 0.48f,
-                Damping = 0.992f,
-                MuscleStrength = 0.08f,
-            });
-            entityManager.SetComponentData(entity, new LabCreaturePatrol
-            {
-                Speed = 0.8f,
-                Direction = 1f,
-                MinimumX = -4f,
-                MaximumX = 0f,
-            });
-            entityManager.SetComponentData(entity, new CreatureBody
-            {
-                RootPosition = new float2(-3.5f, 0.5f),
-            });
-            entityManager.SetComponentData(entity, new GaitSettings
-            {
-                Comfort = 0.32f,
-                StepDuration = 0.34f,
-                StepLead = 0.12f,
-                StepHeight = 0.42f,
-                MinimumSupport = 0.7f,
-                MinimumForward = 0.03f,
-            });
-
-            var points = entityManager.GetBuffer<VerletPoint>(entity);
-            for (var index = 0; index < 16; index++)
-            {
-                var position = new float2(-3.5f + index * 0.48f, 0.5f);
-                points.Add(new VerletPoint { Position = position, PreviousPosition = position });
-            }
-
-            var limbs = entityManager.GetBuffer<Limb2BoneLeg>(entity);
-            limbs.Add(new Limb2BoneLeg
-            {
-                Limb = new Limb2Bone
-                {
-                    Target = new float2(-1.3f, -2.1f),
-                    LengthA = 1.2f,
-                    LengthB = 1.45f,
-                    BendSign = -1f,
-                },
-                RootPointIndex = 5,
-            });
-            limbs.Add(new Limb2BoneLeg
-            {
-                Limb = new Limb2Bone
-                {
-                    Target = new float2(1.5f, -2.1f),
-                    LengthA = 1.2f,
-                    LengthB = 1.45f,
-                    BendSign = 1f,
-                },
-                RootPointIndex = 10,
-            });
-
-            var gaitLegs = entityManager.GetBuffer<GaitLeg>(entity);
-            gaitLegs.Add(new GaitLeg
-            {
-                State = FootState.Planted,
-                Plant = SupportMath.TransformPoint(new SupportPose { Position = supportOrigin }, new float2(-0.2f, 0f)),
-                HomeOffset = new float2(-0.2f, -2.6f),
-                PartnerIndex = 1,
-                Support = supportEntity,
-                LocalPlant = new float2(-0.2f, 0f),
-            });
-            gaitLegs.Add(new GaitLeg
-            {
-                State = FootState.Planted,
-                Plant = new float2(1.5f, -2.1f),
-                HomeOffset = new float2(0.2f, -2.6f),
-                PartnerIndex = 0,
-            });
-
-            var contacts = entityManager.GetBuffer<ContactPlane>(entity);
-            contacts.Add(new ContactPlane
-            {
-                Point = new float2(0f, -2.15f),
-                Normal = new float2(0f, 1f),
-                Radius = 0.08f,
-                Friction = 0.35f,
-            });
-            contacts.Add(new ContactPlane
-            {
-                Point = new float2(4.5f, 0f),
-                Normal = new float2(-1f, 0f),
-                Radius = 0.08f,
-                Friction = 0.2f,
-            });
-
             isReady = true;
+            return true;
         }
 
         void UpdateSupportPresentation()
         {
-            if (supportEntity == Entity.Null || !entityManager.Exists(supportEntity))
+            if (supportQuery.IsEmptyIgnoreFilter)
             {
                 supportLine.enabled = false;
+                beltArrowLine.enabled = false;
                 return;
             }
 
-            var pose = entityManager.GetComponentData<SupportPose>(supportEntity);
+            var pose = entityManager.GetComponentData<SupportPose>(supportQuery.GetSingletonEntity());
             supportLine.enabled = true;
             supportLine.positionCount = 2;
             var left = SupportMath.TransformPoint(pose, new float2(-1.35f, 0f));
