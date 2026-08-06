@@ -9,6 +9,8 @@ namespace ProceduralAnimationDotsLab
     {
         EntityManager entityManager;
         EntityQuery chainQuery;
+        EntityQuery supportQuery;
+        Entity supportEntity;
         Camera demoCamera;
         LineRenderer chainLine;
         LineRenderer targetMarker;
@@ -16,6 +18,11 @@ namespace ProceduralAnimationDotsLab
         LineRenderer[] footTargetMarkers;
         LineRenderer[] contactSurfaceLines;
         LineRenderer[] contactNormalLines;
+        LineRenderer[] groundProbeMarkers;
+        LineRenderer[] groundHitMarkers;
+        LineRenderer[] groundNormalLines;
+        LineRenderer supportLine;
+        LineRenderer beltArrowLine;
         bool isReady;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -50,6 +57,23 @@ namespace ProceduralAnimationDotsLab
                 CreateLine("Ground Contact Normal", new Color(0.95f, 0.95f, 0.45f), 0.05f),
                 CreateLine("Wall Contact Normal", new Color(0.95f, 0.95f, 0.45f), 0.05f),
             };
+            groundProbeMarkers = new[]
+            {
+                CreateLine("Left Ground Probe", new Color(0.45f, 0.95f, 0.9f), 0.04f),
+                CreateLine("Right Ground Probe", new Color(0.45f, 0.95f, 0.9f), 0.04f),
+            };
+            groundHitMarkers = new[]
+            {
+                CreateLine("Left Ground Hit", new Color(0.45f, 1f, 0.45f), 0.06f),
+                CreateLine("Right Ground Hit", new Color(0.45f, 1f, 0.45f), 0.06f),
+            };
+            groundNormalLines = new[]
+            {
+                CreateLine("Left Ground Normal", new Color(1f, 0.9f, 0.35f), 0.04f),
+                CreateLine("Right Ground Normal", new Color(1f, 0.9f, 0.35f), 0.04f),
+            };
+            supportLine = CreateLine("Moving Support", new Color(0.8f, 0.4f, 1f), 0.1f);
+            beltArrowLine = CreateLine("Conveyor Direction", new Color(1f, 0.75f, 0.25f), 0.05f);
             CreateChainWhenWorldIsReady();
         }
 
@@ -73,6 +97,7 @@ namespace ProceduralAnimationDotsLab
             var limbs = entityManager.GetBuffer<Limb2BoneLeg>(entity, true);
             var gaitLegs = entityManager.GetBuffer<GaitLeg>(entity, true);
             var contacts = entityManager.GetBuffer<ContactPlane>(entity, true);
+            var groundHits = entityManager.GetBuffer<GroundHit>(entity, true);
 
             chainLine.positionCount = points.Length;
             for (var index = 0; index < points.Length; index++)
@@ -101,6 +126,8 @@ namespace ProceduralAnimationDotsLab
             }
 
             UpdateContactPresentation(contacts);
+            UpdateGroundPresentation(groundHits);
+            UpdateSupportPresentation();
         }
 
         void CreateChainWhenWorldIsReady()
@@ -110,6 +137,12 @@ namespace ProceduralAnimationDotsLab
                 return;
 
             entityManager = world.EntityManager;
+            supportQuery = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<SupportMotion>(),
+                ComponentType.ReadOnly<SupportPose>());
+            if (!supportQuery.IsEmptyIgnoreFilter)
+                supportEntity = supportQuery.GetSingletonEntity();
+
             chainQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<VerletChain>(),
                 ComponentType.ReadOnly<VerletPoint>(),
@@ -119,13 +152,31 @@ namespace ProceduralAnimationDotsLab
                 ComponentType.ReadOnly<GaitSettings>(),
                 ComponentType.ReadOnly<GaitLeg>(),
                 ComponentType.ReadOnly<Limb2BoneLeg>(),
-                ComponentType.ReadOnly<ContactPlane>());
+                ComponentType.ReadOnly<ContactPlane>(),
+                ComponentType.ReadOnly<GroundHit>());
 
             if (!chainQuery.IsEmptyIgnoreFilter)
             {
                 isReady = true;
                 return;
             }
+
+            supportEntity = entityManager.CreateEntity(
+                ComponentType.ReadWrite<SupportMotion>(),
+                ComponentType.ReadWrite<SupportPose>());
+            var supportOrigin = new float2(-1.1f, -1.75f);
+            entityManager.SetComponentData(supportEntity, new SupportMotion
+            {
+                Origin = supportOrigin,
+                Amplitude = new float2(0f, 0.28f),
+                Frequency = 1.1f,
+                BeltVelocityLocal = new float2(0.55f, 0f),
+            });
+            entityManager.SetComponentData(supportEntity, new SupportPose
+            {
+                Position = supportOrigin,
+                Rotation = 0f,
+            });
 
             var entity = entityManager.CreateEntity(
                 ComponentType.ReadWrite<VerletChain>(),
@@ -136,7 +187,8 @@ namespace ProceduralAnimationDotsLab
                 ComponentType.ReadWrite<Limb2BoneLeg>(),
                 ComponentType.ReadWrite<GaitLeg>(),
                 ComponentType.ReadWrite<GaitSettings>(),
-                ComponentType.ReadWrite<ContactPlane>());
+                ComponentType.ReadWrite<ContactPlane>(),
+                ComponentType.ReadWrite<GroundHit>());
             entityManager.SetComponentData(entity, new VerletChain
             {
                 LinkLength = 0.48f,
@@ -157,6 +209,8 @@ namespace ProceduralAnimationDotsLab
                 StepDuration = 0.34f,
                 StepLead = 0.12f,
                 StepHeight = 0.42f,
+                MinimumSupport = 0.7f,
+                MinimumForward = 0.03f,
             });
 
             var points = entityManager.GetBuffer<VerletPoint>(entity);
@@ -194,9 +248,11 @@ namespace ProceduralAnimationDotsLab
             gaitLegs.Add(new GaitLeg
             {
                 State = FootState.Planted,
-                Plant = new float2(-1.3f, -2.1f),
+                Plant = SupportPoseMath.TransformPoint(new SupportPose { Position = supportOrigin }, new float2(-0.2f, 0f)),
                 HomeOffset = new float2(-0.2f, -2.6f),
                 PartnerIndex = 1,
+                Support = supportEntity,
+                LocalPlant = new float2(-0.2f, 0f),
             });
             gaitLegs.Add(new GaitLeg
             {
@@ -209,7 +265,7 @@ namespace ProceduralAnimationDotsLab
             var contacts = entityManager.GetBuffer<ContactPlane>(entity);
             contacts.Add(new ContactPlane
             {
-                Point = new float2(0f, -2.7f),
+                Point = new float2(0f, -2.15f),
                 Normal = new float2(0f, 1f),
                 Radius = 0.08f,
                 Friction = 0.35f,
@@ -223,6 +279,72 @@ namespace ProceduralAnimationDotsLab
             });
 
             isReady = true;
+        }
+
+        void UpdateSupportPresentation()
+        {
+            if (supportEntity == Entity.Null || !entityManager.Exists(supportEntity))
+            {
+                supportLine.enabled = false;
+                return;
+            }
+
+            var pose = entityManager.GetComponentData<SupportPose>(supportEntity);
+            supportLine.enabled = true;
+            supportLine.positionCount = 2;
+            var left = SupportPoseMath.TransformPoint(pose, new float2(-1.35f, 0f));
+            var right = SupportPoseMath.TransformPoint(pose, new float2(1.35f, 0f));
+            supportLine.SetPosition(0, new Vector3(left.x, left.y, 0f));
+            supportLine.SetPosition(1, new Vector3(right.x, right.y, 0f));
+
+            var arrowStart = SupportPoseMath.TransformPoint(pose, new float2(-0.35f, 0.16f));
+            var arrowTip = SupportPoseMath.TransformPoint(pose, new float2(0.35f, 0.16f));
+            var arrowUpper = SupportPoseMath.TransformPoint(pose, new float2(0.2f, 0.28f));
+            var arrowLower = SupportPoseMath.TransformPoint(pose, new float2(0.2f, 0.04f));
+            beltArrowLine.enabled = true;
+            beltArrowLine.positionCount = 4;
+            beltArrowLine.SetPosition(0, new Vector3(arrowStart.x, arrowStart.y, 0f));
+            beltArrowLine.SetPosition(1, new Vector3(arrowTip.x, arrowTip.y, 0f));
+            beltArrowLine.SetPosition(2, new Vector3(arrowUpper.x, arrowUpper.y, 0f));
+            beltArrowLine.SetPosition(3, new Vector3(arrowTip.x, arrowTip.y, 0f));
+        }
+
+        void UpdateGroundPresentation(DynamicBuffer<GroundHit> hits)
+        {
+            for (var index = 0; index < groundProbeMarkers.Length; index++)
+            {
+                var hit = FindGroundHit(hits, (byte)index);
+                var active = hit.Exists != 0;
+                groundProbeMarkers[index].enabled = active;
+                groundHitMarkers[index].enabled = active;
+                groundNormalLines[index].enabled = active;
+                if (!active)
+                    continue;
+
+                groundProbeMarkers[index].positionCount = 2;
+                groundProbeMarkers[index].SetPosition(0, new Vector3(hit.Probe.x - 0.14f, hit.Probe.y, 0f));
+                groundProbeMarkers[index].SetPosition(1, new Vector3(hit.Probe.x + 0.14f, hit.Probe.y, 0f));
+
+                groundHitMarkers[index].positionCount = 2;
+                groundHitMarkers[index].SetPosition(0, new Vector3(hit.Point.x - 0.14f, hit.Point.y, 0f));
+                groundHitMarkers[index].SetPosition(1, new Vector3(hit.Point.x + 0.14f, hit.Point.y, 0f));
+
+                var normal = math.normalizesafe(hit.Normal, new float2(0f, 1f));
+                groundNormalLines[index].positionCount = 2;
+                groundNormalLines[index].SetPosition(0, new Vector3(hit.Point.x, hit.Point.y, 0f));
+                groundNormalLines[index].SetPosition(1, new Vector3(hit.Point.x + normal.x * 0.42f, hit.Point.y + normal.y * 0.42f, 0f));
+            }
+        }
+
+        static GroundHit FindGroundHit(DynamicBuffer<GroundHit> hits, byte legIndex)
+        {
+            for (var index = 0; index < hits.Length; index++)
+            {
+                if (hits[index].LegIndex == legIndex)
+                    return hits[index];
+            }
+
+            return default;
         }
 
         void UpdateContactPresentation(DynamicBuffer<ContactPlane> contacts)
