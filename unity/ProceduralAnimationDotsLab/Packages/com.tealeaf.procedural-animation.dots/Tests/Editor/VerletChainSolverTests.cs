@@ -2,7 +2,7 @@ using NUnit.Framework;
 using Tealeaf.ProceduralAnimation.Dots;
 using Unity.Mathematics;
 
-namespace ProceduralAnimationDotsLab.Tests
+namespace Tealeaf.ProceduralAnimation.Dots.Tests
 {
     public sealed class VerletChainSolverTests
     {

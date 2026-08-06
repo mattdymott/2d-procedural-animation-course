@@ -1,13 +1,13 @@
 {
-  "name": "ProceduralAnimationDotsLab.Tests",
-  "rootNamespace": "ProceduralAnimationDotsLab.Tests",
+  "name": "Tealeaf.ProceduralAnimation.Dots.Tests.Editor",
+  "rootNamespace": "Tealeaf.ProceduralAnimation.Dots.Tests",
   "references": [
-    "ProceduralAnimationDotsLab.Runtime",
-    "Tealeaf.ProceduralAnimation.Dots.Editor",
     "Tealeaf.ProceduralAnimation.Dots.Runtime",
+    "Tealeaf.ProceduralAnimation.Dots.Editor",
     "Unity.Entities",
     "Unity.Core",
-    "Unity.Collections"
+    "Unity.Collections",
+    "Unity.Mathematics"
   ],
   "includePlatforms": [
     "Editor"

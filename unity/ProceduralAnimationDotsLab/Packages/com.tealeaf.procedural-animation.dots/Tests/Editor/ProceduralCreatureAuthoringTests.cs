@@ -7,7 +7,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace ProceduralAnimationDotsLab.Tests
+namespace Tealeaf.ProceduralAnimation.Dots.Tests
 {
     public sealed class ProceduralCreatureAuthoringTests
     {

@@ -3,7 +3,7 @@ using Tealeaf.ProceduralAnimation.Dots;
 using Unity.Entities;
 using Unity.Mathematics;
 
-namespace ProceduralAnimationDotsLab.Tests
+namespace Tealeaf.ProceduralAnimation.Dots.Tests
 {
     public sealed class GaitStepperTests
     {
@@ -69,28 +69,24 @@ namespace ProceduralAnimationDotsLab.Tests
         }
 
         [Test]
-        public void GroundQuery_StoresASupportHitInLocalCoordinates()
+        public void SupportMath_RoundTripsAWorldProbeThroughSupportLocalCoordinates()
         {
-            var support = new Entity { Index = 3, Version = 1 };
             var pose = new SupportPose
             {
                 Position = new float2(2f, 1f),
                 RotationRadians = 0f,
             };
 
-            var found = GroundQuery.TrySampleSupport(
-                0,
-                new float2(2.5f, -1f),
-                support,
-                pose,
-                out var hit);
+            // How a support adapter turns a world probe into the surface-local
+            // point it hands back as FootholdCandidate.SupportLocalPoint.
+            var localProbe = SupportMath.InverseTransformPoint(pose, new float2(2.5f, -1f));
+            var localSurfacePoint = new float2(localProbe.x, 0f);
+            var worldSurfacePoint = SupportMath.TransformPoint(pose, localSurfacePoint);
 
-            Assert.That(found, Is.True);
-            Assert.That(hit.Support, Is.EqualTo(support));
-            Assert.That(hit.Point.x, Is.EqualTo(2.5f).Within(0.0001f));
-            Assert.That(hit.Point.y, Is.EqualTo(1f).Within(0.0001f));
-            Assert.That(hit.SupportLocalPoint.x, Is.EqualTo(0.5f).Within(0.0001f));
-            Assert.That(hit.SupportLocalPoint.y, Is.EqualTo(0f).Within(0.0001f));
+            Assert.That(localSurfacePoint.x, Is.EqualTo(0.5f).Within(0.0001f));
+            Assert.That(localSurfacePoint.y, Is.EqualTo(0f).Within(0.0001f));
+            Assert.That(worldSurfacePoint.x, Is.EqualTo(2.5f).Within(0.0001f));
+            Assert.That(worldSurfacePoint.y, Is.EqualTo(1f).Within(0.0001f));
         }
 
         [Test]
