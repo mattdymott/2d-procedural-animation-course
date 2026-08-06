@@ -6,6 +6,21 @@ namespace ProceduralAnimationDotsLab.Tests
     public sealed class VerletChainSolverTests
     {
         [Test]
+        public void Pin_SetsPositionAndPreviousPositionToTheAuthoritativeRoot()
+        {
+            var point = new VerletPoint
+            {
+                Position = new float2(4f, -2f),
+                PreviousPosition = new float2(1f, 3f),
+            };
+
+            VerletChainSolver.Pin(ref point, new float2(-1f, 2f));
+
+            Assert.That(point.Position, Is.EqualTo(new float2(-1f, 2f)));
+            Assert.That(point.PreviousPosition, Is.EqualTo(new float2(-1f, 2f)));
+        }
+
+        [Test]
         public void SatisfyDistance_RestoresTheConfiguredLinkLength()
         {
             var first = new VerletPoint { Position = new float2(0f, 0f) };
@@ -84,6 +99,57 @@ namespace ProceduralAnimationDotsLab.Tests
 
             Assert.That(math.distance(limb.Root, limb.Foot), Is.GreaterThan(2f));
             Assert.That(limb.Foot.x, Is.GreaterThan(limb.Root.x));
+        }
+    }
+
+    public sealed class VerletContactSolverTests
+    {
+        [Test]
+        public void ProjectAgainstPlane_PushesPenetrationOutAndRemovesIntoSurfaceVelocity()
+        {
+            var point = new VerletPoint
+            {
+                Position = new float2(2f, -1f),
+                PreviousPosition = new float2(1f, 1f),
+            };
+            var plane = new ContactPlane
+            {
+                Point = float2.zero,
+                Normal = new float2(0f, 1f),
+                Radius = 0.25f,
+                Friction = 0.25f,
+            };
+
+            var projected = VerletContactSolver.ProjectAgainstPlane(ref point, plane);
+
+            Assert.That(projected, Is.True);
+            Assert.That(point.Position, Is.EqualTo(new float2(2f, 0.25f)));
+            Assert.That(point.Position.y - point.PreviousPosition.y, Is.GreaterThanOrEqualTo(0f));
+            Assert.That(point.Position.x - point.PreviousPosition.x, Is.EqualTo(0.75f).Within(0.0001f));
+        }
+
+        [Test]
+        public void ProjectAgainstPlane_LeavesALegalPointUntouched()
+        {
+            var point = new VerletPoint
+            {
+                Position = new float2(2f, 0.5f),
+                PreviousPosition = new float2(1f, 0.25f),
+            };
+            var original = point;
+            var plane = new ContactPlane
+            {
+                Point = float2.zero,
+                Normal = new float2(0f, 1f),
+                Radius = 0.25f,
+                Friction = 1f,
+            };
+
+            var projected = VerletContactSolver.ProjectAgainstPlane(ref point, plane);
+
+            Assert.That(projected, Is.False);
+            Assert.That(point.Position, Is.EqualTo(original.Position));
+            Assert.That(point.PreviousPosition, Is.EqualTo(original.PreviousPosition));
         }
     }
 }

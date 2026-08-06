@@ -9,10 +9,13 @@ namespace ProceduralAnimationDotsLab
     {
         EntityManager entityManager;
         EntityQuery chainQuery;
+        Camera demoCamera;
         LineRenderer chainLine;
         LineRenderer targetMarker;
         LineRenderer[] legLines;
         LineRenderer[] footTargetMarkers;
+        LineRenderer[] contactSurfaceLines;
+        LineRenderer[] contactNormalLines;
         bool isReady;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -37,6 +40,16 @@ namespace ProceduralAnimationDotsLab
                 CreateLine("Left Foot Target", new Color(0.98f, 0.86f, 0.4f), 0.06f),
                 CreateLine("Right Foot Target", new Color(0.98f, 0.86f, 0.4f), 0.06f),
             };
+            contactSurfaceLines = new[]
+            {
+                CreateLine("Ground Contact", new Color(0.35f, 0.85f, 0.48f), 0.08f),
+                CreateLine("Wall Contact", new Color(0.35f, 0.85f, 0.48f), 0.08f),
+            };
+            contactNormalLines = new[]
+            {
+                CreateLine("Ground Contact Normal", new Color(0.95f, 0.95f, 0.45f), 0.05f),
+                CreateLine("Wall Contact Normal", new Color(0.95f, 0.95f, 0.45f), 0.05f),
+            };
             CreateChainWhenWorldIsReady();
         }
 
@@ -54,8 +67,12 @@ namespace ProceduralAnimationDotsLab
             var entity = chainQuery.GetSingletonEntity();
             var points = entityManager.GetBuffer<VerletPoint>(entity, true);
             var target = entityManager.GetComponentData<ChainTarget>(entity).Position;
+            var body = entityManager.GetComponentData<CreatureBody>(entity);
+            UpdatePatrolIntent(entity, body);
+            UpdateCamera(body);
             var limbs = entityManager.GetBuffer<Limb2BoneLeg>(entity, true);
             var gaitLegs = entityManager.GetBuffer<GaitLeg>(entity, true);
+            var contacts = entityManager.GetBuffer<ContactPlane>(entity, true);
 
             chainLine.positionCount = points.Length;
             for (var index = 0; index < points.Length; index++)
@@ -82,6 +99,8 @@ namespace ProceduralAnimationDotsLab
                 footTargetMarkers[index].SetPosition(0, new Vector3(limb.Target.x - 0.18f, limb.Target.y, 0f));
                 footTargetMarkers[index].SetPosition(1, new Vector3(limb.Target.x + 0.18f, limb.Target.y, 0f));
             }
+
+            UpdateContactPresentation(contacts);
         }
 
         void CreateChainWhenWorldIsReady()
@@ -94,7 +113,13 @@ namespace ProceduralAnimationDotsLab
             chainQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<VerletChain>(),
                 ComponentType.ReadOnly<VerletPoint>(),
-                ComponentType.ReadOnly<ChainTarget>());
+                ComponentType.ReadOnly<ChainTarget>(),
+                ComponentType.ReadOnly<CreatureIntent>(),
+                ComponentType.ReadOnly<CreatureBody>(),
+                ComponentType.ReadOnly<GaitSettings>(),
+                ComponentType.ReadOnly<GaitLeg>(),
+                ComponentType.ReadOnly<Limb2BoneLeg>(),
+                ComponentType.ReadOnly<ContactPlane>());
 
             if (!chainQuery.IsEmptyIgnoreFilter)
             {
@@ -106,14 +131,25 @@ namespace ProceduralAnimationDotsLab
                 ComponentType.ReadWrite<VerletChain>(),
                 ComponentType.ReadWrite<VerletPoint>(),
                 ComponentType.ReadWrite<ChainTarget>(),
+                ComponentType.ReadWrite<CreatureIntent>(),
+                ComponentType.ReadWrite<CreatureBody>(),
                 ComponentType.ReadWrite<Limb2BoneLeg>(),
                 ComponentType.ReadWrite<GaitLeg>(),
-                ComponentType.ReadWrite<GaitSettings>());
+                ComponentType.ReadWrite<GaitSettings>(),
+                ComponentType.ReadWrite<ContactPlane>());
             entityManager.SetComponentData(entity, new VerletChain
             {
                 LinkLength = 0.48f,
                 Damping = 0.992f,
                 MuscleStrength = 0.08f,
+            });
+            entityManager.SetComponentData(entity, new CreatureIntent
+            {
+                DesiredVelocity = new float2(0.8f, 0f),
+            });
+            entityManager.SetComponentData(entity, new CreatureBody
+            {
+                RootPosition = new float2(-3.5f, 0.5f),
             });
             entityManager.SetComponentData(entity, new GaitSettings
             {
@@ -170,7 +206,49 @@ namespace ProceduralAnimationDotsLab
                 PartnerIndex = 0,
             });
 
+            var contacts = entityManager.GetBuffer<ContactPlane>(entity);
+            contacts.Add(new ContactPlane
+            {
+                Point = new float2(0f, -2.7f),
+                Normal = new float2(0f, 1f),
+                Radius = 0.08f,
+                Friction = 0.35f,
+            });
+            contacts.Add(new ContactPlane
+            {
+                Point = new float2(4.5f, 0f),
+                Normal = new float2(-1f, 0f),
+                Radius = 0.08f,
+                Friction = 0.2f,
+            });
+
             isReady = true;
+        }
+
+        void UpdateContactPresentation(DynamicBuffer<ContactPlane> contacts)
+        {
+            for (var index = 0; index < contactSurfaceLines.Length; index++)
+            {
+                var active = index < contacts.Length;
+                contactSurfaceLines[index].enabled = active;
+                contactNormalLines[index].enabled = active;
+                if (!active)
+                    continue;
+
+                var contact = contacts[index];
+                var normal = math.normalizesafe(contact.Normal, new float2(0f, 1f));
+                var tangent = new float2(-normal.y, normal.x);
+                var boundary = contact.Point + normal * math.max(contact.Radius, 0f);
+                var surfaceStart = boundary - tangent * 8f;
+                var surfaceEnd = boundary + tangent * 8f;
+                contactSurfaceLines[index].positionCount = 2;
+                contactSurfaceLines[index].SetPosition(0, new Vector3(surfaceStart.x, surfaceStart.y, 0f));
+                contactSurfaceLines[index].SetPosition(1, new Vector3(surfaceEnd.x, surfaceEnd.y, 0f));
+
+                contactNormalLines[index].positionCount = 2;
+                contactNormalLines[index].SetPosition(0, new Vector3(boundary.x, boundary.y, 0f));
+                contactNormalLines[index].SetPosition(1, new Vector3(boundary.x + normal.x * 0.45f, boundary.y + normal.y * 0.45f, 0f));
+            }
         }
 
         static LineRenderer CreateLine(string lineName, Color color, float width)
@@ -200,6 +278,30 @@ namespace ProceduralAnimationDotsLab
             camera.orthographicSize = 4.5f;
             camera.transform.position = new Vector3(0f, 0f, -10f);
             camera.backgroundColor = new Color(0.06f, 0.09f, 0.14f);
+        }
+
+        void UpdatePatrolIntent(Entity entity, CreatureBody body)
+        {
+            var intent = entityManager.GetComponentData<CreatureIntent>(entity);
+            if (body.RootPosition.x > 0f)
+                intent.DesiredVelocity = new float2(-0.8f, 0f);
+            else if (body.RootPosition.x < -4f)
+                intent.DesiredVelocity = new float2(0.8f, 0f);
+
+            entityManager.SetComponentData(entity, intent);
+        }
+
+        void UpdateCamera(CreatureBody body)
+        {
+            if (demoCamera == null)
+                demoCamera = Camera.main;
+
+            if (demoCamera == null)
+                return;
+
+            var position = demoCamera.transform.position;
+            position.x = Mathf.Lerp(position.x, body.RootPosition.x + 3f, 0.08f);
+            demoCamera.transform.position = position;
         }
     }
 }

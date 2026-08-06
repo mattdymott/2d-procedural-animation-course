@@ -23,6 +23,24 @@ namespace ProceduralAnimationDotsLab
         public float2 Position;
     }
 
+    public struct CreatureIntent : IComponentData
+    {
+        public float2 DesiredVelocity;
+    }
+
+    public struct CreatureBody : IComponentData
+    {
+        public float2 RootPosition;
+    }
+
+    public struct ContactPlane : IBufferElementData
+    {
+        public float2 Point;
+        public float2 Normal;
+        public float Radius;
+        public float Friction;
+    }
+
     public struct Limb2Bone : IComponentData
     {
         public float2 Root;

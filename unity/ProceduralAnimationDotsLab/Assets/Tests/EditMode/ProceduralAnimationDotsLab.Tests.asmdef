@@ -7,6 +7,15 @@
   "includePlatforms": [
     "Editor"
   ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false,
   "optionalUnityReferences": [
     "TestAssemblies"
   ]

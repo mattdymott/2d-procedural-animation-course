@@ -12,7 +12,7 @@ namespace ProceduralAnimationDotsLab
         {
             var deltaTime = SystemAPI.Time.DeltaTime;
 
-            foreach (var (chain, target, points) in SystemAPI.Query<RefRW<VerletChain>, RefRW<ChainTarget>, DynamicBuffer<VerletPoint>>())
+            foreach (var (chain, target, body, points) in SystemAPI.Query<RefRW<VerletChain>, RefRW<ChainTarget>, RefRO<CreatureBody>, DynamicBuffer<VerletPoint>>())
             {
                 if (points.Length < 2)
                     continue;
@@ -21,8 +21,8 @@ namespace ProceduralAnimationDotsLab
                 var simulation = chain.ValueRO;
                 simulation.Time += deltaTime;
 
-                var root = new float2(-3.5f, 0.5f + math.sin(simulation.Time * 0.9f) * 0.35f);
-                var endpoint = new float2(3.0f, math.sin(simulation.Time * 1.7f) * 1.3f);
+                var root = VerletChainSolver.ResolveRoot(body.ValueRO.RootPosition, simulation.Time);
+                var endpoint = body.ValueRO.RootPosition + new float2(6.5f, math.sin(simulation.Time * 1.7f) * 1.3f);
                 target.ValueRW.Position = endpoint;
 
                 for (var index = 1; index < mutablePoints.Length; index++)
@@ -41,8 +41,7 @@ namespace ProceduralAnimationDotsLab
                 for (var iteration = 0; iteration < ConstraintIterations; iteration++)
                 {
                     var pinnedRoot = mutablePoints[0];
-                    pinnedRoot.Position = root;
-                    pinnedRoot.PreviousPosition = root;
+                    VerletChainSolver.Pin(ref pinnedRoot, root);
                     mutablePoints[0] = pinnedRoot;
 
                     for (var index = 0; index < mutablePoints.Length - 1; index++)
@@ -53,8 +52,7 @@ namespace ProceduralAnimationDotsLab
 
                         if (index == 0)
                         {
-                            first.Position = root;
-                            first.PreviousPosition = root;
+                            VerletChainSolver.Pin(ref first, root);
                         }
 
                         mutablePoints[index] = first;

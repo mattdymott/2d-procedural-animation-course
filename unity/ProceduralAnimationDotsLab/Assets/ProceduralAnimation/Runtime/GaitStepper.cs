@@ -4,6 +4,7 @@ namespace ProceduralAnimationDotsLab
 {
     public static class GaitStepper
     {
+        // Keep authored zero-duration settings finite while the edit-time data is being assembled.
         const float MinimumDuration = 0.0001f;
 
         public static float2 Update(
