@@ -48,3 +48,13 @@ commits the imported copy under
 clone can open the scene and press play without an import step, and so the
 sample is proven to work rather than merely stored. Edit the `Samples~` copy
 and re-import when the two drift.
+
+Two rules keep that arrangement working:
+
+- Every `.cs` and `.unity` file here keeps its `.meta` beside it. The imported
+  copy reuses those GUIDs, which is what lets the host scene keep resolving the
+  sub scene and the presentation script across a move or a re-import.
+- Package Manager imports into a version-named folder. On a version bump,
+  **delete the previous `Assets/Samples/.../<old version>/Lab` before
+  re-importing** — two copies mean two `ProceduralAnimationDotsLab.Runtime`
+  assemblies and the project will not compile.
