@@ -1,0 +1,76 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Lesson 13 — Conveyor Supports</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:.65rem;margin:1rem 0}.choice{min-height:7.7rem;border:1px solid var(--rule);border-radius:7px;background:var(--bg);color:var(--ink);padding:.75rem;text-align:left;font:inherit;cursor:pointer}.choice:hover:not(:disabled){border-color:var(--accent)}.choice:disabled{cursor:default;opacity:.8}.choice.good{border-color:var(--good);background:#eef6f0}.choice.bad{border-color:var(--bad);background:#f9ece8}.feedback{min-height:2.8rem;padding:.7rem .8rem;background:var(--sidebar-bg);border-left:3px solid var(--rule)}.feedback.ok{border-color:var(--good);background:#eef6f0}
+</style>
+<div class="page">
+<p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 13</p>
+<h1>Conveyors: A Support Has Two Motions</h1>
+<p class="lede">Lesson 12 made a planted foot ride a moving platform. A conveyor exposes the missing distinction: a support transform can stand still while its <em>surface material</em> travels. A planted promise needs both motions.</p>
+
+<h2>The one move: add surface travel in support space</h2>
+<p>A relative plant already stores a support entity and local point. For a belt, retain that landing point and add a small <code>SurfaceOffset</code>. While the foot is planted, integrate the belt’s local material velocity into that offset, then transform the sum to world. This is still one committed relationship—there is no fresh terrain query.</p>
+<div class="recipe"><span class="callout-label">Recipe · planted on a moving conveyor</span><pre><code>// landing: gait makes one commitment
+leg.Support       = hit.Entity;
+leg.LocalPlant    = InverseTransformPoint(hit.Entity, hit.Point);
+leg.SurfaceOffset = float2.zero;
+
+// planted ticks: support pose + surface travel define the target
+leg.SurfaceOffset += support.BeltVelocityLocal * dt;
+localTarget        = leg.LocalPlant + leg.SurfaceOffset;
+leg.WorldPlant     = supportPose.TransformPoint(localTarget);
+ik.Target          = leg.WorldPlant;
+
+// liftoff: retain motion for the next body / swing decision
+carryVelocity = supportPose.PointVelocity(localTarget)
+              + supportPose.TransformDirection(support.BeltVelocityLocal);</code></pre></div>
+<p><strong>A transform moves coordinates; a conveyor moves material through coordinates.</strong> A rotating platform needs only the first term. A stationary belt needs only the second. A rotating belt needs both. Gait still decides when the foot plants and releases; the support adapter only evaluates the already-committed promise.</p>
+
+<h2>The playground: keep the foot attached to belt material</h2>
+<p>The platform stays still while its belt runs right. Choose the state that makes a planted foot travel with the belt without replacing the plant with noisy sensing.</p>
+<div class="sim"><div class="sim-controls" style="display:block"><strong style="font-size:.9rem">What changes while the foot remains planted?</strong><div id="choices" class="choices"></div><div id="feedback" class="feedback">Choose one representation.</div></div></div>
+<div class="challenge" id="ch1"><span class="status">☐</span> <strong>Challenge 1 — Keep the promise material-relative.</strong> Choose the representation that accounts for platform pose and belt travel.</div>
+
+<h2>Carry velocity is for continuity, not a new owner</h2>
+<p>When a foot leaves a conveyor, the character has inherited some motion from it. Sample the support-point velocity plus the belt’s world direction <em>at liftoff</em>, then hand that value to body/locomotion prediction. Do not let the renderer invent it, and do not let a new raycast rewrite the final planted tick.</p>
+<table><tr><th>Situation</th><th>World target while planted</th><th>At liftoff</th></tr><tr><td>Static floor</td><td>fixed world point</td><td>zero carry velocity</td></tr><tr><td>Moving platform</td><td><code>pose(localPlant)</code></td><td>velocity of that support point</td></tr><tr><td>Conveyor</td><td><code>pose(localPlant + beltOffset)</code></td><td>support-point velocity + belt velocity</td></tr></table>
+
+<div class="dots-mapping"><span class="callout-label">DOTS mapping</span><p style="margin-top:0">Keep the distinction in compact data. A support adapter reads cached pose and surface-velocity data; the hot gait loop integrates only <code>float2</code>s. Gather support data once per chunk or region, then evaluate each relative plant in parallel.</p><pre><code>public struct GaitLeg : IBufferElementData
+{
+    public Entity Support;
+    public float2 LocalPlant;
+    public float2 SurfaceOffset;       // zero for ordinary platforms
+    public float2 WorldPlant;
+}
+
+// While planted. SupportAdapter owns these reads; gait owns phase changes.
+leg.SurfaceOffset += belt.VelocityLocal * deltaTime;
+leg.WorldPlant = pose.TransformPoint(leg.LocalPlant + leg.SurfaceOffset);</code></pre><p style="margin-bottom:0">Unity’s <a href="https://docs.unity3d.com/ScriptReference/Transform.TransformPoint.html">TransformPoint documentation</a> makes the coordinate half explicit: local positions become world positions, while directions need a direction conversion instead. Your ECS pose adapter applies the same distinction.</p></div>
+
+<h2>Check yourself</h2>
+<p>From memory — name which motion changed: the support’s coordinates, or material within those coordinates.</p>
+<div id="quiz"></div>
+
+<h2>Where to go deeper</h2>
+<p><strong>Primary source:</strong> Unity’s <a href="https://docs.unity3d.com/ScriptReference/Transform.TransformPoint.html">TransformPoint reference</a> is the core coordinate-space contract: positions are transformed to world space, whereas directions use a different conversion. The belt offset is animation-specific state layered on that contract.</p>
+<p>Keep the <a href="../reference/conveyor-support-cheatsheet.html">conveyor support cheatsheet</a> beside <a href="../reference/moving-platform-cheatsheet.html">moving platforms</a> and <a href="../reference/gait-cheatsheet.html">gait</a>.</p>
+<div class="lesson-footer"><p><strong>Suggested real-world rep:</strong> put the L9 lizard on a stationary belt, then a rotating platform with a belt. Draw <code>LocalPlant</code>, <code>SurfaceOffset</code>, and <code>WorldPlant</code>. On liftoff, log carried velocity and verify it has both terms only on the rotating belt.</p><p>Stuck or curious? Ask about slipping policies, support destruction, rotating handholds, or a gripping tail.</p></div>
+</div>
+<script src="../assets/quiz.js"></script>
+<script>
+(function(){
+'use strict';
+const data=[
+ {t:'Keep only the original world hit point',d:'The belt travels beneath a foot that never moves.',ok:false},
+ {t:'Store support + local plant + accumulated local belt offset',d:'Pose carries coordinates; offset carries material.',ok:true},
+ {t:'Raycast every planted frame and use the newest hit',d:'The foot chases sensing rather than one promise.',ok:false}
+],box=document.getElementById('choices'),out=document.getElementById('feedback');
+data.forEach(x=>{const b=document.createElement('button');b.type='button';b.className='choice';b.innerHTML='<strong>'+x.t+'</strong><small>'+x.d+'</small>';b.addEventListener('click',()=>{document.querySelectorAll('.choice').forEach(y=>y.disabled=true);b.classList.add(x.ok?'good':'bad');if(x.ok){out.className='feedback ok';out.textContent='✓ Correct. The support pose and local surface offset together locate the same material point each tick.';const c=document.getElementById('ch1');c.classList.add('done');c.querySelector('.status').textContent='✓';}else{out.textContent='That loses one motion: '+x.d;document.querySelectorAll('.choice')[1].classList.add('good');}});box.appendChild(b);});
+Quiz.render(document.getElementById('quiz'),[
+ {prompt:'What extra state does a planted conveyor foot need beyond Lesson 12?',options:['A support-local offset integrated from the surface material velocity','A world-space raycast result refreshed during every planted frame','A new IK bend sign recalculated from the conveyor direction'],answer:0,explain:'The relative support still carries the coordinate frame. The integrated local offset says which moving surface point the planted foot follows.'},
+ {prompt:'Which terms form carry velocity at conveyor liftoff?',options:['Velocity of the support point plus belt velocity transformed to world','Velocity of the next terrain ray plus the previous IK knee velocity','Velocity of the render follow plus the body muscle correction'],answer:0,explain:'A support can translate or rotate, giving its contact point a world velocity. Conveyor material has additional travel through support space; add both.'},
+ {prompt:'Does a stationary conveyor need a changing support transform?',options:['No; material offset can change in a stationary coordinate frame','Yes; otherwise a support-local point cannot become a world point','Yes; otherwise a foot must switch to a fresh terrain query'],answer:0,explain:'The support pose can stay fixed. The belt’s local material velocity alone moves the target through that frame.'},
+ {prompt:'Who decides when a foot releases from a conveyor?',options:['Gait state machine using its existing plant and recovery rules','Support adapter whenever it integrates another belt offset','Presentation filter after it smooths the foot transform'],answer:0,explain:'The adapter evaluates a relation; it does not make locomotion decisions. The same gait works on ground, lifts, and belts.'}
+]);})();
+</script>
