@@ -33,4 +33,37 @@ namespace ProceduralAnimationDotsLab
         public float2 Knee;
         public float2 Foot;
     }
+
+    [InternalBufferCapacity(2)]
+    public struct Limb2BoneLeg : IBufferElementData
+    {
+        public Limb2Bone Limb;
+        public int RootPointIndex;
+    }
+
+    public enum FootState : byte
+    {
+        Planted,
+        Swinging,
+    }
+
+    [InternalBufferCapacity(2)]
+    public struct GaitLeg : IBufferElementData
+    {
+        public FootState State;
+        public float2 Plant;
+        public float2 SwingFrom;
+        public float2 SwingTo;
+        public float SwingT;
+        public float2 HomeOffset;
+        public sbyte PartnerIndex;
+    }
+
+    public struct GaitSettings : IComponentData
+    {
+        public float Comfort;
+        public float StepDuration;
+        public float StepLead;
+        public float StepHeight;
+    }
 }

@@ -8,15 +8,21 @@ namespace ProceduralAnimationDotsLab
     {
         public void OnUpdate(ref SystemState state)
         {
-            foreach (var (limb, points) in SystemAPI.Query<RefRW<Limb2Bone>, DynamicBuffer<VerletPoint>>())
+            foreach (var (limbs, points) in SystemAPI.Query<DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>>())
             {
-                if (points.Length == 0)
-                    continue;
+                var mutableLimbs = limbs;
+                for (var index = 0; index < mutableLimbs.Length; index++)
+                {
+                    var limbLeg = mutableLimbs[index];
+                    if (limbLeg.RootPointIndex < 0 || limbLeg.RootPointIndex >= points.Length)
+                        continue;
 
-                var solvedLimb = limb.ValueRO;
-                solvedLimb.Root = points[points.Length / 2].Position;
-                TwoBoneIkSolver.Solve(ref solvedLimb);
-                limb.ValueRW = solvedLimb;
+                    var solvedLimb = limbLeg.Limb;
+                    solvedLimb.Root = points[limbLeg.RootPointIndex].Position;
+                    TwoBoneIkSolver.Solve(ref solvedLimb);
+                    limbLeg.Limb = solvedLimb;
+                    mutableLimbs[index] = limbLeg;
+                }
             }
         }
     }
