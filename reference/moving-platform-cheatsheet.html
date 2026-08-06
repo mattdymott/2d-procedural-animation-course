@@ -1,0 +1,9 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Reference — Moving Platform Cheatsheet</title><link rel="stylesheet" href="../assets/course.css"><div class="page"><p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p><h1>Moving Platform Cheatsheet</h1><p class="lede">Keeping a planted foot true while its support moves, taught in <a href="../lessons/0012-moving-platforms.html">Lesson 12</a>.</p><h2>The contract</h2><p><strong>Static terrain plant = world point. Dynamic support plant = support entity + local point.</strong> Gait still owns when a foot plants; the support transform owns how that promise moves through world space.</p><pre><code>// landing on a support
+leg.Support = hit.Entity;
+leg.LocalPlant = InverseTransformPoint(hit.Entity, hit.Position);
+
+// every planted tick
+leg.WorldTarget = TransformPoint(leg.Support, leg.LocalPlant);
+ik.Target = leg.WorldTarget;
+
+// liftoff: clear the relation; the swing uses world-space from/to points</code></pre><h2>Failure modes</h2><table><tr><th>Stored state</th><th>Result</th></tr><tr><td>Old world point on a moving platform</td><td>Foot stays behind; visible skating and impossible strain.</td></tr><tr><td>Fresh query every planted tick</td><td>Foot chases sensor noise; the promise is no longer stable.</td></tr><tr><td>Support-local point</td><td>Foot rides the support exactly until gait chooses liftoff.</td></tr></table><div class="lesson-footer"><p>See also: <a href="ground-aware-stepping-cheatsheet.html">ground-aware stepping</a> · <a href="gait-cheatsheet.html">gait</a> · <a href="contact-constraints-cheatsheet.html">contact constraints</a>.</p></div></div>

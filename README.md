@@ -3,7 +3,7 @@
 A self-contained, browser-based course on building Rain World-style creatures — soft,
 bendy bodies that move believably — using Unity DOTS/ECS. Covers verlet chains, muscles,
 analytic and iterative (FABRIK) IK, gait/stepping, second-order "juice," batching at scale,
-and reusable package API design, across 8 lessons. Each lesson is a standalone HTML page
+and reusable package API design, plus an end-to-end lizard capstone and world-contact branch, across 12 lessons. Each lesson is a standalone HTML page
 with an interactive simulation, a challenge, and a quiz; see [index.html](index.html) for
 the full table of contents.
 
@@ -12,7 +12,7 @@ Open `index.html` directly in a browser, or serve the folder locally (e.g.
 `file://`. Also live on GitHub Pages: https://mattdymott.github.io/2d-procedural-animation-course/
 
 ## Structure
-- `lessons/` — the 8 lesson pages
+- `lessons/` — the 12 lesson pages
 - `reference/` — cheatsheets and a glossary
 - `learning-records/` — per-lesson progress notes
 - `assets/` — shared CSS/JS

@@ -1,0 +1,176 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 9 — Capstone: The Creature Tick</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  .tick-board { display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr)); gap:.55rem; margin:1rem 0; }
+  .tick-stage { min-height:8rem; text-align:left; cursor:pointer; border:1px solid var(--rule); border-radius:8px; padding:.7rem; background:var(--bg); color:var(--ink); font:inherit; }
+  .tick-stage:hover:not(:disabled) { border-color:var(--accent); }
+  .tick-stage:disabled { cursor:default; opacity:.8; }
+  .tick-stage.placed { background:var(--accent-soft); border-color:var(--accent); }
+  .tick-stage .num { display:block; color:var(--accent); font:700 .74rem -apple-system,"Segoe UI",sans-serif; letter-spacing:.06em; text-transform:uppercase; margin-bottom:.25rem; }
+  .tick-stage strong { display:block; font-size:.92rem; }
+  .tick-stage small { display:block; color:var(--muted); line-height:1.35; margin-top:.32rem; }
+  .tick-order { margin:.9rem 0; min-height:2.7rem; padding:.65rem .8rem; border-radius:6px; background:var(--sidebar-bg); border-left:3px solid var(--rule); font:.84rem ui-monospace,Consolas,monospace; }
+  .tick-order.ok { border-color:var(--good); background:#eef6f0; }
+  .choice-row { display:flex; flex-wrap:wrap; gap:.55rem; margin:.9rem 0; }
+  .choice { flex:1 1 12rem; padding:.65rem .75rem; border:1px solid var(--rule); border-radius:6px; background:var(--bg); color:var(--ink); cursor:pointer; font:inherit; text-align:left; }
+  .choice:hover:not(:disabled) { border-color:var(--accent); }
+  .choice.correct { border-color:var(--good); background:#eef6f0; }
+  .choice.wrong { border-color:var(--bad); background:#f9ece8; }
+  .choice-feedback { min-height:1.4rem; color:var(--muted); font-size:.9rem; }
+  .reset { border:1px solid var(--rule); border-radius:5px; padding:.35rem .65rem; background:var(--bg); color:var(--ink); cursor:pointer; font:inherit; font-size:.85rem; }
+</style>
+
+<div class="page">
+  <p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 9</p>
+  <h1>Capstone: The Creature Tick</h1>
+  <p class="lede">You have all the ingredients. The capstone is not a ninth solver; it is the
+    thing that turns a package full of good solvers into <em>one creature</em>. A lizard feels
+    coherent when each subsystem makes exactly one kind of claim, in the right order.</p>
+
+  <h2>The one rule: later stages strengthen reality, not rewrite intent</h2>
+  <p>Gameplay has an <strong>intent</strong>: go that way. Muscles make a <strong>wish</strong>:
+    curve and undulate. Gait makes a <strong>promise</strong>: this foot stays here. IK turns
+    that promise into a leg pose. Constraints declare the final <strong>legality</strong>.
+    Only after that may presentation add a lie for the eye — follow-through, lean, squash.
+    That lie must never move a physics point.</p>
+  <p>The capstone seam preserves the deep modules from Lesson 8: gait owns targets, IK owns
+    joint geometry, verlet owns the spine, and presentation owns only pixels. When a creature
+    is wrong, trace a hand-off before turning a knob.</p>
+
+  <h2>The creature tick</h2>
+  <div class="recipe"><span class="callout-label">Recipe · fixed-step authority flow</span>
+<pre><code>1. intent        = gameplay / steering chooses desired root motion
+2. body wishes   = verlet integrates; muscles propose rhythm + tone
+3. gait promises = planted/swinging state writes each foot target
+4. IK            = solve knees and ankles from those foot targets
+5. hard resolve  = relax spine constraints and enforce pins
+6. presentation  = read resolved pose; add optional second-order juice</code></pre></div>
+  <p><strong>Gait writes targets; IK reads them.</strong> <strong>Muscles propose positions;
+    constraints dispose of them.</strong> A visual filter reads the answer; it cannot be
+    allowed to move a physics point. Those arrows prevent the classic capstone failure: a lovely
+    isolated demo that jitters, slides, or explodes once composed.</p>
+
+  <h2>The playground: assemble the lizard’s tick</h2>
+  <p>Click the stages in the order the creature needs them. The lizard is quiet until the whole
+    hand-off is legal. Once it runs, move your pointer over the canvas to give it a new intent;
+    leave the canvas and it patrols. The springy bob is presentation only — feet and spine remain
+    authoritative in the simulation.</p>
+  <div class="sim" id="sim">
+    <canvas id="lizardCanvas" height="330"></canvas>
+    <div class="sim-controls" style="display:block;"><strong style="font-size:.9rem;">Build the fixed tick</strong>
+      <div class="tick-board" id="tick-board"></div>
+      <div class="tick-order" id="tick-order">Choose the first stage.</div>
+      <button class="reset" id="reset-tick" type="button">Reset order</button>
+    </div>
+    <div class="sim-readout">state: <span id="r-state">awaiting a complete tick</span> · owner: <span id="r-owner">–</span></div>
+  </div>
+  <div class="challenge" id="ch1"><span class="status">☐</span> <strong>Challenge 1 — Make it walk.</strong>
+    Assemble the six-stage tick. Do not memorize a system list: say what each stage is allowed to write before you place it.</div>
+
+  <h2>One boundary test: where does the juice live?</h2>
+  <p>The body has finished resolving. You want delayed lean and squash from Lesson 6. Pick the
+    safe home for that filter. One answer preserves planted feet under a sharp turn; the other
+    lets a cosmetic delay tug the creature through its own constraints.</p>
+  <div class="choice-row" id="juice-choices">
+    <button class="choice" type="button" data-correct="false">Filter the root before gait, then let delayed physics choose foot targets.</button>
+    <button class="choice" type="button" data-correct="true">Filter the resolved render pose after constraints; leave physics positions untouched.</button>
+    <button class="choice" type="button" data-correct="false">Filter each spine point after every relaxation sweep, then pin the feet again.</button>
+  </div>
+  <p class="choice-feedback" id="juice-feedback">Choose a home for the cosmetic filter.</p>
+  <div class="challenge" id="ch2"><span class="status">☐</span> <strong>Challenge 2 — Keep the contract.</strong>
+    Put second-order juice on the presentation side of the hard-resolve boundary.</div>
+
+  <h2>Mapping it to DOTS</h2>
+  <div class="dots-mapping"><span class="callout-label">DOTS mapping — a composed lizard, not a God-component</span>
+    <p style="margin-top:0">Keep your L8 surface. One entity owns its spine and leg buffers;
+      immutable tuning stays baked config. Systems are ordered only because one produces the
+      next system’s input.</p>
+<pre><code>// baked config: data designers tune once
+public struct LizardConfig : IComponentData
+{ public float SpineRest, MuscleStrength, Comfort, StepLead, StepDuration; }
+
+// mutable, per-creature state
+[InternalBufferCapacity(8)] public struct SpinePoint : IBufferElementData
+{ public float2 P, Prev; }
+public struct GaitLeg : IBufferElementData { /* plant, target, phase */ }
+public struct Limb2Bone : IBufferElementData { /* hip, knee, ankle */ }
+public struct PresentationFollow : IComponentData { /* L6 Y, Yd, Xp */ }
+
+// FixedStepSimulationSystemGroup data hand-off:
+// IntentSystem → BodyWishSystem → GaitSystem → TwoBoneIkSystem
+//              → ConstraintResolveSystem → PresentationSystem</code></pre>
+    <p style="margin-bottom:0">A typical spine buffer fits inline when its capacity matches the
+      creature’s usual point count; Unity documents that a dynamic buffer which outgrows its
+      internal capacity moves outside the chunk and stays there. That makes this small, fixed
+      body a natural <code>[InternalBufferCapacity]</code> case. <a href="https://docs.unity3d.com/Packages/com.unity.entities@1.3/manual/components-buffer-set-capacity.html">Unity’s current buffer-capacity guidance</a> is the final word for a real package.</p>
+  </div>
+
+  <h2>Build it in Unity: one honest vertical slice</h2>
+  <ol>
+    <li>Start with one lizard prefab: an 8-point spine and two legs. Draw points, links, hip roots, and foot targets.</li>
+    <li>Make it stand still first: pins legal, IK targets reachable, stretch error quiet.</li>
+    <li>Add intent and gait. Record one visible invariant: a planted foot’s world target does not move.</li>
+    <li>Add the body wave at partial strength. If it fights the feet, inspect authority and order before changing strength.</li>
+    <li>Finally add presentation follow. Toggle it off: simulation must still walk; only character should disappear.</li>
+  </ol>
+
+  <h2>Check yourself</h2>
+  <p>From memory. Each answer is an ownership claim, not a vocabulary test.</p><div id="quiz"></div>
+  <h2>Where to go deeper</h2>
+  <p><strong>Primary source:</strong> revisit the <a href="https://www.youtube.com/watch?v=-iXwvoFhPuU">Rain World Animation Process</a> (Jakobsson and Therrien, GDC 2016) now that you have every moving part. Watch for the division between simulated points, constraints, and graphics draped over the result. For the package-facing half, re-read Unity’s <a href="https://docs.unity3d.com/Packages/com.unity.entities@1.0/manual/baking-baker-overview.html">Baker overview</a>: authoring data becomes runtime data before the tick begins.</p>
+  <p>Keep the <a href="../reference/creature-tick-cheatsheet.html">creature tick cheatsheet</a> beside the <a href="../reference/glossary.html">glossary</a> while you build. It is a debugger’s map, not another abstraction layer.</p>
+  <div class="lesson-footer"><p><strong>Suggested real-world rep:</strong> build this one lizard inside an embedded <code>com.yourname.procanim</code> package. Prove the boundary by disabling <code>PresentationFollow</code>: the creature should become less juicy, never less legal. Then duplicate it fifty times and apply Lesson 7 LOD rules.</p><p>Stuck or curious? Ask for a review of your tick, a diagnostic overlay, joint limits and collision, or authoring-time creature tooling. Those are depth branches from a working whole.</p></div>
+</div>
+
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  'use strict';
+  const STAGES = [
+    { id:'intent', name:'Intent', hint:'gameplay writes desired motion' },
+    { id:'wishes', name:'Body wishes', hint:'verlet + muscles propose' },
+    { id:'gait', name:'Gait promises', hint:'feet choose targets' },
+    { id:'ik', name:'Two-bone IK', hint:'legs read targets into joints' },
+    { id:'resolve', name:'Hard resolve', hint:'constraints and pins legalize' },
+    { id:'presentation', name:'Presentation', hint:'render reads, then adds juice' },
+  ];
+  const order = STAGES.map(s => s.id), chosen = [], board = document.getElementById('tick-board');
+  const orderEl = document.getElementById('tick-order'), stateEl = document.getElementById('r-state'), ownerEl = document.getElementById('r-owner');
+  const buttons = new Map(); let complete = false;
+  const challenges = [document.getElementById('ch1'), document.getElementById('ch2')];
+  function done(i) { const e = challenges[i]; if (!e.classList.contains('done')) { e.classList.add('done'); e.querySelector('.status').textContent = '✓'; } }
+  function stageName(id) { return STAGES.find(s => s.id === id).name; }
+  function render() {
+    STAGES.forEach(s => { const b = buttons.get(s.id), n = chosen.indexOf(s.id); b.disabled = n >= 0 || complete; b.classList.toggle('placed', n >= 0); b.querySelector('.num').textContent = n < 0 ? 'stage' : 'placed ' + (n + 1); });
+    if (!chosen.length) { orderEl.textContent = 'Choose the first stage.'; orderEl.className = 'tick-order'; }
+  }
+  function choose(stage) {
+    const expected = order[chosen.length];
+    if (stage.id !== expected) { orderEl.className = 'tick-order'; orderEl.textContent = stage.name + ' cannot write yet. It needs ' + stageName(expected) + ' first.'; ownerEl.textContent = stage.name + ' is waiting for its input'; return; }
+    chosen.push(stage.id);
+    if (chosen.length === order.length) { complete = true; orderEl.className = 'tick-order ok'; orderEl.textContent = '✓ Legal hand-off: ' + chosen.map(stageName).join(' → '); stateEl.textContent = 'walking — simulation resolved, presentation following'; ownerEl.textContent = 'presentation reads; constraints own legality'; done(0); }
+    else { orderEl.textContent = chosen.map(stageName).join(' → '); ownerEl.textContent = stage.name + ' wrote its state; next: ' + stageName(order[chosen.length]); }
+    render();
+  }
+  STAGES.forEach(stage => { const b = document.createElement('button'); b.type = 'button'; b.className = 'tick-stage'; b.innerHTML = '<span class="num">stage</span><strong>' + stage.name + '</strong><small>' + stage.hint + '</small>'; b.addEventListener('click', () => choose(stage)); buttons.set(stage.id,b); board.appendChild(b); });
+  document.getElementById('reset-tick').addEventListener('click', () => { chosen.length=0; complete=false; stateEl.textContent='awaiting a complete tick'; ownerEl.textContent='–'; render(); }); render();
+  document.querySelectorAll('#juice-choices .choice').forEach(b => b.addEventListener('click', () => { const correct = b.dataset.correct === 'true'; document.querySelectorAll('#juice-choices .choice').forEach(x => x.disabled=true); b.classList.add(correct ? 'correct' : 'wrong'); const f=document.getElementById('juice-feedback'); if (correct) { f.textContent='Correct. The filter makes a rendering decision after simulation is legal; it cannot drag a planted foot.'; done(1); } else { f.textContent='That lets cosmetic delay become physics authority. Keep the filter after hard resolve.'; document.querySelector('#juice-choices [data-correct="true"]').classList.add('correct'); } }));
+
+  const canvas=document.getElementById('lizardCanvas'), ctx=canvas.getContext('2d'), mouse={x:0,inside:false}; let W=0,H=330,dpr=1,t=0,displayX=0,displayV=0;
+  function resize(){ dpr=devicePixelRatio||1; W=canvas.clientWidth; canvas.width=W*dpr; canvas.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); if(!displayX) displayX=W/2; }
+  function draw(){ const dt=1/60; t+=dt; const target=mouse.inside?mouse.x:W/2+Math.sin(t*.75)*Math.min(110,W*.22); if(complete){ displayV+=(target-displayX)*22*dt-displayV*7*dt; displayX+=displayV*dt; } else displayX+=(W/2-displayX)*.08; const x=complete?displayX:W/2, ground=H-34, bad=!complete, body=[]; ctx.clearRect(0,0,W,H); ctx.fillStyle='#2a2f38'; ctx.fillRect(0,ground,W,H-ground);
+    for(let i=0;i<8;i++) body.push({x:x-i*19,y:ground-104+(complete?Math.sin(t*5-i*.72)*(4+i*1.4):0)+i*2.2});
+    ctx.lineCap='round';ctx.strokeStyle=bad?'#7f6d5e':'#e8b04c';ctx.lineWidth=13;ctx.beginPath();body.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();
+    [1,3,5,6].forEach((idx,n)=>{const hip=body[idx],side=n%2?1:-1,stride=complete?Math.sin(t*4+n*Math.PI/2)*12:0,foot={x:hip.x+side*18+stride,y:ground},knee={x:(hip.x+foot.x)/2+side*13,y:(hip.y+foot.y)/2+18};ctx.strokeStyle=bad?'#6b6255':'#a87f36';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(hip.x,hip.y);ctx.lineTo(knee.x,knee.y);ctx.lineTo(foot.x,foot.y);ctx.stroke();ctx.fillStyle=bad?'#6b6255':'#f6e7c8';ctx.beginPath();ctx.arc(foot.x,foot.y,3.5,0,Math.PI*2);ctx.fill();});
+    ctx.fillStyle=bad?'#7f6d5e':'#e8b04c';ctx.beginPath();ctx.arc(body[0].x+13,body[0].y-3,22,0,Math.PI*2);ctx.fill();ctx.fillStyle='#20242b';ctx.beginPath();ctx.arc(body[0].x+22,body[0].y-8,3.5,0,Math.PI*2);ctx.fill();ctx.font='12px -apple-system, Segoe UI, sans-serif';ctx.fillStyle=bad?'#6b6255':'#2e7d4f';ctx.fillText(bad?'No legal tick: a pile of parts.':'Resolved spine + planted feet. Springiness is visual only.',16,24);requestAnimationFrame(draw); }
+  canvas.addEventListener('pointermove',e=>{const r=canvas.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.inside=true;}); canvas.addEventListener('pointerleave',()=>mouse.inside=false); new ResizeObserver(resize).observe(canvas);resize();requestAnimationFrame(draw);
+  Quiz.render(document.getElementById('quiz'), [
+    { prompt:'Which subsystem chooses where a planted foot should be?', options:['Gait state writes the foot target before the IK solver reads it','IK state writes the foot target after gait has chosen a knee','Constraint state writes the foot target after the renderer filters it'], answer:0, explain:'Gait owns the stepping decision and target. IK keeps the promise by producing a reachable joint pose. Keeping those owners separate is why either module can change without silently changing the other.' },
+    { prompt:'What has the final say over spine length and pinned feet?', options:['Hard constraint resolve after muscles and IK have made their claims','Muscle rhythm after every constraint sweep has made the body legal','Second-order presentation after it has smoothed the visual transform'], answer:0, explain:'Muscles are partial wishes; IK and gait establish targets; the hard solver restores legal geometry and pins. Nothing cosmetic gets to write back after that boundary.' },
+    { prompt:'Where can second-order follow-through safely be added to a lizard?', options:['On render-facing pose after simulation has already resolved all constraints','On every spine point before the gait system picks new foot targets','On each IK target after the leg solver has already used that target'], answer:0, explain:'Presentation may lag, lean, and stretch what the player sees. The physical source pose remains untouched, so planted feet and constraint legality stay true.' },
+    { prompt:'A foot slides during a turn. What is the first debugging move?', options:['Draw intent target, gait target, and final pin to find the last bad writer','Increase muscle strength until the spine follows the foot more closely','Raise constraint iterations until the visual jitter becomes less obvious'], answer:0, explain:'Follow the hand-off. A slide is often an ownership or order mistake, not a tuning mistake. Visualising each owner makes the incorrect writer obvious before you touch a value.' },
+  ]);
+})();
+</script>
