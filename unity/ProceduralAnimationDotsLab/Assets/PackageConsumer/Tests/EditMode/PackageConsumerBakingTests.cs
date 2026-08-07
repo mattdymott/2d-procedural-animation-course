@@ -17,14 +17,15 @@ namespace ProceduralAnimationPackageConsumer.Tests
             var ground = new GameObject("Package Consumer Ground");
             try
             {
-                var recipe = creature.AddComponent<ProceduralCreatureAuthoring>();
-                recipe.ChainSegmentCount = 4;
-                recipe.InitialRootPosition = new Vector2(-3f, 0f);
-                recipe.Legs = new[]
+                var chain = creature.AddComponent<VerletChainAuthoring>();
+                chain.ChainSegmentCount = 4;
+                chain.InitialRootPosition = new Vector2(-3f, 0f);
+                creature.AddComponent<LegsAuthoring>().Legs = new[]
                 {
-                    new ProceduralCreatureAuthoring.LegRecipe { AttachmentPointIndex = 1, LengthA = 1f, LengthB = 1f, BendSign = -1f, HomeOffset = new Vector2(-0.3f, -1.5f) },
-                    new ProceduralCreatureAuthoring.LegRecipe { AttachmentPointIndex = 3, LengthA = 1f, LengthB = 1f, BendSign = 1f, HomeOffset = new Vector2(0.3f, -1.5f) },
+                    new LegsAuthoring.LegRecipe { AttachmentPointIndex = 1, LengthA = 1f, LengthB = 1f, BendSign = -1f, HomeOffset = new Vector2(-0.3f, -1.5f) },
+                    new LegsAuthoring.LegRecipe { AttachmentPointIndex = 3, LengthA = 1f, LengthB = 1f, BendSign = 1f, HomeOffset = new Vector2(0.3f, -1.5f) },
                 };
+                creature.AddComponent<GaitAuthoring>();
                 creature.AddComponent<SampleCreaturePatrolAuthoring>().Speed = 1f;
                 ground.AddComponent<SampleFlatGroundAuthoring>().Height = -2.75f;
 

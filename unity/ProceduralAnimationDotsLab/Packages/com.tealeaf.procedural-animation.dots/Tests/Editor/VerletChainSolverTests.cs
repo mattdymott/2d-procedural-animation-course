@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Tealeaf.ProceduralAnimation.Dots;
+using Tealeaf.ProceduralAnimation.Dots.LowLevel;
 using Unity.Mathematics;
 
 namespace Tealeaf.ProceduralAnimation.Dots.Tests
@@ -22,7 +23,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
         }
 
         [Test]
-        public void SatisfyDistance_RestoresTheConfiguredLinkLength()
+        public void SatisfyDistance_RestoresTheConfiguredRestLength()
         {
             var first = new VerletPoint { Position = new float2(0f, 0f) };
             var second = new VerletPoint { Position = new float2(4f, 0f) };

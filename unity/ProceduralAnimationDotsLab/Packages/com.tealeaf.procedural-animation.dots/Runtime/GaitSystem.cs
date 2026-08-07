@@ -1,20 +1,32 @@
+using Tealeaf.ProceduralAnimation.Dots.LowLevel;
+using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
-using Tealeaf.ProceduralAnimation.Dots;
 
 namespace Tealeaf.ProceduralAnimation.Dots
 {
+    [BurstCompile]
     [DisableAutoCreation]
     [UpdateInGroup(typeof(ProceduralAnimationSolveSystemGroup))]
     [UpdateAfter(typeof(VerletChainSystem))]
     [UpdateBefore(typeof(TwoBoneIkSystem))]
     internal partial struct GaitSystem : ISystem
     {
+        ComponentLookup<SupportPose> supportPoses;
+        ComponentLookup<SupportKinematics> supportKinematics;
+
+        public void OnCreate(ref SystemState state)
+        {
+            supportPoses = state.GetComponentLookup<SupportPose>(true);
+            supportKinematics = state.GetComponentLookup<SupportKinematics>(true);
+        }
+
+        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             var deltaTime = SystemAPI.Time.DeltaTime;
-            var supportPoses = state.GetComponentLookup<SupportPose>(true);
-            var supportKinematics = state.GetComponentLookup<SupportKinematics>(true);
+            supportPoses.Update(ref state);
+            supportKinematics.Update(ref state);
 
             foreach (var (settings, body, gaitLegs, limbs, points, footholdCandidates) in SystemAPI.Query<RefRO<GaitSettings>, RefRW<CreatureBody>, DynamicBuffer<GaitLeg>, DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>, DynamicBuffer<FootholdCandidate>>())
             {

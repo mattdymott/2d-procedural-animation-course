@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Tealeaf.ProceduralAnimation.Dots;
+using Tealeaf.ProceduralAnimation.Dots.LowLevel;
 using Unity.Entities;
 using Unity.Mathematics;
 

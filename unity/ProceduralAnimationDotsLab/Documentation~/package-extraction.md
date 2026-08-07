@@ -22,8 +22,8 @@ The first release is deliberately narrow:
 - A Verlet chain with two-bone legs and grounded stepping.
 - Entity Component System and Mathematics dependencies only; no Unity Physics,
   tilemap, rendering, or input dependency in the runtime.
-- One high-level authoring path plus a small set of pure geometry helpers for
-  advanced callers.
+- One composable authoring layer plus a `LowLevel` namespace of pure,
+  `[BurstCompile]` geometry helpers for advanced callers.
 
 It does not promise arbitrary 3D rigs, generic creature taxonomies, or a
 physics-query implementation. Those need a second real consumer before they
@@ -31,16 +31,28 @@ become package scope.
 
 ## Interface
 
-### Authored recipe
+### Composed authoring
 
-`ProceduralCreatureAuthoring` is the package front door. Its Baker copies only
-stable designer intent into configuration:
+The package front door is a set of composable authoring components rather than
+one recipe: `VerletChainAuthoring`, `LegsAuthoring`, `GaitAuthoring`, and
+`ContactPlanesAuthoring`. A creature is whichever of them its GameObject
+carries, and `[RequireComponent]` declares the dependencies between them.
+
+Each has its own Baker, and each Baker copies only stable designer intent for
+its own feature into configuration:
 
 - chain segment count, rest length, damping, and constraint settings;
 - leg attachment indices, bone lengths, bend direction, and home offsets;
 - gait comfort, duration, lead, height, and foothold policy.
 
-The Baker allocates and initializes runtime state separately. It never bakes a
+Gait carries tuning only. Leg count, home offsets, and partner pairing are read
+back from `LegsAuthoring`, so the gait and limb buffers are index-aligned by
+construction rather than by convention.
+
+Bakers read sibling *authoring* components, never another Baker's output, which
+is what makes them independent of baking order.
+
+The Bakers allocate and initialize runtime state separately. They never bake a
 previous point position, current plant, swing phase, support relation, or
 solver iteration. These are all history created after simulation starts.
 
@@ -144,9 +156,9 @@ The solver, gait, and authoring tests now live in the package's own
 `testables`.
 
 The lab is now the package's `Samples~/Lab` sample. Its creature and elevator
-are authored in a sub scene with `ProceduralCreatureAuthoring` plus three small
-lab adapter components, so no consumer code constructs chain points, plants, or
-swing state. `VerletChainDemo` is read-only presentation bound to baked
+are authored in a sub scene with the package's four authoring components plus
+three small lab adapter components, so no consumer code constructs chain points,
+plants, or swing state. `VerletChainDemo` is read-only presentation bound to baked
 entities, and `LabSampleBakingTests` traces the whole sample through the public
 interface. The repository also commits the imported copy under
 `Assets/Samples/…` so a clone can open `Scenes/Lab.unity` and press play;
@@ -156,7 +168,7 @@ interface. The repository also commits the imported copy under
 
 | Current lab responsibility | Package destination | Notes |
 | --- | --- | --- |
-| `VerletChainSolver`, `VerletContactSolver`, `TwoBoneIkSolver` | Runtime implementation; selected pure helpers stay public | Geometry helpers are the advanced escape hatch. |
+| `VerletChainSolver`, `VerletContactSolver`, `TwoBoneIkSolver` | `Runtime/LowLevel`, public and `[BurstCompile]` | Geometry helpers are the advanced escape hatch. |
 | `VerletChainSystem`, `GaitSystem`, `TwoBoneIkSystem`, `HardResolveSystem` | Runtime implementation inside the solve group | Ordering is package-owned. |
 | `GroundHit` | Public `FootholdCandidate` | Rename it because terrain is only one source of a foothold. |
 | `SupportPose`, support transform/velocity math | Public support-data seam | Split animation inputs from evaluated kinematics. |
@@ -176,8 +188,8 @@ abstraction until there are multiple contact providers.
    assemblies plus package metadata.
 2. Move pure geometry and package-owned systems behind the solve group, keeping
    their existing tests green.
-3. Add `ProceduralCreatureAuthoring` and its Baker. Make it the only supported
-   path for creating a complete creature.
+3. Add the authoring components and their Bakers. Make authoring the only
+   supported path for creating a creature.
 4. Rename and introduce the world-fact data seam, then refactor the current
    ground and support code into the first sample adapters.
 5. Move `VerletChainDemo` and the lesson scene into Samples~, and add one
@@ -227,3 +239,65 @@ and a wider contact abstraction stay out of scope.
 - Presentation can be removed without changing the simulation result.
 - The existing pure solver and gait tests remain green, alongside an
   end-to-end public-interface bake-and-tick test.
+
+## Alignment pass against Lesson 8
+
+A later review compared the shipped package against the course's Lesson 8
+design. Four gaps were closed:
+
+**Composition.** Lesson 8's one named principle is that an entity is a creature
+by its components. The first release contradicted it: a single
+`ProceduralCreatureAuthoring` baked gait, limbs, contacts, and foothold buffers
+unconditionally, so "a chain without gait" was not expressible. The recipe is now
+split into four authoring components with `[RequireComponent]` dependencies. The
+`HardResolveSystem` reaches creatures with no `ContactPlane` buffer through a
+`BufferLookup`, so making contacts optional did not quietly drop the final
+constraint pass from every other creature.
+
+**A primitives layer.** Lesson 8 specifies pure static Burst functions under
+their own namespace. `Tealeaf.ProceduralAnimation.Dots.LowLevel` now holds them,
+and the five solve systems are `[BurstCompile]` so the primitives run in Burst
+on the real path rather than only being annotated.
+
+**Escape-hatch honesty.** `VerletChainSolver`, `VerletContactSolver`, and
+`GaitStepper` were public but undocumented, so the "free to change below the
+contract" promise did not actually cover them. The geometry helpers are now
+documented published surface; `GaitStepper` is `internal` (with
+`InternalsVisibleTo` for the package tests) because it is stateful policy, as is
+`VerletChainSolver.ResolveRoot`.
+
+**Glossary sync.** `VerletChain.LinkLength` is now `RestLength`, matching the
+course glossary. The authoring field carries `[FormerlySerializedAs]`.
+
+**Lab constants removed from the runtime.** `VerletChainSolver.ResolveRoot`
+applied a hardcoded sine bob, and `VerletChainSystem` drove the chain tip toward
+a hardcoded endpoint `+6.5` units away under a hardcoded gravity of `-3.5`. Once
+any composition became expressible, those constants applied to every creature: a
+plain rope waved like the lesson tentacle and was stretched toward a target
+beyond its own length.
+
+Gravity and the root bob are now authored fields on `VerletChainAuthoring`, with
+gravity defaulting to the previous value and the bob defaulting to *off* — the
+package invents no motion that was not asked for. The tip target is no longer
+computed at all. It moved behind a new `MusclesAuthoring` component that bakes
+`ChainTarget`, which the consumer writes each tick exactly like
+`CreatureLocomotion`.
+
+Making muscles opt-in rather than always-baked is what avoids the obvious
+alternative's bug: a `ChainTarget` nobody writes would anchor the tip to a stale
+bake-time world point and hold the creature back as it walked. `VerletChainSystem`
+therefore reaches the target through a `ComponentLookup` rather than requiring it
+in the query — the same shape as the `ContactPlane` fix, and for the same reason.
+The lesson sway moved into `LabCreaturePatrolSystem`, where it belongs.
+
+### Still open
+
+`GaitSettings` keeps its name rather than Lesson 8's `GaitConfig`; the rename was
+deliberately left out of the alignment pass to keep its blast radius off the
+scenes and both consumers.
+
+`VerletChain.Time` is a per-creature accumulator that now exists only to phase
+the root bob. Creatures that leave the bob at zero carry it for nothing. It is
+one float, and the alternative — an optional consumer-written root-offset
+component — is more API than the saving is worth, but it is the obvious thing to
+revisit if the bob turns out to be unused in practice.

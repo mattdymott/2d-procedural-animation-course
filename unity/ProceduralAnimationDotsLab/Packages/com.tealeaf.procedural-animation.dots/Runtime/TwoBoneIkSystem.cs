@@ -1,12 +1,16 @@
+using Tealeaf.ProceduralAnimation.Dots.LowLevel;
+using Unity.Burst;
 using Unity.Entities;
 
 namespace Tealeaf.ProceduralAnimation.Dots
 {
+    [BurstCompile]
     [DisableAutoCreation]
     [UpdateInGroup(typeof(ProceduralAnimationSolveSystemGroup))]
     [UpdateAfter(typeof(VerletChainSystem))]
     internal partial struct TwoBoneIkSystem : ISystem
     {
+        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             foreach (var (limbs, points) in SystemAPI.Query<DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>>())

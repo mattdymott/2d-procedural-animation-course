@@ -2,6 +2,7 @@
 using Unity.Mathematics;
 using UnityEngine;
 using Tealeaf.ProceduralAnimation.Dots;
+using Tealeaf.ProceduralAnimation.Dots.LowLevel;
 
 namespace ProceduralAnimationDotsLab
 {

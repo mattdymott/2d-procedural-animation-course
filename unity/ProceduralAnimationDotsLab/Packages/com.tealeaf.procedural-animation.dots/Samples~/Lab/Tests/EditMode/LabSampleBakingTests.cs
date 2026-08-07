@@ -11,8 +11,9 @@ namespace ProceduralAnimationDotsLab.Tests
 {
     /// <summary>
     /// Traces the lesson sample through the package's public interface: the creature is
-    /// authored by <see cref="ProceduralCreatureAuthoring"/>, the sample supplies locomotion
-    /// and world facts, and the package solve group owns everything after that.
+    /// composed from <see cref="VerletChainAuthoring"/>, <see cref="LegsAuthoring"/>, and
+    /// <see cref="GaitAuthoring"/>, the sample supplies locomotion and world facts, and the
+    /// package solve group owns everything after that.
     /// </summary>
     public sealed class LabSampleBakingTests
     {
@@ -76,15 +77,19 @@ namespace ProceduralAnimationDotsLab.Tests
         static GameObject BuildCreature()
         {
             var creature = new GameObject("Lab Creature");
-            var recipe = creature.AddComponent<ProceduralCreatureAuthoring>();
-            recipe.ChainSegmentCount = 16;
-            recipe.InitialRootPosition = new Vector2(-3.5f, 0.5f);
-            recipe.LinkLength = 0.48f;
-            recipe.Legs = new[]
+            var chain = creature.AddComponent<VerletChainAuthoring>();
+            chain.ChainSegmentCount = 16;
+            chain.InitialRootPosition = new Vector2(-3.5f, 0.5f);
+            chain.RestLength = 0.48f;
+            chain.RootBobAmplitude = 0.35f;
+            chain.RootBobFrequency = 0.9f;
+            creature.AddComponent<MusclesAuthoring>().Strength = 0.08f;
+            creature.AddComponent<LegsAuthoring>().Legs = new[]
             {
-                new ProceduralCreatureAuthoring.LegRecipe { AttachmentPointIndex = 5, LengthA = 1.2f, LengthB = 1.45f, BendSign = -1f, HomeOffset = new Vector2(-0.2f, -2.6f) },
-                new ProceduralCreatureAuthoring.LegRecipe { AttachmentPointIndex = 10, LengthA = 1.2f, LengthB = 1.45f, BendSign = 1f, HomeOffset = new Vector2(0.2f, -2.6f) },
+                new LegsAuthoring.LegRecipe { AttachmentPointIndex = 5, LengthA = 1.2f, LengthB = 1.45f, BendSign = -1f, HomeOffset = new Vector2(-0.2f, -2.6f) },
+                new LegsAuthoring.LegRecipe { AttachmentPointIndex = 10, LengthA = 1.2f, LengthB = 1.45f, BendSign = 1f, HomeOffset = new Vector2(0.2f, -2.6f) },
             };
+            creature.AddComponent<GaitAuthoring>();
             creature.AddComponent<LabCreaturePatrolAuthoring>();
             creature.AddComponent<LabTerrainAdapterAuthoring>();
             return creature;

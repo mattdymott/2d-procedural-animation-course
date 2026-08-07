@@ -10,7 +10,7 @@ adapters, and line-renderer presentation, all outside the package Runtime.
 ## Layout
 
 ```text
-Runtime/        Package-owned solve group, state, helpers, and creature recipe
+Runtime/        Package-owned solve group, state, authoring, and LowLevel primitives
 Editor/         Creature Baker, validation, and derived previews
 Tests/Editor/   Solver, gait, and authoring coverage
 Samples~/Lab/   The teaching lab: adapters, presentation, and its scenes
@@ -39,16 +39,26 @@ not part of the distributed package.
 The rest of this file summarizes the same interface for someone already in the
 repository.
 
-## Authoring a creature
+## Composing a creature
 
-Add `ProceduralCreatureAuthoring` to a GameObject and set its chain, gait,
-leg, and optional contact-plane recipe. Its Editor-side Baker creates the
-complete creature entity: chain/body/target/gait settings plus point, limb,
-gait-leg, contact-plane, and foothold-candidate buffers.
+A creature is whichever components its entity carries. Add the authoring
+components for the behaviour you want:
 
-The recipe deliberately excludes solver history. Point previous positions,
+```text
+VerletChainAuthoring                                a rope or hanging tail
+  + MusclesAuthoring                                a tip that reaches for your target
+  + LegsAuthoring                                   limbs you aim yourself
+    + GaitAuthoring                                 a walking creature
+  + ContactPlanesAuthoring                          static geometry to rest on
+```
+
+Dependencies are declared with `[RequireComponent]`, so adding `GaitAuthoring`
+pulls in legs and a chain. Each component has its own Baker and bakes only its
+own feature's data.
+
+The recipes deliberately exclude solver history. Point previous positions,
 plants, swing progress, support relations, and carry state are initialized by
-the Baker or established during the first simulation tick; consumers should
+the Bakers or established during the first simulation tick; consumers should
 not construct or mutate them directly.
 
 ## Supplying world facts
@@ -66,7 +76,7 @@ schedule adapters before this group; they do not schedule individual solvers.
 
 The in-project `PackageConsumer` assembly is a compile-time tracer for this
 interface. It references only the package assemblies, authors a creature with
-`ProceduralCreatureAuthoring`, and supplies patrol plus flat-ground adapters
+the package authoring components, and supplies patrol plus flat-ground adapters
 without referencing the sample assembly.
 
 The `Lab` sample is the worked example of the same seam with a moving support

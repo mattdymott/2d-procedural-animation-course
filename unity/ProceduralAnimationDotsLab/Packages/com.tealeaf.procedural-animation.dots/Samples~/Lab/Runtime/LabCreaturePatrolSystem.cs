@@ -5,16 +5,24 @@ using Tealeaf.ProceduralAnimation.Dots;
 namespace ProceduralAnimationDotsLab
 {
     /// <summary>
-    /// Turns the lesson patrol policy into the package's locomotion input. The package
-    /// applies it — and owns <c>CreatureBody</c> — inside its own solve group.
+    /// The lesson creature's own motion policy: where it walks, and where its tail reaches.
+    /// Both are consumer concerns — the package applies locomotion, owns <c>CreatureBody</c>,
+    /// and draws the chain tip toward whatever <c>ChainTarget</c> this system last wrote.
     /// </summary>
     [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
     [UpdateBefore(typeof(ProceduralAnimationSolveSystemGroup))]
     public partial struct LabCreaturePatrolSystem : ISystem
     {
+        // The lesson tail reach: how far ahead of the body the tip aims, and how it sways.
+        // These are this creature's character, not package behaviour.
+        const float TailReach = 6.5f;
+        const float TailSwayAmplitude = 1.3f;
+        const float TailSwayFrequency = 1.7f;
+
         public void OnUpdate(ref SystemState state)
         {
-            foreach (var (body, locomotion, patrol) in SystemAPI.Query<RefRO<CreatureBody>, RefRW<CreatureLocomotion>, RefRW<LabCreaturePatrol>>())
+            var deltaTime = SystemAPI.Time.DeltaTime;
+            foreach (var (body, locomotion, target, patrol) in SystemAPI.Query<RefRO<CreatureBody>, RefRW<CreatureLocomotion>, RefRW<ChainTarget>, RefRW<LabCreaturePatrol>>())
             {
                 var direction = patrol.ValueRO.Direction;
                 if (body.ValueRO.RootPosition.x <= patrol.ValueRO.MinimumX)
@@ -24,6 +32,12 @@ namespace ProceduralAnimationDotsLab
 
                 patrol.ValueRW.Direction = direction;
                 locomotion.ValueRW.DesiredVelocity = new float2(patrol.ValueRO.Speed * direction, 0f);
+
+                var time = patrol.ValueRO.Time + deltaTime;
+                patrol.ValueRW.Time = time;
+                target.ValueRW.Position = body.ValueRO.RootPosition + new float2(
+                    TailReach,
+                    math.sin(time * TailSwayFrequency) * TailSwayAmplitude);
             }
         }
     }

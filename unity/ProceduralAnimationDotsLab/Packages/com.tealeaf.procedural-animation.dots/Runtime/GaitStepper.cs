@@ -1,10 +1,13 @@
 using Unity.Entities;
 using Unity.Mathematics;
-using Tealeaf.ProceduralAnimation.Dots;
 
 namespace Tealeaf.ProceduralAnimation.Dots
 {
-    public static class GaitStepper
+    /// <summary>
+    /// The gait decision policy: when a planted foot may leave the ground, which candidate it
+    /// accepts, and how a swing advances. Implementation detail behind <see cref="GaitSettings"/>.
+    /// </summary>
+    internal static class GaitStepper
     {
         // Keep authored zero-duration settings finite while the edit-time data is being assembled.
         const float MinimumDuration = 0.0001f;

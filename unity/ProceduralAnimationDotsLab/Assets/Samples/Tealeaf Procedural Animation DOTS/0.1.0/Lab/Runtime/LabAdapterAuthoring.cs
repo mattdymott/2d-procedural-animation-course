@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace ProceduralAnimationDotsLab
 {
-    /// <summary>Attach beside <c>ProceduralCreatureAuthoring</c> to drive the lesson patrol.</summary>
+    /// <summary>Attach beside the package authoring components to drive the lesson patrol.</summary>
     public sealed class LabCreaturePatrolAuthoring : MonoBehaviour
     {
         public float Speed = 0.8f;
@@ -11,7 +11,7 @@ namespace ProceduralAnimationDotsLab
     }
 
     /// <summary>
-    /// Attach beside <c>ProceduralCreatureAuthoring</c> to have the lesson terrain adapter
+    /// Attach beside the package authoring components to have the lesson terrain adapter
     /// serve this creature's footholds and record its probe results for presentation.
     /// </summary>
     public sealed class LabTerrainAdapterAuthoring : MonoBehaviour

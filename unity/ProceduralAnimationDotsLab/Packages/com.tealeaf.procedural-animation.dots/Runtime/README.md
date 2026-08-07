@@ -1,8 +1,20 @@
 # Runtime
 
-`ProceduralCreatureAuthoring` is the supported front door for a complete
-creature recipe. Its Editor-side Baker owns the runtime allocation and initial
-state. `TwoBoneIk` remains the small, stateless advanced escape hatch.
+A creature is whichever components its entity carries. `VerletChainAuthoring`,
+`LegsAuthoring`, `GaitAuthoring`, and `ContactPlanesAuthoring` are the composable
+front door; each has its own Editor-side Baker that owns the runtime allocation
+and initial state for that feature alone. `[RequireComponent]` declares the
+dependencies between them.
+
+`LowLevel/` holds the package's primitives — pure, stateless static functions
+(`TwoBoneIk`, `VerletChainSolver`, `VerletContactSolver`, `SupportMath`,
+`CreatureLayout`). They are the advanced escape hatch and the only published
+surface below the components.
+
+They deliberately carry no `[BurstCompile]` attribute. Burst compiles them as
+part of the `[BurstCompile]` systems that call them, which is what gets them
+vectorized; annotating them individually would instead make them direct-call
+external functions, and that ABI cannot pass or return `float2` by value.
 
 `SupportPose`, `SupportKinematics`, and `SupportMath` are the package's
 world-fact seam for moving and conveyor supports. `FootholdCandidate` is the

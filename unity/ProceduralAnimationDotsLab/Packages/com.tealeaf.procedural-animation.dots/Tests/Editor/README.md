@@ -5,8 +5,10 @@ so they travel with the package rather than with the lab sample.
 
 - `VerletChainSolverTests` and `GaitStepperTests` cover the pure solver and
   gait-decision helpers.
-- `ProceduralCreatureAuthoringTests` covers the `ProceduralCreatureAuthoring`
-  front door and its Baker.
+- `CreatureCompositionTests` covers the composable front door: which components
+  each authoring combination bakes, that a chain alone still simulates, that
+  limbs without gait are consumer-aimed, and that gait stays index-aligned with
+  the legs it was derived from.
 
 The project manifest lists this package under `testables` so the Test Runner
 discovers them.

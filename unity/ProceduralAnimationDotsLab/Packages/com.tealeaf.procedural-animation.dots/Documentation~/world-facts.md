@@ -22,6 +22,33 @@ creature from its last liftoff, then simulates.
 Write it every tick. It is intent, not an impulse, so leaving a stale value in
 place keeps the creature walking.
 
+## Muscle target
+
+```csharp
+public struct ChainTarget : IComponentData
+{
+    public float2 Position;
+    public float Strength;
+}
+```
+
+Present only on creatures composed with `MusclesAuthoring`. `Position` is the
+world point the chain tip is drawn toward each tick, and it is yours: a lure, a
+cursor, a swaying reach offset from the body. The package reads it and never
+writes it.
+
+Write it every tick, like `CreatureLocomotion` — it is a standing aim, not an
+impulse. `Strength` shares the component, so write both fields together:
+
+```csharp
+var muscle = SystemAPI.GetComponent<ChainTarget>(entity);
+muscle.Position = aim;               // Strength carried forward
+SystemAPI.SetComponent(entity, muscle);
+```
+
+Assigning a fresh `ChainTarget` with only `Position` set would zero the strength
+baked from `MusclesAuthoring` and quietly stop the pull.
+
 ## Foothold candidates
 
 ```csharp
@@ -98,8 +125,8 @@ stationary body express surface travel without a fake linear velocity.
 
 ### SupportMath
 
-`SupportMath` is the same pure planar maths the gait uses, exposed for adapters
-that need it:
+`SupportMath` lives in `Tealeaf.ProceduralAnimation.Dots.LowLevel`. It is the
+same pure planar maths the gait uses, exposed for adapters that need it:
 
 - `TransformPoint` / `InverseTransformPoint` — convert between world and
   support-local space. `InverseTransformPoint` is how you fill

@@ -13,6 +13,8 @@ namespace ProceduralAnimationDotsLab
         public float Direction;
         public float MinimumX;
         public float MaximumX;
+        /// <summary>Seconds simulated, used to phase the lesson tail sway.</summary>
+        public float Time;
     }
 
     public struct DemoMovingSupport : IComponentData

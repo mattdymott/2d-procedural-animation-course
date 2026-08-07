@@ -1,6 +1,6 @@
 using Unity.Mathematics;
 
-namespace Tealeaf.ProceduralAnimation.Dots
+namespace Tealeaf.ProceduralAnimation.Dots.LowLevel
 {
     /// <summary>
     /// Immutable input for a planar two-bone inverse-kinematics solve.

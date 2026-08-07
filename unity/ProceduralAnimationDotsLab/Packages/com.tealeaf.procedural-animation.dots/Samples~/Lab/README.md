@@ -19,8 +19,10 @@ Scenes/LabCreature.unity   Sub scene holding all authoring GameObjects
 Everything here is a consumer concern that the package deliberately does not
 provide:
 
-- `LabCreaturePatrolSystem` writes `CreatureLocomotion.DesiredVelocity`. Real
-  gameplay decides root motion its own way.
+- `LabCreaturePatrolSystem` writes `CreatureLocomotion.DesiredVelocity` and
+  `ChainTarget` — where the creature walks, and where its tail reaches. Both are
+  this creature's character rather than package behaviour; the lesson tail reach
+  and sway constants live in that file. Real gameplay decides both its own way.
 - `GroundQuery` and `GroundQuerySystem` are deterministic lesson terrain. They
   fill the creature's `FootholdCandidate` buffer, preferring the moving support
   when the probe falls inside it. A tilemap, Unity Physics, or a signed-distance
@@ -30,8 +32,10 @@ provide:
 - `VerletChainDemo` draws line renderers from resolved output. Delete it and the
   simulation is unchanged.
 
-The creature itself is authored with the package's `ProceduralCreatureAuthoring`
-component; the sample never constructs chain points, plants, or swing state.
+The creature itself is composed from the package's authoring components —
+`VerletChainAuthoring`, `LegsAuthoring`, `GaitAuthoring`, and
+`ContactPlanesAuthoring` — plus the three lab adapter components; the sample
+never constructs chain points, plants, or swing state.
 
 ## Ordering
 

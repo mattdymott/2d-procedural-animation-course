@@ -3,12 +3,28 @@ using Unity.Mathematics;
 
 namespace Tealeaf.ProceduralAnimation.Dots
 {
-    public struct VerletChain : IComponentData { public float LinkLength; public float Damping; public float MuscleStrength; public float Time; }
+    public struct VerletChain : IComponentData
+    {
+        public float RestLength;
+        public float Damping;
+        /// <summary>Acceleration applied to every point but the pinned root.</summary>
+        public float2 Gravity;
+        /// <summary>Vertical bob applied to the pinned root. Zero amplitude means no bob.</summary>
+        public float RootBobAmplitude;
+        public float RootBobFrequency;
+        /// <summary>Seconds simulated, used only to phase the root bob.</summary>
+        public float Time;
+    }
 
     [InternalBufferCapacity(16)]
     public struct VerletPoint : IBufferElementData { public float2 Position; public float2 PreviousPosition; }
 
-    public struct ChainTarget : IComponentData { public float2 Position; }
+    /// <summary>
+    /// Consumer-owned muscle target: the world point the chain tip is drawn toward each tick.
+    /// Present only when the creature was composed with muscles, and written by your game —
+    /// the package never invents a target of its own.
+    /// </summary>
+    public struct ChainTarget : IComponentData { public float2 Position; public float Strength; }
 
     /// <summary>Runtime-owned body root and liftoff carry state.</summary>
     public struct CreatureBody : IComponentData { public float2 RootPosition; public float2 CarryVelocity; }

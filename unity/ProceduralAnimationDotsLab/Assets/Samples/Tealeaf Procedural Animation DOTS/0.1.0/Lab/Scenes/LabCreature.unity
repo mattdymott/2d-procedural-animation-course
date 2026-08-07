@@ -161,6 +161,10 @@ GameObject:
   - component: {fileID: 1047129354}
   - component: {fileID: 1047129353}
   - component: {fileID: 1047129352}
+  - component: {fileID: 1047129356}
+  - component: {fileID: 1047129357}
+  - component: {fileID: 1047129358}
+  - component: {fileID: 1047129359}
   m_Layer: 0
   m_Name: Lab Creature
   m_TagString: Untagged
@@ -206,18 +210,39 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6f09e7739fd31694fa35a07669447fc5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Tealeaf.ProceduralAnimation.Dots.Runtime::Tealeaf.ProceduralAnimation.Dots.ProceduralCreatureAuthoring
+  m_EditorClassIdentifier: Tealeaf.ProceduralAnimation.Dots.Runtime::Tealeaf.ProceduralAnimation.Dots.VerletChainAuthoring
   ChainSegmentCount: 16
   InitialRootPosition: {x: -3.5, y: 0.5}
-  LinkLength: 0.48
+  RestLength: 0.23
   Damping: 0.992
-  MuscleStrength: 0.08
-  Comfort: 0.32
-  StepDuration: 0.34
-  StepLead: 0.12
-  StepHeight: 0.42
-  MinimumSupport: 0.7
-  MinimumForward: 0.03
+  Gravity: {x: 0, y: -3.5}
+  RootBobAmplitude: 0.35
+  RootBobFrequency: 0.9
+--- !u!114 &1047129359
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1047129351}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8597fb1a78c1068478465b72bfd69cf4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Tealeaf.ProceduralAnimation.Dots.Runtime::Tealeaf.ProceduralAnimation.Dots.MusclesAuthoring
+  Strength: 0.08
+--- !u!114 &1047129356
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1047129351}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 692269d5dd0ffe845a85c4737b2f6397, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Tealeaf.ProceduralAnimation.Dots.Runtime::Tealeaf.ProceduralAnimation.Dots.LegsAuthoring
   Legs:
   - AttachmentPointIndex: 5
     LengthA: 1.2
@@ -229,6 +254,36 @@ MonoBehaviour:
     LengthB: 1.45
     BendSign: 1
     HomeOffset: {x: 0.2, y: -2.6}
+--- !u!114 &1047129357
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1047129351}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ab62eb18eb4d93f44a709f4c35758bd4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Tealeaf.ProceduralAnimation.Dots.Runtime::Tealeaf.ProceduralAnimation.Dots.GaitAuthoring
+  Comfort: 0.32
+  StepDuration: 0.34
+  StepLead: 0.12
+  StepHeight: 0.42
+  MinimumSupport: 0.7
+  MinimumForward: 0.03
+--- !u!114 &1047129358
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1047129351}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da46bf0afec2d1f4bb8e2e8efb4ce284, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Tealeaf.ProceduralAnimation.Dots.Runtime::Tealeaf.ProceduralAnimation.Dots.ContactPlanesAuthoring
   ContactPlanes:
   - Point: {x: 0, y: -2.15}
     Normal: {x: 0, y: 1}

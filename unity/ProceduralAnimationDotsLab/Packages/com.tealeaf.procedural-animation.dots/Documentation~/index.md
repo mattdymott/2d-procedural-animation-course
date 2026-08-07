@@ -37,17 +37,36 @@ To run the package's own tests in your project, list it under `testables`:
 
 ## The three things a consumer does
 
-### 1. Author a creature
+### 1. Compose a creature
 
-Add `ProceduralCreatureAuthoring` to a GameObject and fill in its chain, gait,
-leg, and optional contact-plane recipe. Baking creates the entire creature
-entity — configuration, buffers, and initial state.
+A creature is not a type — it is whichever components its entity carries. Add
+the authoring components for the behaviour you want:
 
-This is the only supported path to a complete creature. There is no runtime
-factory, and hand-building the component set is not a supported alternative:
-the recipe is stable designer intent, while previous point positions, plants,
-swing progress, and support relations are history the Baker seeds and the
-solver owns from the first tick.
+| Component | Gives you | Requires |
+| --- | --- | --- |
+| `VerletChainAuthoring` | A chain body and its root | — |
+| `MusclesAuthoring` | Draws the chain tip toward a target you write | `VerletChainAuthoring` |
+| `LegsAuthoring` | Two-bone limbs | `VerletChainAuthoring` |
+| `GaitAuthoring` | Alternating stepping | `LegsAuthoring` |
+| `ContactPlanesAuthoring` | Static planes the body cannot sink through | `VerletChainAuthoring` |
+
+```text
+VerletChain                                   a rope or hanging tail
+VerletChain + Muscles                         a tentacle reaching for a target you write
+VerletChain + Legs                            limbs you aim yourself
+VerletChain + Legs + Gait                     a walking creature
+VerletChain + Legs + Gait + ContactPlanes     a walking creature with a floor
+```
+
+The dependencies are declared with `[RequireComponent]`, so adding
+`GaitAuthoring` to a bare GameObject pulls in legs and a chain for you, and the
+defaults already walk. Each baker owns only its own feature's data.
+
+Authoring is the supported path to a creature. There is no runtime factory, and
+hand-building the component set is not a supported alternative: the recipes are
+stable designer intent, while previous point positions, plants, swing progress,
+and support relations are history the bakers seed and the solver owns from the
+first tick.
 
 See the [authoring reference](authoring-reference.md) for every field.
 
@@ -115,6 +134,14 @@ After the solve group runs, `VerletPoint` holds the resolved chain, and
 `Limb2BoneLeg.Limb` holds each leg's root, knee, and foot. Read them from
 presentation or gameplay; do not write them between package ticks.
 
+`Limb2Bone.Target` is the one exception, and who owns it depends on what you
+composed. With `GaitAuthoring` present, gait writes the target every tick and
+your writes are overwritten — treat it as output. Without gait, nothing in the
+package writes it, so it is yours: set it before the solve group and two-bone IK
+will resolve the knee and foot for you. That is what makes a limb without a gait
+a reaching arm or a grabbing tail. Everything else on `Limb2BoneLeg` —
+`Root`, `Knee`, `Foot`, `RootPointIndex` — is resolved output either way.
+
 `GaitLeg` is visible for debugging and is not part of the stable interface.
 Plant, swing progress, support-local coordinates, surface offset, and Verlet
 previous positions are implementation detail even when a debug view draws them.
@@ -147,10 +174,26 @@ without changing this contract.
 
 ## Advanced escape hatch
 
-`TwoBoneIk.Solve` is a stateless, allocation-free planar IK helper, and
-`SupportMath` exposes the same pose and point-velocity maths the gait uses. Both
-are public so an advanced caller can reuse the geometry directly. Neither is
-required for normal use.
+`Tealeaf.ProceduralAnimation.Dots.LowLevel` holds the package's primitives:
+pure, stateless static functions with no entity or system dependencies. They are
+Burst-compatible and compile into whichever Bursted system calls them — the
+package's own solve systems are `[BurstCompile]`, so that is the path they take
+in normal use. They are the whole of the published escape hatch — anything not
+listed here is implementation detail, whatever its C# accessibility.
+
+| Type | What it does |
+| --- | --- |
+| `TwoBoneIk.Solve` | Analytic planar two-bone IK, clamped to the reachable annulus |
+| `VerletChainSolver.Pin` / `.SatisfyDistance` | Verlet point pinning and one distance constraint |
+| `VerletContactSolver.ProjectAgainstPlane` | One-sided contact projection with friction |
+| `SupportMath` | Support-local transforms and point velocity, including conveyor travel |
+| `CreatureLayout.PointPosition` | Rest position of a chain point, shared by the bakers |
+
+None of them is required for normal use. The high-level components call exactly
+these functions, so going off-road costs you no fidelity.
+
+`GaitStepper`, the gait decision policy, is deliberately *not* here — it is
+stateful policy rather than geometry, and it is free to change.
 
 ## Not in this release
 
