@@ -55,7 +55,7 @@ namespace ProceduralAnimationPackageConsumer
 
             var ground = state.EntityManager.GetComponentData<SampleFlatGround>(groundQuery.GetSingletonEntity());
             var deltaTime = SystemAPI.Time.DeltaTime;
-            foreach (var (settings, gaitLegs, limbs, points, candidates) in SystemAPI.Query<RefRO<GaitSettings>, DynamicBuffer<GaitLeg>, DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>, DynamicBuffer<FootholdCandidate>>())
+            foreach (var (gait, gaitLegs, limbs, points, candidates) in SystemAPI.Query<RefRO<Gait>, DynamicBuffer<GaitLeg>, DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>, DynamicBuffer<FootholdCandidate>>())
             {
                 candidates.Clear();
                 var legCount = math.min(gaitLegs.Length, limbs.Length);
@@ -69,7 +69,7 @@ namespace ProceduralAnimationPackageConsumer
                     var bodyVelocity = deltaTime > 0f
                         ? (hipPoint.Position - hipPoint.PreviousPosition) / deltaTime
                         : float2.zero;
-                    var probe = hipPoint.Position + gaitLegs[index].HomeOffset + bodyVelocity * settings.ValueRO.StepLead;
+                    var probe = hipPoint.Position + gaitLegs[index].HomeOffset + bodyVelocity * gait.ValueRO.StepLead;
                     candidates.Add(new FootholdCandidate
                     {
                         LegIndex = (byte)index,

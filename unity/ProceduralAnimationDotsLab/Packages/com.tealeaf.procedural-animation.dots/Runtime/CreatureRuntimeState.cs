@@ -52,7 +52,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
         public float2 SurfaceOffset; public float2 CarryVelocity; public Entity SwingSupport; public float2 SwingLocalPlant;
     }
 
-    public struct GaitSettings : IComponentData
+    public struct Gait : IComponentData
     {
         public float Comfort; public float StepDuration; public float StepLead; public float StepHeight;
         public float MinimumSupport; public float MinimumForward;

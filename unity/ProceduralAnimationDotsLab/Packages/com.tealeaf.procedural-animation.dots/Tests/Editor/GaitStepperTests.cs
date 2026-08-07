@@ -8,7 +8,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
 {
     public sealed class GaitStepperTests
     {
-        static readonly GaitSettings Settings = new()
+        static readonly Gait DefaultGait = new()
         {
             Comfort = 0.5f,
             StepDuration = 0.5f,
@@ -58,7 +58,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
                 float2.zero,
                 0f,
                 3f,
-                Settings,
+                DefaultGait,
                 0.1f,
                 hasFootholdCandidate: false,
                 footholdCandidate: default);
@@ -136,7 +136,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
                 new float2(1f, 0f),
                 1f,
                 3f,
-                Settings,
+                DefaultGait,
                 0f,
                 hasFootholdCandidate: true,
                 footholdCandidate: candidate);
@@ -161,7 +161,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
                 bodyVelocity: new float2(1f, 0f),
                 minimumReach: 1f,
                 maximumReach: 3f,
-                Settings,
+                DefaultGait,
                 out var foothold);
 
             Assert.That(accepted, Is.True);
@@ -184,7 +184,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
                 new float2(1f, 0f),
                 1f,
                 3f,
-                Settings,
+                DefaultGait,
                 out _);
 
             Assert.That(accepted, Is.False);
@@ -206,7 +206,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
                 new float2(1f, 0f),
                 1f,
                 3f,
-                Settings,
+                DefaultGait,
                 out _);
 
             Assert.That(accepted, Is.False);
@@ -228,7 +228,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
                 new float2(1f, 0f),
                 1f,
                 3f,
-                Settings,
+                DefaultGait,
                 out _);
 
             Assert.That(accepted, Is.False);
@@ -250,7 +250,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
                 new float2(1f, 0f),
                 1f,
                 3f,
-                Settings,
+                DefaultGait,
                 0.1f,
                 hasFootholdCandidate: false,
                 footholdCandidate: default);
@@ -286,7 +286,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
                 new float2(1f, 0f),
                 1f,
                 3f,
-                Settings,
+                DefaultGait,
                 0f,
                 hasFootholdCandidate: true,
                 footholdCandidate: firstCandidate);
@@ -299,7 +299,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
                 new float2(-10f, 0f),
                 1f,
                 3f,
-                Settings,
+                DefaultGait,
                 0.1f,
                 hasFootholdCandidate: true,
                 footholdCandidate: secondCandidate);
@@ -324,7 +324,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
                 float2.zero,
                 new float2(3f, 0f),
                 3f,
-                Settings,
+                DefaultGait,
                 0.1f);
 
             Assert.That(leg.State, Is.EqualTo(FootState.Planted));
@@ -347,7 +347,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
                 float2.zero,
                 new float2(2f, 0f),
                 3f,
-                Settings,
+                DefaultGait,
                 0f);
             var committedTarget = leg.SwingTo;
 
@@ -357,7 +357,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
                 new float2(4f, 0f),
                 new float2(-10f, 0f),
                 3f,
-                Settings,
+                DefaultGait,
                 0.1f);
 
             Assert.That(leg.State, Is.EqualTo(FootState.Swinging));
@@ -374,15 +374,15 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
             };
 
             leg.SwingT = 0f;
-            Assert.That(GaitStepper.EvaluateSwingTarget(leg, Settings), Is.EqualTo(leg.SwingFrom));
+            Assert.That(GaitStepper.EvaluateSwingTarget(leg, DefaultGait), Is.EqualTo(leg.SwingFrom));
 
             leg.SwingT = 0.5f;
-            var apex = GaitStepper.EvaluateSwingTarget(leg, Settings);
+            var apex = GaitStepper.EvaluateSwingTarget(leg, DefaultGait);
             Assert.That(apex.x, Is.EqualTo(1f).Within(0.0001f));
             Assert.That(apex.y, Is.EqualTo(-1.6f).Within(0.0001f));
 
             leg.SwingT = 1f;
-            Assert.That(GaitStepper.EvaluateSwingTarget(leg, Settings), Is.EqualTo(leg.SwingTo));
+            Assert.That(GaitStepper.EvaluateSwingTarget(leg, DefaultGait), Is.EqualTo(leg.SwingTo));
         }
     }
 }

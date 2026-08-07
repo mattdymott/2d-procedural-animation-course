@@ -28,7 +28,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
             supportPoses.Update(ref state);
             supportKinematics.Update(ref state);
 
-            foreach (var (settings, body, gaitLegs, limbs, points, footholdCandidates) in SystemAPI.Query<RefRO<GaitSettings>, RefRW<CreatureBody>, DynamicBuffer<GaitLeg>, DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>, DynamicBuffer<FootholdCandidate>>())
+            foreach (var (gait, body, gaitLegs, limbs, points, footholdCandidates) in SystemAPI.Query<RefRO<Gait>, RefRW<CreatureBody>, DynamicBuffer<GaitLeg>, DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>, DynamicBuffer<FootholdCandidate>>())
             {
                 var mutableGaitLegs = gaitLegs;
                 var mutableLimbs = limbs;
@@ -68,7 +68,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
                         bodyVelocity,
                         math.abs(limb.LengthA - limb.LengthB),
                         limb.LengthA + limb.LengthB,
-                        settings.ValueRO,
+                        gait.ValueRO,
                         deltaTime,
                         hasFootholdCandidate,
                         footholdCandidate);

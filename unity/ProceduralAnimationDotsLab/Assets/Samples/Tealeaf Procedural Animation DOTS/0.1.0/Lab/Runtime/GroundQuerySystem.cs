@@ -29,7 +29,7 @@ namespace ProceduralAnimationDotsLab
                 supportPose = state.EntityManager.GetComponentData<SupportPose>(supportEntity);
             }
 
-            foreach (var (settings, gaitLegs, limbs, points, candidates, debugHits) in SystemAPI.Query<RefRO<GaitSettings>, DynamicBuffer<GaitLeg>, DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>, DynamicBuffer<FootholdCandidate>, DynamicBuffer<GroundQueryDebugHit>>())
+            foreach (var (gait, gaitLegs, limbs, points, candidates, debugHits) in SystemAPI.Query<RefRO<Gait>, DynamicBuffer<GaitLeg>, DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>, DynamicBuffer<FootholdCandidate>, DynamicBuffer<GroundQueryDebugHit>>())
             {
                 var mutableCandidates = candidates;
                 var mutableDebugHits = debugHits;
@@ -46,7 +46,7 @@ namespace ProceduralAnimationDotsLab
                     var bodyVelocity = deltaTime > 0f
                         ? (hipPoint.Position - hipPoint.PreviousPosition) / deltaTime
                         : float2.zero;
-                    var probe = hipPoint.Position + gaitLegs[index].HomeOffset + bodyVelocity * settings.ValueRO.StepLead;
+                    var probe = hipPoint.Position + gaitLegs[index].HomeOffset + bodyVelocity * gait.ValueRO.StepLead;
                     var legIndex = (byte)index;
                     if (supportEntity != Entity.Null
                         && GroundQuery.TrySampleSupport(legIndex, probe, supportEntity, supportPose, out var supportCandidate))

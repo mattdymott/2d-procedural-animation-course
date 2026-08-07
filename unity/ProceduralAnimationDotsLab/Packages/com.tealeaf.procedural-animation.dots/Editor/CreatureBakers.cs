@@ -108,7 +108,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
 
             var entity = GetEntity(TransformUsageFlags.None);
 
-            AddComponent(entity, new GaitSettings
+            AddComponent(entity, new Gait
             {
                 Comfort = math.max(0f, authoring.Comfort),
                 StepDuration = math.max(0.001f, authoring.StepDuration),

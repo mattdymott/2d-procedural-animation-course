@@ -95,7 +95,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
                 var manager = world.EntityManager;
 
                 Assert.That(manager.HasBuffer<Limb2BoneLeg>(entity), Is.False, "A chain alone must not carry limbs.");
-                Assert.That(manager.HasComponent<GaitSettings>(entity), Is.False, "A chain alone must not carry gait.");
+                Assert.That(manager.HasComponent<Gait>(entity), Is.False, "A chain alone must not carry gait.");
                 Assert.That(manager.HasBuffer<GaitLeg>(entity), Is.False);
                 Assert.That(manager.HasBuffer<FootholdCandidate>(entity), Is.False);
                 Assert.That(manager.HasBuffer<ContactPlane>(entity), Is.False, "Contact planes are opt-in.");
@@ -299,7 +299,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
                 var manager = world.EntityManager;
 
                 Assert.That(manager.GetBuffer<Limb2BoneLeg>(entity).Length, Is.EqualTo(1));
-                Assert.That(manager.HasComponent<GaitSettings>(entity), Is.False);
+                Assert.That(manager.HasComponent<Gait>(entity), Is.False);
 
                 // With no gait, the consumer owns the limb target; IK still resolves it.
                 var limbs = manager.GetBuffer<Limb2BoneLeg>(entity);

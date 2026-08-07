@@ -22,7 +22,9 @@ provide:
 - `LabCreaturePatrolSystem` writes `CreatureLocomotion.DesiredVelocity` and
   `ChainTarget` — where the creature walks, and where its tail reaches. Both are
   this creature's character rather than package behaviour; the lesson tail reach
-  and sway constants live in that file. Real gameplay decides both its own way.
+  and sway constants live in that file. They are fractions of the chain's own
+  length, not world units, so retuning `RestLength` or the point count cannot
+  aim the tail past what it can reach. Real gameplay decides both its own way.
 - `GroundQuery` and `GroundQuerySystem` are deterministic lesson terrain. They
   fill the creature's `FootholdCandidate` buffer, preferring the moving support
   when the probe falls inside it. A tilemap, Unity Physics, or a signed-distance

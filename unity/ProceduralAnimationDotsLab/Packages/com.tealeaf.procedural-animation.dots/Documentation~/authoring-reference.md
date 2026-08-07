@@ -109,7 +109,7 @@ which candidates gait will accept, which is why a candidate is evidence rather
 than a command. At `0.7`, a surface tilted more than about 45° stops counting
 as ground.
 
-Bakes `GaitSettings`, the `GaitLeg` buffer, and an empty `FootholdCandidate`
+Bakes `Gait`, the `GaitLeg` buffer, and an empty `FootholdCandidate`
 buffer for your adapter to fill.
 
 **Author legs in pairs.** Legs are paired for alternation by index — 0 with 1,

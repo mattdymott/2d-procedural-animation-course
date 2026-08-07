@@ -22,6 +22,10 @@ a second real consumer justifies widening it.
   Its child systems are internal implementation detail.
 - `CreatureLocomotion`: the consumer-owned desired root velocity, applied at
   the start of each package tick.
+- `Gait` and `GaitLeg`: the baked step policy and its per-leg runtime state.
+  Baked components are bare-named after the course glossary — `Gait`, not
+  `GaitSettings` or Lesson 8's sketched `GaitConfig` — so the contract carries
+  one naming rule and no `-Settings`/`-Config` suffixes anywhere.
 - `FootholdCandidate`: the terrain, physics, or custom-world evidence seam.
   Gait applies its own support and reach policy and commits a target only on a
   planted-to-swinging transition.

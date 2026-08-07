@@ -144,7 +144,7 @@ namespace ProceduralAnimationDotsLab
                 ComponentType.ReadOnly<ChainTarget>(),
                 ComponentType.ReadOnly<CreatureLocomotion>(),
                 ComponentType.ReadOnly<CreatureBody>(),
-                ComponentType.ReadOnly<GaitSettings>(),
+                ComponentType.ReadOnly<Gait>(),
                 ComponentType.ReadOnly<GaitLeg>(),
                 ComponentType.ReadOnly<Limb2BoneLeg>(),
                 ComponentType.ReadOnly<ContactPlane>(),

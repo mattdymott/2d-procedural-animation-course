@@ -5,11 +5,11 @@ namespace Tealeaf.ProceduralAnimation.Dots
 {
     /// <summary>
     /// The gait decision policy: when a planted foot may leave the ground, which candidate it
-    /// accepts, and how a swing advances. Implementation detail behind <see cref="GaitSettings"/>.
+    /// accepts, and how a swing advances. Implementation detail behind <see cref="Gait"/>.
     /// </summary>
     internal static class GaitStepper
     {
-        // Keep authored zero-duration settings finite while the edit-time data is being assembled.
+        // Keep authored zero-duration values finite while the edit-time data is being assembled.
         const float MinimumDuration = 0.0001f;
 
         public static bool TryChooseFoothold(
@@ -19,12 +19,12 @@ namespace Tealeaf.ProceduralAnimation.Dots
             float2 bodyVelocity,
             float minimumReach,
             float maximumReach,
-            in GaitSettings settings,
+            in Gait gait,
             out float2 foothold)
         {
             foothold = float2.zero;
             var normal = math.normalizesafe(candidate.Normal, new float2(0f, 1f));
-            if (math.dot(normal, new float2(0f, 1f)) < settings.MinimumSupport)
+            if (math.dot(normal, new float2(0f, 1f)) < gait.MinimumSupport)
                 return false;
 
             var offset = candidate.Point - hip;
@@ -35,7 +35,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
             if (math.lengthsq(bodyVelocity) > 0.000001f)
             {
                 var forward = math.dot(candidate.Point - home, math.normalize(bodyVelocity));
-                if (forward < settings.MinimumForward)
+                if (forward < gait.MinimumForward)
                     return false;
             }
 
@@ -49,7 +49,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
             float2 hip,
             float2 bodyVelocity,
             float maximumReach,
-            in GaitSettings settings,
+            in Gait gait,
             float deltaTime)
         {
             return UpdateInternal(
@@ -59,7 +59,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
                 bodyVelocity,
                 minimumReach: 0f,
                 maximumReach,
-                settings,
+                gait,
                 deltaTime,
                 default,
                 useFootholdQuery: false,
@@ -73,7 +73,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
             float2 bodyVelocity,
             float minimumReach,
             float maximumReach,
-            in GaitSettings settings,
+            in Gait gait,
             float deltaTime,
             bool hasFootholdCandidate,
             in FootholdCandidate footholdCandidate)
@@ -85,7 +85,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
                 bodyVelocity,
                 minimumReach,
                 maximumReach,
-                settings,
+                gait,
                 deltaTime,
                 footholdCandidate,
                 useFootholdQuery: true,
@@ -99,7 +99,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
             float2 bodyVelocity,
             float minimumReach,
             float maximumReach,
-            in GaitSettings settings,
+            in Gait gait,
             float deltaTime,
             in FootholdCandidate footholdCandidate,
             bool useFootholdQuery,
@@ -108,7 +108,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
             if (leg.State == FootState.Planted)
             {
                 var home = hip + leg.HomeOffset;
-                if (math.distance(leg.Plant, home) > settings.Comfort && partnerState == FootState.Planted)
+                if (math.distance(leg.Plant, home) > gait.Comfort && partnerState == FootState.Planted)
                 {
                     var foothold = home;
                     if (useFootholdQuery)
@@ -121,7 +121,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
                                 bodyVelocity,
                                 minimumReach,
                                 maximumReach,
-                                settings,
+                                gait,
                                 out foothold))
                             return leg.Plant;
                     }
@@ -135,7 +135,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
                     leg.CarryVelocity = float2.zero;
                     leg.SwingTo = useFootholdQuery
                         ? foothold
-                        : ClampToReach(home + bodyVelocity * settings.StepLead, hip, maximumReach);
+                        : ClampToReach(home + bodyVelocity * gait.StepLead, hip, maximumReach);
                     leg.SwingT = 0f;
                     leg.State = FootState.Swinging;
                     return leg.Plant;
@@ -144,7 +144,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
                 return leg.Plant;
             }
 
-            leg.SwingT += deltaTime / math.max(settings.StepDuration, MinimumDuration);
+            leg.SwingT += deltaTime / math.max(gait.StepDuration, MinimumDuration);
             if (leg.SwingT >= 1f)
             {
                 leg.SwingT = 1f;
@@ -159,15 +159,15 @@ namespace Tealeaf.ProceduralAnimation.Dots
                 return leg.Plant;
             }
 
-            return EvaluateSwingTarget(leg, settings);
+            return EvaluateSwingTarget(leg, gait);
         }
 
-        public static float2 EvaluateSwingTarget(in GaitLeg leg, in GaitSettings settings)
+        public static float2 EvaluateSwingTarget(in GaitLeg leg, in Gait gait)
         {
             var swingT = math.saturate(leg.SwingT);
             var smoothT = math.smoothstep(0f, 1f, swingT);
             var target = math.lerp(leg.SwingFrom, leg.SwingTo, smoothT);
-            target.y += settings.StepHeight * 4f * swingT * (1f - swingT);
+            target.y += gait.StepHeight * 4f * swingT * (1f - swingT);
             return target;
         }
 
