@@ -211,26 +211,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6f09e7739fd31694fa35a07669447fc5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Tealeaf.ProceduralAnimation.Dots.Runtime::Tealeaf.ProceduralAnimation.Dots.VerletChainAuthoring
-  ChainSegmentCount: 16
+  ChainSegmentCount: 20
   InitialRootPosition: {x: -3.5, y: 0.5}
   RestLength: 0.23
   Damping: 0.992
   Gravity: {x: 0, y: -3.5}
   RootBobAmplitude: 0.35
   RootBobFrequency: 0.9
---- !u!114 &1047129359
-MonoBehaviour:
+--- !u!4 &1047129355
+Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1047129351}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8597fb1a78c1068478465b72bfd69cf4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Tealeaf.ProceduralAnimation.Dots.Runtime::Tealeaf.ProceduralAnimation.Dots.MusclesAuthoring
-  Strength: 0.08
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1047129356
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -293,21 +295,19 @@ MonoBehaviour:
     Normal: {x: -1, y: 0}
     Radius: 0.08
     Friction: 0.2
---- !u!4 &1047129355
-Transform:
+--- !u!114 &1047129359
+MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1047129351}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8597fb1a78c1068478465b72bfd69cf4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Tealeaf.ProceduralAnimation.Dots.Runtime::Tealeaf.ProceduralAnimation.Dots.MusclesAuthoring
+  Strength: 0.08
 --- !u!1 &1514855785
 GameObject:
   m_ObjectHideFlags: 0
