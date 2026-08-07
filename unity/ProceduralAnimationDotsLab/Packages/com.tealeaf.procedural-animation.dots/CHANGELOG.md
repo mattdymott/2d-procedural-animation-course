@@ -35,5 +35,3 @@ a second real consumer justifies widening it.
   support, line-renderer presentation, two scenes, and a bake-and-tick test
   through the public interface.
 - `Documentation~`: usage, authoring reference, and the world-fact seam.
-
-[0.1.0]: https://github.com/mattdymott/2d-procedural-animation-course

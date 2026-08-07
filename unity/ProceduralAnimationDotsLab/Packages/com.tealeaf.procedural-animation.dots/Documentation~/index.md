@@ -58,28 +58,49 @@ refreshes its `FootholdCandidate` buffer. Moving and conveyor surfaces are
 separate entities carrying `SupportPose` and `SupportKinematics`.
 
 ```csharp
+using Tealeaf.ProceduralAnimation.Dots;
+using Unity.Entities;
+using Unity.Mathematics;
+
 [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
 [UpdateBefore(typeof(ProceduralAnimationSolveSystemGroup))]
-public partial struct WalkAdapter : ISystem
+public partial struct WalkOnFlatGroundSystem : ISystem
 {
     public void OnUpdate(ref SystemState state)
     {
-        foreach (var (locomotion, candidates) in
-                 SystemAPI.Query<RefRW<CreatureLocomotion>, DynamicBuffer<FootholdCandidate>>())
+        foreach (var (locomotion, gaitLegs, limbs, points, candidates) in
+                 SystemAPI.Query<
+                     RefRW<CreatureLocomotion>,
+                     DynamicBuffer<GaitLeg>,
+                     DynamicBuffer<Limb2BoneLeg>,
+                     DynamicBuffer<VerletPoint>,
+                     DynamicBuffer<FootholdCandidate>>())
         {
             locomotion.ValueRW.DesiredVelocity = new float2(0.8f, 0f);
 
             candidates.Clear();
-            candidates.Add(new FootholdCandidate
+            var legCount = math.min(gaitLegs.Length, limbs.Length);
+            for (var index = 0; index < legCount; index++)
             {
-                LegIndex = 0,
-                Point = new float2(1.2f, 0f),
-                Normal = new float2(0f, 1f),
-            });
+                var hip = points[limbs[index].RootPointIndex].Position;
+                var probe = hip + gaitLegs[index].HomeOffset;
+                candidates.Add(new FootholdCandidate
+                {
+                    LegIndex = (byte)index,
+                    Point = new float2(probe.x, 0f),   // flat ground at y = 0
+                    Normal = new float2(0f, 1f),
+                });
+            }
         }
     }
 }
 ```
+
+Reading `Limb2BoneLeg.RootPointIndex` and `VerletPoint` here is how an adapter
+finds out *where to look* — which is a read of resolved output, not a write to
+solver state. `Assets/PackageConsumer` in this repository is the same adapter
+with patrol reversal and a configurable ground height, and it compiles against
+the package assemblies alone.
 
 A candidate is evidence, not a command. Gait decides whether to accept it and
 commits a target only on a planted-to-swinging transition; while a foot is

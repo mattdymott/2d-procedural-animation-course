@@ -36,8 +36,9 @@ which candidates gait will accept, which is why a candidate is evidence rather
 than a command. At `0.7`, a surface tilted more than about 45° stops counting
 as ground.
 
-A leg only wants to step while its partner is planted, which is what keeps the
-gait alternating rather than hopping.
+A leg only begins a step while its partner is planted, which is what keeps the
+gait alternating rather than hopping. See `Legs` below for how partners are
+assigned.
 
 ## Legs
 
@@ -51,8 +52,12 @@ gait alternating rather than hopping.
 | `BendSign` | Knee side. Any negative value becomes -1, otherwise +1. |
 | `HomeOffset` | Rest foot position relative to the attachment point. |
 
-Legs are paired for alternation by index — 0 with 1, 2 with 3, and so on. An
-odd final leg has no partner and steps independently.
+Legs are paired for alternation by index — 0 with 1, 2 with 3, and so on.
+
+**Author legs in pairs.** A leg only begins a step while its partner is
+planted, and an unpaired final leg is treated as having a permanently swinging
+partner, so it never steps. It will stay planted at its initial position and be
+dragged along by the chain.
 
 ## Contact planes
 
