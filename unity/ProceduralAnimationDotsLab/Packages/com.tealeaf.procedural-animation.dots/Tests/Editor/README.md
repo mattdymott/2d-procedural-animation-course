@@ -14,3 +14,16 @@ discovers them.
 End-to-end consumer coverage lives outside the package: `PackageConsumer.Tests`
 in the lab project is an independent compile-time consumer that bakes and ticks
 through the public interface only.
+
+## No PlayMode assembly
+
+The package deliberately ships no `Tests/Runtime` (PlayMode) assembly. EditMode
+already bakes a creature and drives `ProceduralAnimationSolveSystemGroup` for
+real ticks, so a PlayMode assembly would repeat that coverage in a slower
+harness without testing anything new. The solve is fixed-step and deterministic
+and has no dependency on rendering, input, or the player loop.
+
+Add one when a behaviour appears that EditMode cannot express — a bug that only
+reproduces across real frames, timing that depends on the actual player loop,
+or presentation participating in the simulation rather than reading it. Until
+then the absence is the decision, not an omission.

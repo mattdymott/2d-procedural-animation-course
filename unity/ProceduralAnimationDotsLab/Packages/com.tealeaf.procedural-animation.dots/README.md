@@ -14,7 +14,7 @@ Runtime/        Package-owned solve group, state, helpers, and creature recipe
 Editor/         Creature Baker, validation, and derived previews
 Tests/Editor/   Solver, gait, and authoring coverage
 Samples~/Lab/   The teaching lab: adapters, presentation, and its scenes
-Documentation~/ Package usage and integration contract
+Documentation~/ Consumer usage: install, authoring reference, world-fact seam
 ```
 
 Install the `Lab` sample from the Package Manager to get a runnable scene. In
@@ -22,8 +22,22 @@ this repository the imported copy is already committed under
 `Assets/Samples/Tealeaf Procedural Animation DOTS/<version>/Lab`, so
 `Scenes/Lab.unity` opens and plays from a fresh clone.
 
-The extraction contract lives at
+## Documentation
+
+[`Documentation~/index.md`](Documentation~/index.md) is the consumer guide and
+stands alone: install, the three things a consumer does, ordering, and what the
+first release deliberately leaves out. It links an
+[authoring reference](Documentation~/authoring-reference.md) and the
+[world-fact seam](Documentation~/world-facts.md).
+
+The *why* behind the interface — what moved, what stayed a sample, and what is
+deferred until a second consumer — is the extraction contract at
 [`../../Documentation~/package-extraction.md`](../../Documentation~/package-extraction.md).
+That path is repo-local: the contract lives beside the lab it describes and is
+not part of the distributed package.
+
+The rest of this file summarizes the same interface for someone already in the
+repository.
 
 ## Authoring a creature
 

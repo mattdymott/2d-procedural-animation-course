@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "unity": "6000.0",
   "description": "2D grounded procedural appendage animation for Unity DOTS.",
+  "author": {
+    "name": "Matt Dymott"
+  },
   "dependencies": {
     "com.unity.entities": "6.5.0"
   },

@@ -183,10 +183,38 @@ abstraction until there are multiple contact providers.
 5. Move `VerletChainDemo` and the lesson scene into Samples~, and add one
    end-to-end bake-and-tick test through the public interface.
 
-All five steps are done. Each step left the lab runnable. The remaining work
-before publishing is packaging polish rather than interface extraction:
-`Documentation~` inside the package, a changelog and licence, and a second real
-consumer to justify widening scope.
+All five steps are done. Each step left the lab runnable.
+
+## Packaging decisions after extraction
+
+The interface work is finished; what followed was packaging polish, recorded
+here so the reasoning survives.
+
+**Version stays `0.1.0`.** The scope above is deliberately narrow and defers 3D,
+generic taxonomies, and physics queries, which is a `0.x` shape rather than a
+`1.0` one. The version also names the committed sample import folder
+(`Assets/Samples/Tealeaf Procedural Animation DOTS/0.1.0/Lab`), so a bump is a
+delete-and-reimport, not an edit.
+
+**Consumer documentation moved into the package; this contract did not.** The
+package's `Documentation~/` now stands alone for someone who installs from a
+registry and never sees this lab: install, authoring reference, and the
+world-fact seam. This file stays beside the source it describes, and the
+package README references it as an explicitly repo-local pointer.
+
+**No `Tests/Runtime` (PlayMode) assembly.** EditMode already bakes and ticks the
+real solve group, which is fixed-step, deterministic, and independent of
+rendering, input, and the player loop. A PlayMode assembly would repeat that
+coverage more slowly. It becomes worth adding when a behaviour only reproduces
+across real frames or once presentation participates in the simulation rather
+than reading it.
+
+**A second real consumer remains open**, and it is the gate on widening scope.
+`Assets/PackageConsumer` is a compile-time tracer that proves the interface is
+usable without the sample, and the `Lab` sample is the worked example — neither
+is a second independent game exercising the package for its own reasons. Until
+one exists, 3D, generic creature taxonomies, a physics-query implementation,
+and a wider contact abstraction stay out of scope.
 
 ## Acceptance checks
 
