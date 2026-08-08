@@ -1,0 +1,149 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Lesson 29 — Top-Down Gait Debugger</title>
+<link rel="stylesheet" href="../assets/course.css">
+<div class="page">
+  <p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 29 · Top-Down Branch</p>
+  <h1>Top-Down Gait Debugger: See the Plant Slip</h1>
+  <p class="lede">A planted foot is a committed world point. This little debugger makes the contract visible: rotate or move the creature and its homes move, while its plants stay put until a completed swing deliberately replaces them.</p>
+
+  <h2>Run the experiment</h2>
+  <p>Turn the heading toward 90 degrees with <strong>world-pinned plants</strong>. Gold homes rotate with the creature; pale plant dots remain in the world, so the dashed stress lines grow. Then enable the red “drag plants” bug. The lines falsely vanish because the feet are skating with the body.</p>
+  <div class="sim" style="padding:1rem">
+    <canvas id="debugCanvas" width="620" height="390" aria-label="Top-down gait debug drawing" style="display:block;width:100%;max-width:620px;margin:auto;background:#101820;border-radius:8px"></canvas>
+    <div class="sim-controls" style="margin-top:1rem">
+      <label>Heading <output id="headingValue">0°</output><input id="heading" type="range" min="-180" max="180" value="0"></label>
+      <label>Planar speed <output id="speedValue">0</output><input id="speed" type="range" min="0" max="100" value="0"></label>
+      <label>Comfort radius <output id="radiusValue">44 px</output><input id="radius" type="range" min="24" max="75" value="44"></label>
+    </div>
+    <p style="margin:.8rem 0"><label><input id="dragPlants" type="checkbox"> <strong>Bug:</strong> drag plants with the creature</label> <button id="commit" type="button">Demo: commit completed swings</button></p>
+    <div id="readout" class="decision-feedback">World-pinned plants preserve the evidence that a step is needed.</div>
+  </div>
+  <p><span style="color:#e7c866">Gold rings</span> are heading-relative homes. <span style="color:#d9f0ff">Pale dots</span> are committed plant points. A red dashed line is over comfort; that is a gait reason to request a swing, not permission to move a planted dot.</p>
+
+  <div class="challenge" id="challenge1"><span class="status">☐</span> <strong>Challenge 1 — Reveal a legal step request.</strong> With the bug off, turn past 75 degrees or add speed until at least one stress line is red.</div>
+  <div class="challenge" id="challenge2"><span class="status">☐</span> <strong>Challenge 2 — Catch the skating lie.</strong> Turn with stress visible, then enable “drag plants.” Explain why the now-short lines are evidence of the bug, not a stable gait.</div>
+
+  <h2>What “commit” means in the real gait</h2>
+  <p>The button is a controlled shortcut: it sets every plant to its current home so you can see stress clear. A live solver must not do that each tick. It asks for a candidate, swings toward it, then updates <code>PlantedWorldPoint</code> only when that swing lands.</p>
+  <div class="recipe"><span class="callout-label">Recipe · keep query, promise, and picture separate</span><pre><code>// Gait reads stress from a persistent world promise.
+float stress = distance(foot.PlantedWorldPoint, headingRelativeHome);
+
+// Candidate selection is a transition, not a planted-tick overwrite.
+if (foot.Phase == Swing && Reached(foot.CandidateWorldPoint))
+{
+    foot.PlantedWorldPoint = foot.CandidateWorldPoint;
+    foot.Phase = Planted;
+}
+
+// Presentation may lift or shadow the rendered foot.
+// It never changes PlantedWorldPoint.</code></pre></div>
+
+  <h2>Debug in authority order</h2>
+  <table><tr><th>Draw first</th><th>Question it answers</th><th>Never “fix” it by</th></tr>
+    <tr><td>Resolved body point + forward</td><td>Where did locomotion legally put the creature?</td><td>Adding a render offset to simulation.</td></tr>
+    <tr><td>Heading-relative homes</td><td>Where would neutral feet prefer to be now?</td><td>Writing the home into a plant every frame.</td></tr>
+    <tr><td>Committed world plants + stress</td><td>Why does gait need a step?</td><td>Rotating the plant with the body.</td></tr>
+    <tr><td>Candidate and support/cadence</td><td>Which legal swing is allowed next?</td><td>Re-querying a planted foot.</td></tr>
+    <tr><td>IK, lift, shadow, sprite</td><td>How does the solved motion read?</td><td>Letting the picture write backwards.</td></tr>
+  </table>
+
+  <h2>Check yourself</h2>
+  <div id="quiz"></div>
+
+  <h2>Where to go deeper</h2>
+  <p><strong>Primary source:</strong> the <a href="https://www.youtube.com/watch?v=-iXwvoFhPuU">Rain World animation process talk</a> is the course’s source for building motion from points, constraints, and a separate graphics layer. This debugger applies that framing to a top-down plant contract.</p>
+  <p>Keep the <a href="../reference/top-down-gait-debugger-cheatsheet.html">gait debugger cheatsheet</a> near the <a href="../reference/top-down-creature-tick-cheatsheet.html">top-down creature tick</a>, <a href="../reference/top-down-locomotion-cheatsheet.html">locomotion</a>, and <a href="../reference/planar-footholds-cheatsheet.html">planar footholds</a>.</p>
+  <div class="lesson-footer"><p><strong>Suggested real-world rep:</strong> add this overlay to one creature. Freeze the game during a sharp turn. If a planted point moves before its swing finishes, trace the writer rather than hiding the symptom with IK or a sprite offset.</p></div>
+</div>
+<script src="../assets/quiz.js"></script>
+<script>
+(function () {
+  'use strict';
+  const canvas = document.getElementById('debugCanvas');
+  const ctx = canvas.getContext('2d');
+  const heading = document.getElementById('heading');
+  const speed = document.getElementById('speed');
+  const radius = document.getElementById('radius');
+  const dragPlants = document.getElementById('dragPlants');
+  const readout = document.getElementById('readout');
+  const localFeet = [{x:-54,y:-38},{x:54,y:-38},{x:-54,y:43},{x:54,y:43}];
+  let plants = localFeet.map(function (p) { return {x:310 + p.x, y:195 + p.y}; });
+  let sawStress = false;
+
+  function rotate(p, radians) {
+    return {x:p.x * Math.cos(radians) - p.y * Math.sin(radians), y:p.x * Math.sin(radians) + p.y * Math.cos(radians)};
+  }
+  function state() {
+    const radians = Number(heading.value) * Math.PI / 180;
+    const travel = Number(speed.value) * 0.82;
+    const body = {x:310 + Math.cos(radians) * travel, y:195 + Math.sin(radians) * travel};
+    const homes = localFeet.map(function (p) { const r = rotate(p, radians); return {x:body.x + r.x, y:body.y + r.y}; });
+    const shownPlants = dragPlants.checked ? homes : plants;
+    return {radians:radians, body:body, homes:homes, shownPlants:shownPlants};
+  }
+  function line(a, b, color, dash) {
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash(dash ? [7,5] : []);
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); ctx.restore();
+  }
+  function circle(p, r, stroke, fill, dash) {
+    ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = stroke; ctx.fillStyle = fill || 'transparent'; ctx.setLineDash(dash ? [5,4] : []);
+    ctx.beginPath(); ctx.arc(p.x,p.y,r,0,Math.PI*2); ctx.fill(); ctx.stroke(); ctx.restore();
+  }
+  function draw() {
+    const s = state(), comfort = Number(radius.value);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = '#101820'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.strokeStyle = '#1e3740'; ctx.lineWidth = 1;
+    for (let x=10;x<canvas.width;x+=25) { ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke(); }
+    for (let y=10;y<canvas.height;y+=25) { ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke(); }
+
+    let maxStress = 0;
+    s.homes.forEach(function (home, i) {
+      const plant = s.shownPlants[i];
+      const d = Math.hypot(home.x-plant.x, home.y-plant.y);
+      maxStress = Math.max(maxStress,d);
+      circle(home,comfort,'rgba(231,200,102,.38)',null,true);
+      line(plant,home,d>comfort ? '#ff726f' : '#7ac9c3',true);
+      circle(home,7,'#e7c866','#463d1d');
+      circle(plant,6,'#d9f0ff','#486878');
+    });
+    ctx.save(); ctx.translate(s.body.x,s.body.y); ctx.rotate(s.radians);
+    ctx.fillStyle='#5ca7d8';ctx.strokeStyle='#d7efff';ctx.lineWidth=2;
+    ctx.beginPath();ctx.ellipse(0,0,42,27,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#f5cf65';ctx.beginPath();ctx.moveTo(47,0);ctx.lineTo(25,-10);ctx.lineTo(25,10);ctx.closePath();ctx.fill();ctx.restore();
+    ctx.fillStyle='#d9f0ff';ctx.font='12px sans-serif';ctx.fillText('resolved body + forward',s.body.x-55,s.body.y-39);
+    const wrong = dragPlants.checked;
+    if (!wrong && maxStress > comfort) sawStress = true;
+    document.getElementById('headingValue').value = heading.value + '°';
+    document.getElementById('speedValue').value = speed.value;
+    document.getElementById('radiusValue').value = comfort + ' px';
+    if (wrong) {
+      readout.className='decision-feedback';
+      readout.textContent='Bug active: plants are being recomputed from the body. Stress reads 0 even while the pale dots visibly skate.';
+      if (sawStress) { const c=document.getElementById('challenge2'); c.classList.add('done'); c.querySelector('.status').textContent='✓'; }
+    } else {
+      readout.className = maxStress > comfort ? 'decision-feedback ok' : 'decision-feedback';
+      readout.textContent = 'Largest plant-to-home stress: ' + Math.round(maxStress) + ' px. ' + (maxStress > comfort ? 'A gait policy may request a permitted swing.' : 'Within comfort; preserve the current plants.');
+      if (maxStress > comfort) { const c=document.getElementById('challenge1'); c.classList.add('done'); c.querySelector('.status').textContent='✓'; }
+    }
+  }
+  [heading,speed,radius,dragPlants].forEach(function (control) { control.addEventListener('input',draw); control.addEventListener('change',draw); });
+  document.getElementById('commit').addEventListener('click',function () {
+    const homes = state().homes;
+    plants = homes.map(function (p) { return {x:p.x,y:p.y}; });
+    dragPlants.checked = false;
+    draw();
+    readout.className='decision-feedback ok';
+    readout.textContent='Demo landing committed: each persistent plant now equals its current home. In a live gait, only completed swings may make this change.';
+  });
+  draw();
+
+  Quiz.render(document.getElementById('quiz'), [
+    {prompt:'What stays fixed while the body turns?',options:['Committed world plant points','Heading-relative home points','Rendered foot lift offsets'],answer:0,explain:'Homes are recomputed from the resolved body and heading. A planted promise remains a world point until the gait commits a landing.'},
+    {prompt:'What does zero stress through a sharp turn suggest?',options:['Plants rotate with the body','Gait found legal candidates','Presentation lifted every foot'],answer:0,explain:'That result often means a body-local plant writer has erased the evidence that a step is needed.'},
+    {prompt:'When may a gait replace its plant?',options:['When a swing reaches its candidate','Whenever the home position changes','Whenever the sprite starts a lift'],answer:0,explain:'Candidate selection and rendered lift are not a commitment. The world plant changes at the swing-to-planted transition.'}
+  ]);
+}());
+</script>
+

@@ -1,0 +1,35 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Reference — Top-Down Gait Debugger</title>
+<link rel="stylesheet" href="../assets/course.css">
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Top-Down Gait Debugger Cheatsheet</h1>
+  <p class="lede">A visual authority-order overlay for <a href="../lessons/0029-top-down-gait-debugger.html">Lesson 29</a>.</p>
+  <h2>Non-negotiable contract</h2>
+  <p><strong>A planted foot is a persistent world-space promise. A heading-relative home is a freshly derived preference. Stress is the distance between them.</strong></p>
+  <pre><code>homeWorld = bodyWorld + Rotate(localHome, resolvedHeading)
+stress = distance(plant.WorldPoint, homeWorld)
+
+// Only a completed swing may replace the promise.
+plant.WorldPoint = candidate.WorldPoint</code></pre>
+  <h2>Draw in this order</h2>
+  <table><tr><th>Overlay</th><th>Owner</th><th>Question</th></tr>
+    <tr><td>Resolved body point and forward</td><td>Locomotion / constraints</td><td>What body pose is legal?</td></tr>
+    <tr><td>Heading-relative homes</td><td>Gait derivation</td><td>What would neutral support prefer?</td></tr>
+    <tr><td>Committed plants and comfort rings</td><td>Gait persistent state</td><td>Why is a step needed?</td></tr>
+    <tr><td>Candidate, phase, support, cadence</td><td>Gait transition policy</td><td>Which legal step may happen next?</td></tr>
+    <tr><td>IK, lift, shadow, sprite</td><td>Presentation</td><td>How does solved motion read?</td></tr>
+  </table>
+  <h2>Fast diagnoses</h2>
+  <table><tr><th>Symptom</th><th>Likely cause</th><th>Trace first</th></tr>
+    <tr><td>Plant moves without a swing</td><td>Extra writer or body-local plant</td><td>Every write to committed plant state.</td></tr>
+    <tr><td>Stress vanishes on a stationary turn</td><td>Plant rotates with creature</td><td>World/local conversion at the plant seam.</td></tr>
+    <tr><td>Candidate changes while planted</td><td>Query overwrites a promise</td><td>Candidate selection transition guard.</td></tr>
+    <tr><td>Visual toggle changes path</td><td>Presentation writes backwards</td><td>Presentation component write set.</td></tr>
+  </table>
+  <h2>Repair rule</h2>
+  <p>Do not hide a sliding plant with IK, a shadow, a sprite offset, or a more frequent raycast. Find the writer that changed a world promise outside the completed-swing transition.</p>
+  <div class="lesson-footer"><p>See <a href="top-down-creature-tick-cheatsheet.html">top-down creature tick</a> · <a href="top-down-locomotion-cheatsheet.html">locomotion</a> · <a href="planar-footholds-cheatsheet.html">planar footholds</a>.</p></div>
+</div>
+
