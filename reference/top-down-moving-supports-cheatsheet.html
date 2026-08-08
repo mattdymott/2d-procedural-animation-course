@@ -1,0 +1,21 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Reference — Top-Down Moving Supports</title><link rel="stylesheet" href="../assets/course.css">
+<div class="page"><p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p><h1>Top-Down Moving Supports Cheatsheet</h1><p class="lede">Moving walkways, turntables, and material-relative plants on a top-down movement plane, taught in <a href="../lessons/0021-top-down-moving-supports.html">Lesson 21</a>.</p>
+<h2>The relation</h2><pre><code>// Commit at landing.
+support = hit.SupportEntity;
+localPlant = InversePlanarTransform(support, hit.Point);
+surfaceOffset = 0;
+
+// Evaluate while planted.
+surfaceOffset += beltVelocityLocal * dt;
+localPoint = localPlant + surfaceOffset;
+worldPlant = PlanarTransformPoint(support, localPoint);
+
+// At liftoff.
+carry = VelocityAtSupportPoint(support, localPoint)
+      + PlanarTransformDirection(support, beltVelocityLocal);</code></pre>
+<p><strong>Support pose moves coordinates. Surface offset moves material through those coordinates. Gait decides planting and release.</strong></p>
+<h2>State meanings</h2><table><tr><th>State</th><th>Purpose</th></tr><tr><td>Support entity</td><td>Names the coordinate frame that a plant is relative to.</td></tr><tr><td>Local plant</td><td>The material point selected at landing.</td></tr><tr><td>Surface offset</td><td>Accumulated local travel for a belt/tread; zero for an ordinary platform.</td></tr><tr><td>World plant</td><td>The current planar IK/gait target derived from the relation.</td></tr><tr><td>Carry velocity</td><td>Continuity supplied to planar locomotion at liftoff.</td></tr></table>
+<h2>Planar turntable velocity</h2><pre><code>r = worldPlant - pivotWorld
+pointVelocity = linearVelocity + angularVelocityRad * perp(r)
+carry = pointVelocity + transformedSurfaceVelocity</code></pre><p>Evaluate velocity at the committed contact point: a stationary turntable centre may have zero velocity while its rim does not.</p>
+<h2>Ownership</h2><table><tr><th>Decision</th><th>Owner</th></tr><tr><td>When to land, release, or recover</td><td>Gait state machine</td></tr><tr><td>How an existing relative promise becomes a world target</td><td>Support adapter</td></tr><tr><td>Planar response to carry velocity</td><td>Locomotion</td></tr><tr><td>Lift, shadow, sort</td><td>Presentation</td></tr></table><div class="lesson-footer"><p>See <a href="top-down-creature-tick-cheatsheet.html">top-down creature tick</a> · <a href="moving-platform-cheatsheet.html">moving platforms</a> · <a href="conveyor-support-cheatsheet.html">conveyors</a> · <a href="rotating-support-cheatsheet.html">rotating supports</a>.</p></div></div>

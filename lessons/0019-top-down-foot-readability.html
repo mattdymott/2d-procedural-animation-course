@@ -1,0 +1,66 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Lesson 19 — Top-Down Foot Readability</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+<p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 19 · Top-Down Branch</p>
+<h1>Top-Down Foot Readability: Lift Is a Picture</h1>
+<p class="lede">A foot swinging across a top-down plane can be mechanically perfect and visually invisible. Give it lift, a shadow, and deliberate draw order—but leave the gait promise exactly where it was.</p>
+
+<h2>One planar truth; two visual cues</h2>
+<p>Gait and IK produce one authoritative point on the movement plane. Presentation derives two visible things from it: a shadow at that point and a foot sprite offset upward on screen during swing. Neither is a new world-space target.</p>
+<div class="recipe"><span class="callout-label">Recipe · decorate a committed planar trajectory</span><pre><code>// Simulation: gait/IK own this point.
+float2 planarFoot = leg.State == Planted ? leg.Plant : leg.SwingTarget;
+
+// Presentation: derive a readable picture.
+float lift = visual.StepHeight * 4f * swingT * (1f - swingT);
+float2 shadowScreen = Project(planarFoot);
+float2 footScreen   = shadowScreen + screenUp * lift;
+
+DrawShadow(shadowScreen);
+DrawFoot(footScreen, SortFromGroundPoint(planarFoot) + visual.SwingBias);
+
+// Never write footScreen or lift back into Plant, SwingTarget, IK, or collision.</code></pre></div>
+<p>The familiar parabola is now a <em>visual height curve</em>, not a side-view ground equation. It begins and ends at zero, which lets a foot lift off and land on its committed planar point without a snap.</p>
+
+<h2>The playground: separate the foot from its shadow</h2>
+<p>Set the swing near halfway. The pale shadow stays on the planar target; the gold foot rises in screen space. At either endpoint the two meet again. The target itself never moves because of this display choice.</p>
+<div class="sim"><canvas id="lab" width="680" height="360" aria-label="Top-down foot lift and shadow diagram"></canvas><div class="sim-controls"><label>Swing progress <input id="swing" type="range" min="0" max="1" value="0" step="0.01"><span class="value" id="swingOut"></span></label><label>Visual height <input id="height" type="range" min="0" max="100" value="62" step="2"><span class="value" id="heightOut"></span></label></div><div class="sim-readout" id="readout"></div></div>
+<div class="challenge" id="ch1"><span class="status">☐</span> <strong>Challenge 1 — Make the swing leg obvious.</strong> Set the swing between 0.45 and 0.55 with visual height above 40.</div>
+
+<h2>Sort semantics, not accidental screen coordinates</h2>
+<table><tr><th>Thing</th><th>Derived from</th><th>Reason</th></tr><tr><td>Shadow placement</td><td>Planar foot point</td><td>Shows the true contact relationship.</td></tr><tr><td>Foot screen offset</td><td>Visual lift curve</td><td>Makes swing state readable.</td></tr><tr><td>Base sort key</td><td>Planar foot point</td><td>Stays stable through the arc.</td></tr><tr><td>Foliage/wall rule</td><td>Explicit presentation policy</td><td>Art direction, not simulation.</td></tr></table>
+<p>If the renderer automatically sorts from a sprite’s raised screen Y, a foot can appear to pass behind the wrong object halfway through its arc. Give the presentation adapter the planar base key plus an explicit swing bias instead. That makes occlusion a chosen game rule.</p>
+
+<div class="dots-mapping"><span class="callout-label">DOTS mapping</span><p style="margin-top:0">Keep runtime foot state in the gait buffer and solver output. A presentation system reads those values and emits a render-facing offset, shadow data, and sort key. The simulation systems remain independent of sprite orientation, screen-up direction, and draw ordering.</p><pre><code>public struct FootPresentation
+{
+    public float2 ShadowPoint;  // projected PlanarFoot
+    public float VisualLift;    // derived from SwingT
+    public int SortKey;         // derived from PlanarFoot + authored policy
+}
+
+// Presentation writes this transient view data; gait never reads it.</code></pre></div>
+
+<h2>Check yourself</h2>
+<p>Retrieve the boundary: a lifted sprite makes a promise visible but does not alter the promise.</p>
+<div id="quiz"></div>
+
+<h2>Where to go deeper</h2>
+<p><strong>Primary source:</strong> Joar Jakobsson and James Therrien’s <a href="https://www.youtube.com/watch?v=-iXwvoFhPuU">Rain World Animation Process</a> describes the foundational separation in this course: simulated points and constraints first, then graphics draped over their result. Use that mindset whenever a visual cue seems tempted to become simulation authority.</p>
+<p>Keep the <a href="../reference/top-down-foot-readability-cheatsheet.html">top-down foot readability cheatsheet</a> beside <a href="../reference/top-down-locomotion-cheatsheet.html">top-down locomotion</a>, <a href="../reference/top-down-support-policy-cheatsheet.html">support policy</a>, and <a href="../reference/second-order-cheatsheet.html">second-order dynamics</a>.</p>
+<div class="lesson-footer"><p><strong>Suggested real-world rep:</strong> render a shadow decal from each L9 planar foot target, then offset only a swinging foot sprite along screen-up. Freeze the gait state and scrub swing progress from 0 to 1: the shadow must stay at the committed target, while only the visual foot rises and falls.</p><p>Ask about sort keys for isometric art, shadows in URP 2D, or adding squash and anticipation without giving presentation authority over gait.</p></div>
+</div>
+<script src="../assets/quiz.js"></script>
+<script>
+(function(){'use strict';
+const canvas=document.getElementById('lab'),ctx=canvas.getContext('2d'),swing=document.getElementById('swing'),height=document.getElementById('height'),swingOut=document.getElementById('swingOut'),heightOut=document.getElementById('heightOut'),readout=document.getElementById('readout');
+function draw(){const t=+swing.value,h=+height.value,lift=h*4*t*(1-t),shadow={x:450,y:232},foot={x:shadow.x,y:shadow.y-lift};swingOut.textContent=t.toFixed(2);heightOut.textContent=h.toFixed(0);ctx.fillStyle='#20242b';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.strokeStyle='#303944';ctx.lineWidth=1;for(let x=20;x<canvas.width;x+=32){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}for(let y=4;y<canvas.height;y+=32){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}ctx.fillStyle='#3ed1c2';ctx.beginPath();ctx.ellipse(220,180,68,38,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#f6d365';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(278,190);ctx.lineTo(foot.x,foot.y);ctx.stroke();ctx.fillStyle='rgba(220,230,235,.45)';ctx.beginPath();ctx.ellipse(shadow.x,shadow.y,18,8,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#687785';ctx.setLineDash([5,5]);ctx.beginPath();ctx.moveTo(shadow.x,shadow.y);ctx.lineTo(foot.x,foot.y);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#f6d365';ctx.beginPath();ctx.arc(foot.x,foot.y,12,0,Math.PI*2);ctx.fill();ctx.fillStyle='#d9e0e8';ctx.font='13px system-ui';ctx.fillText('planar foot target / shadow',390,264);ctx.fillText('visual foot sprite',Math.min(foot.x+18,535),foot.y-12);readout.innerHTML='planar target: fixed <span class="ok">✓</span> · visual lift: '+lift.toFixed(1)+' px';if(t>=.45&&t<=.55&&h>40){const challenge=document.getElementById('ch1');challenge.classList.add('done');challenge.querySelector('.status').textContent='✓';}}
+[swing,height].forEach(input=>input.addEventListener('input',draw));draw();
+Quiz.render(document.getElementById('quiz'),[
+{prompt:'Which value may move during a visual swing?',options:['Only presentation height above committed planar target','The committed planar target beneath swinging foot','Every collision and IK target together now'],answer:0,explain:'The arc is a visual offset. The committed planar target continues to belong to gait and IK.'},
+{prompt:'What should a top-down foot shadow follow?',options:['The committed planar foot point below it','The raised sprite screen position above ground','The body’s newest heading-relative home point only'],answer:0,explain:'The shadow tells the player where the foot relates to the movement plane, even while its sprite is raised.'},
+{prompt:'Which system may write visual lift?',options:['Presentation after gait commits planar targets','Gait before it selects planar targets','IK while it resolves knee positions'],answer:0,explain:'Presentation is the only writer of the render-only cue. It reads the resolved state; it does not feed back into it.'}
+]);
+})();
+</script>
+

@@ -1,0 +1,79 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Lesson 20 — Top-Down Creature Tick</title>
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="stylesheet" href="../assets/decision-grid.css">
+
+<div class="page">
+<p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 20 · Top-Down Branch</p>
+<h1>Capstone: The Top-Down Creature Tick</h1>
+<p class="lede">The pivot is now complete. A creature can choose legal planar footholds, turn while preserving a base, and make each swing visible. This lesson puts those rules in one order that keeps their owners clear.</p>
+
+<h2>The top-down hand-off</h2>
+<p>Lesson 9 supplied the course’s general authority flow. A top-down creature does not replace it—it specializes the gait stage with heading-relative homes, planar candidates, a support policy, and render-only lift.</p>
+<div class="recipe"><span class="callout-label">Recipe · one fixed top-down tick</span><pre><code>1. Intent             = gameplay writes desired planar velocity
+2. Planar locomotion  = move body, resolve body obstacles, update heading + homes
+3. Candidate adapter  = publish walkable/path-clear candidates as world facts
+4. Gait               = choose eligible leg; commit one planar SwingTo or hold Plant
+5. IK + hard resolve  = pose limb, preserve links/pins, enforce final legality
+6. Presentation       = derive lift, shadow, sort, and optional second-order juice</code></pre></div>
+<p>The important edge is between stages 3 and 4: the query reports evidence, but only gait is allowed to turn it into a new foot promise. The next edge is between stages 5 and 6: presentation reads a resolved planar pose and never repairs it.</p>
+
+<h2>Place each state with its owner</h2>
+<p>Select every state the gait stage is allowed to write. This is the narrowest useful debugging question: when a foot slides, find the writer that crossed this boundary.</p>
+<div class="decision-grid" id="choices"></div><button type="button" id="check">Check ownership</button><div class="decision-feedback" id="feedback">Select only the mutable states owned by gait.</div>
+<div class="challenge" id="ch1"><span class="status">☐</span> <strong>Challenge 1 — Keep gait deep.</strong> Give it promises and phase, not sensing, joints, or pixels.</div>
+
+<h2>The gait stage is a compact policy engine</h2>
+<table><tr><th>Input</th><th>Decision</th><th>Output</th></tr><tr><td>Body pose, heading, velocity</td><td>Rotate local homes and measure plant stress.</td><td>Step urgency.</td></tr><tr><td>Planted-foot set</td><td>Reject any lift that loses authored support.</td><td>Eligible legs.</td></tr><tr><td>Planar world facts</td><td>Filter walkable, path-clear, reachable candidates.</td><td>One legal <code>SwingTo</code>.</td></tr><tr><td>Swing progress</td><td>Commit landing when complete.</td><td>New <code>Plant</code>.</td></tr></table>
+<p>Those inputs are intentionally small. Gait has no reason to know whether a tile map, physics scene, or distance field produced the candidates; it does not pose a knee; and it cannot see the lifted sprite. Its interface stays deep because it owns exactly the decision it needs to make.</p>
+
+<div class="dots-mapping"><span class="callout-label">DOTS mapping</span><p style="margin-top:0">Keep the systems ordered by the data each produces, not by a vague “animation” group. The candidate adapter runs before the fixed solve group; its compact buffer is the only world-query dependency that gait reads. Presentation can run after the fixed group and use a separate render-facing component or bridge.</p><pre><code>// Consumer-facing solve order:
+PlanarLocomotionSystem
+  → PlanarCandidateAdapterSystem
+  → TopDownGaitSystem
+  → TwoBoneIkSystem
+  → ConstraintResolveSystem
+  → FootPresentationSystem
+
+// Gait reads body pose + candidate facts and writes only:
+// GaitLeg.State, GaitLeg.Plant, GaitLeg.SwingTo, GaitLeg.SwingT</code></pre></div>
+
+<h2>Build it as one honest vertical slice</h2>
+<ol>
+  <li>Draw the planar body position, heading, local homes, and current plants.</li>
+  <li>Make a stationary 90° turn. One support-eligible leg should swing; no plant should slide.</li>
+  <li>Add one blocked island. Candidate data should change only when a new swing begins.</li>
+  <li>Render shadow and lift from the committed target. Disable presentation: the simulation should still be legal.</li>
+  <li>Only then add moving supports, special gait phases, or second-order body language.</li>
+</ol>
+
+<h2>Check yourself</h2>
+<p>Retrieve the hand-off from world evidence to a visible foot, without giving two systems the same decision.</p>
+<div id="quiz"></div>
+
+<h2>Where to go deeper</h2>
+<p><strong>Primary source:</strong> revisit the <a href="https://www.youtube.com/watch?v=-iXwvoFhPuU">Rain World Animation Process</a> now that the whole top-down flow is visible. The useful lens is still points and constraints first, with graphics draped over the resolved result. For the locomotion-rule layer, David Rosen’s <a href="https://www.gdcvault.com/play/1020583/Animation-Bootcamp-An-Indie-Approach">Animation Bootcamp</a> is the course’s anchor for small rules producing readable movement.</p>
+<p>Keep the <a href="../reference/top-down-creature-tick-cheatsheet.html">top-down creature tick cheatsheet</a> beside <a href="../reference/creature-tick-cheatsheet.html">the general creature tick</a> and the four top-down references.</p>
+<div class="lesson-footer"><p><strong>Suggested real-world rep:</strong> make one top-down L9 creature turn around a blocked island. Enable one overlay at a time—heading/homes, candidates, eligibility, targets, then lift/shadows. A skipped or sliding step should tell you exactly which ownership boundary to inspect.</p><p>Ask about carrying these planar promises onto moving platforms, an insect tripod gait, or adding a top-down procedural body layer.</p></div>
+</div>
+<script src="../assets/quiz.js"></script>
+<script>
+(function(){'use strict';
+const states=[
+{title:'Plant and SwingTo',detail:'The foot promise and future landing.',gait:true},
+{title:'Swing phase and timer',detail:'The gait state-machine progress.',gait:true},
+{title:'Walkable candidate facts',detail:'Reported by the world-query adapter.',gait:false},
+{title:'Knee and foot pose',detail:'Resolved by the IK system.',gait:false},
+{title:'Lift, shadow, sort key',detail:'Derived by presentation after resolution.',gait:false},
+{title:'Desired planar velocity',detail:'Written by gameplay or steering.',gait:false}
+],box=document.getElementById('choices'),check=document.getElementById('check'),feedback=document.getElementById('feedback'),selected=new Set();
+states.forEach((state,index)=>{const button=document.createElement('button');button.type='button';button.className='decision-card';button.innerHTML='<strong>'+state.title+'</strong><small>'+state.detail+'</small>';button.addEventListener('click',()=>{if(button.disabled)return;selected.has(index)?selected.delete(index):selected.add(index);button.classList.toggle('selected',selected.has(index));});box.appendChild(button);});
+check.addEventListener('click',()=>{const correct=states.every((state,index)=>selected.has(index)===state.gait);[...box.children].forEach((button,index)=>button.classList.add(states[index].gait?'correct':'incorrect'));if(correct){feedback.className='decision-feedback ok';feedback.textContent='✓ Correct. Gait writes a promise and its phase. It consumes world facts and body pose without becoming their owner.';const challenge=document.getElementById('ch1');challenge.classList.add('done');challenge.querySelector('.status').textContent='✓';}else{feedback.textContent='Not yet. Give gait the foot promise and its state, then keep facts, geometry, and pixels behind their own seams.';}});
+Quiz.render(document.getElementById('quiz'),[
+{prompt:'When may a planar query choose a foot target?',options:['Only when gait begins that foot’s swing','Every simulation tick beneath that planted foot','After presentation offsets that foot’s sprite visually'],answer:0,explain:'The adapter reports candidates; gait accepts one only at its transition into swing. A plant remains a commitment.'},
+{prompt:'Where does support policy belong?',options:['Inside gait before it commits a swing','Inside IK after it solves a knee','Inside presentation after it draws the shadow'],answer:0,explain:'Support decides whether a stressed leg may change state. It is neither a reachability problem nor a rendering effect.'},
+{prompt:'What does the final presentation stage read?',options:['Resolved planar poses and current swing states','Unfiltered sensor samples and blocked tile facts','Mutable gait targets before ownership checks complete'],answer:0,explain:'Presentation begins after the simulation is legal. It derives readable lift, shadows, and sorting without becoming another simulation writer.'}
+]);
+})();
+</script>
+

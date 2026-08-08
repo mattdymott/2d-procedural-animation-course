@@ -1,0 +1,51 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Top-Down Creature Tick Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Top-Down Creature Tick Cheatsheet</h1>
+  <p class="lede">The complete top-down hand-off, taught in <a href="../lessons/0020-top-down-creature-tick.html">Lesson 20</a>.</p>
+
+  <h2>The invariant</h2>
+  <p><strong>Move the body on a plane. Let gait commit foot promises. Let IK and constraints make those promises legal. Let presentation make them visible.</strong></p>
+
+  <h2>One fixed tick</h2>
+  <table>
+    <tr><th>Stage</th><th>Writes</th><th>Must not write</th></tr>
+    <tr><td>1. Intent</td><td>Desired planar velocity</td><td>Feet or joints</td></tr>
+    <tr><td>2. Planar locomotion</td><td>Body position, heading, local homes</td><td>Foot plants</td></tr>
+    <tr><td>3. Candidate adapter</td><td>Walkable/path-clear world facts</td><td>Gait state</td></tr>
+    <tr><td>4. Gait</td><td>Plant/swing state, <code>SwingTo</code></td><td>IK knees or sprites</td></tr>
+    <tr><td>5. IK + hard resolve</td><td>Joint pose, final legal simulation points</td><td>New gait policy</td></tr>
+    <tr><td>6. Presentation</td><td>Lift, shadow, sort, optional juice</td><td>Simulation state</td></tr>
+  </table>
+
+  <h2>Inside the gait stage</h2>
+<pre><code>home = headingRelativeLocalHome(bodyPose)
+stress = distance(plant, home)
+
+if planted && stress > comfort && RetainsSupport(remainingPlants):
+    candidates = adapter facts for this swing start
+    swingTo = first/ranked legal candidate
+    commit SwingTo and begin swing
+
+if swinging && t >= 1:
+    Plant = SwingTo
+    commit planted state</code></pre>
+
+  <h2>Debug from cause to picture</h2>
+  <ol>
+    <li>Draw desired velocity, body heading, local homes, and planar foot plants.</li>
+    <li>Draw accepted/rejected candidates only at a swing transition.</li>
+    <li>Draw support eligibility before showing IK or lift.</li>
+    <li>Freeze presentation. If the creature slides now, find the last simulation writer.</li>
+    <li>Only after the simulation is legal, tune lift/shadow/sorting.</li>
+  </ol>
+
+  <div class="lesson-footer">
+    <p>See <a href="top-down-locomotion-cheatsheet.html">planar locomotion</a> · <a href="planar-footholds-cheatsheet.html">footholds</a> · <a href="top-down-support-policy-cheatsheet.html">support policy</a> · <a href="top-down-foot-readability-cheatsheet.html">readability</a>.</p>
+  </div>
+</div>
+

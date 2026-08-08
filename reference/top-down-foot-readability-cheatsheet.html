@@ -1,0 +1,47 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Top-Down Foot Readability Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Top-Down Foot Readability Cheatsheet</h1>
+  <p class="lede">Making a planar swing legible without changing its simulation target, taught in <a href="../lessons/0019-top-down-foot-readability.html">Lesson 19</a>.</p>
+
+  <h2>The three representations</h2>
+  <table>
+    <tr><th>Representation</th><th>Authority</th><th>Purpose</th></tr>
+    <tr><td><code>PlanarFoot</code></td><td>Gait/IK</td><td>The committed target on the XY/XZ movement plane.</td></tr>
+    <tr><td><code>ShadowPoint</code></td><td>Presentation reads <code>PlanarFoot</code></td><td>Shows where the foot is above the ground plane.</td></tr>
+    <tr><td><code>VisualLift</code></td><td>Presentation</td><td>Screen/draw offset that makes a swinging foot visible.</td></tr>
+  </table>
+
+  <h2>Visual recipe</h2>
+<pre><code>t    = swingProgress
+lift = visualStepHeight * 4 * t * (1 - t)
+
+shadow.position = Project(planarFoot)
+foot.position   = shadow.position + screenUp * lift
+foot.sortKey    = SortFromGroundPoint(planarFoot) + swingBias</code></pre>
+  <p><strong>Never feed <code>lift</code> or a screen-space foot position back into gait, IK, collision, or a world query.</strong></p>
+
+  <h2>Sorting policy</h2>
+  <ul>
+    <li>Compute base sorting from the planar contact point, not a transient raised sprite coordinate.</li>
+    <li>Give a swinging foot an explicit semantic bias/layer if it must read over its own shadow or body.</li>
+    <li>Decide foliage/wall occlusion intentionally in the presentation adapter; it is a game-art rule, not a gait rule.</li>
+  </ul>
+
+  <h2>Useful tuning</h2>
+  <table>
+    <tr><th>Dial</th><th>Use</th><th>Do not use it for</th></tr>
+    <tr><td>Visual step height</td><td>Make swing state readable.</td><td>Changing physical reach.</td></tr>
+    <tr><td>Arc easing</td><td>Change the character of lift-off/landing.</td><td>Picking a landing point.</td></tr>
+    <tr><td>Shadow opacity/scale</td><td>Clarify distance from the plane.</td><td>Correcting a collision or plant.</td></tr>
+  </table>
+
+  <div class="lesson-footer">
+    <p>See <a href="top-down-locomotion-cheatsheet.html">top-down locomotion</a> · <a href="top-down-support-policy-cheatsheet.html">support policy</a> · <a href="gait-cheatsheet.html">gait</a>.</p>
+  </div>
+</div>
+
