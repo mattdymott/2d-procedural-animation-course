@@ -279,7 +279,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
                     if (blockedLegIndex < 0)
                     {
                         blockedLegIndex = index;
-                        preferredTurn = PreferredTurn(leg, frame, forward);
+                        preferredTurn = PreferredTurn(leg, forward);
                     }
 
                     continue;
@@ -320,16 +320,21 @@ namespace Tealeaf.ProceduralAnimation.Dots
         }
 
         /// <summary>
-        /// A heading that would bring the blocked leg's home back toward the ground it is standing
-        /// on. It is a request, not a command: locomotion decides what to do with it.
+        /// A heading that turns away from the side that ran out of ground, so the blocked leg's
+        /// home swings back over space the creature can stand on. It is a request, not a command:
+        /// locomotion decides what to do with it.
         /// </summary>
-        static float2 PreferredTurn(in GaitLeg leg, in LegFrame frame, float2 forward)
+        /// <remarks>
+        /// Turning to relieve the blocked leg's <em>stress</em> instead is a trap — the shortest
+        /// way to close the gap between a plant and its home routinely points further into
+        /// whatever blocked the leg in the first place.
+        /// </remarks>
+        static float2 PreferredTurn(in GaitLeg leg, float2 forward)
         {
-            var toPlant = leg.Plant - frame.Hip;
-            var toHome = frame.Home - frame.Hip;
-            var cross = toHome.x * toPlant.y - toHome.y * toPlant.x;
-            var turn = forward + PlanarMath.Perpendicular(forward) * math.sign(cross) * 0.5f;
-            return math.normalizesafe(turn, forward);
+            var awayFromBlockedSide = leg.HomeOffset.y >= 0f ? -1f : 1f;
+            return math.normalizesafe(
+                forward + PlanarMath.Perpendicular(forward) * awayFromBlockedSide * 0.5f,
+                forward);
         }
 
         /// <summary>

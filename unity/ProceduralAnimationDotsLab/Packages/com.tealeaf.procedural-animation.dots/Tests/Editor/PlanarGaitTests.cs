@@ -172,6 +172,22 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
         }
 
         [Test]
+        public void Tripod_MovesTheWholeGroupIncludingItsUnstressedLegs()
+        {
+            // Only leg 0 has drifted past comfort, but a tripod is a rhythm: its legs lift and
+            // land together, or the group is never all planted at once and its opposite starves.
+            using var legs = Legs(
+                Planted(group: 0), Planted(group: 1), Planted(group: 1),
+                Planted(group: 0), Planted(group: 0), Planted(group: 1));
+            using var urgency = Urgency(1.2f, 0.05f, 0.02f, 0.1f, 0.04f, 0.01f);
+
+            var permitted = GaitPermission.Permitted(
+                legs, urgency, comfort: 0.5f, GaitCadence.Tripod, minimumPlantedFeet: 0, cursorLegIndex: -1);
+
+            Assert.That(permitted, Is.EqualTo(0b011001u));
+        }
+
+        [Test]
         public void Tripod_HoldsTheOpposingGroupWhileTheFirstIsAirborne()
         {
             using var legs = Legs(
@@ -331,6 +347,14 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
             Assert.That(recovery.State, Is.EqualTo(GaitRecovery.HoldingForFoothold));
             Assert.That(recovery.SlowDown, Is.EqualTo(1));
             Assert.That(recovery.BlockedLegIndex, Is.EqualTo(cursorLeg));
+
+            // The suggested heading has to lean away from the side that ran out of ground. Turning
+            // to relieve the blocked leg's stress instead points back into whatever blocked it.
+            var forward = manager.GetComponentData<PlanarHeading>(entity).LastForward;
+            var blockedSide = PlanarMath.Perpendicular(forward)
+                              * math.sign(legs[cursorLeg].HomeOffset.y);
+            Assert.That(math.dot(recovery.PreferredTurn, blockedSide), Is.LessThan(0f),
+                "Recovery should turn away from the blocked leg, not toward it.");
 
             for (var index = 0; index < legs.Length; index++)
                 Assert.That(legs[index].State, Is.EqualTo(FootState.Planted),

@@ -133,54 +133,65 @@ namespace Tealeaf.ProceduralAnimation.Dots
         /// A whole diagonal tripod may move, but only while the opposing tripod is entirely
         /// planted. The opposing group is the base; permitting a group never wakes it.
         /// </summary>
+        /// <remarks>
+        /// Stress selects the <em>group</em>, and then every planted leg in it is permitted —
+        /// including ones that have not drifted past comfort yet. Gating each leg individually
+        /// instead staggers the group's liftoffs and landings, and a tripod that is never all
+        /// planted at the same instant never lets its opposite take a turn: three legs walk and
+        /// three legs drag.
+        /// </remarks>
         static uint PermitTripod(
             in NativeArray<GaitLeg> legs,
             in NativeArray<float> urgency,
             int legCount,
             uint eligible)
         {
-            var maskA = 0u;
-            var maskB = 0u;
-            var plantedA = true;
-            var plantedB = true;
+            var plantedMaskA = 0u;
+            var plantedMaskB = 0u;
+            var allPlantedA = true;
+            var allPlantedB = true;
             var urgencyA = float.NegativeInfinity;
             var urgencyB = float.NegativeInfinity;
 
             for (var index = 0; index < legCount; index++)
             {
                 var inGroupA = legs[index].TripodGroup == 0;
-                var planted = legs[index].State == FootState.Planted;
-                if (!planted)
+                var bit = 1u << index;
+                if (legs[index].State == FootState.Planted)
                 {
-                    plantedA &= !inGroupA;
-                    plantedB &= inGroupA;
+                    if (inGroupA)
+                        plantedMaskA |= bit;
+                    else
+                        plantedMaskB |= bit;
                 }
-
-                if ((eligible & (1u << index)) == 0u)
-                    continue;
-
-                if (inGroupA)
+                else if (inGroupA)
                 {
-                    maskA |= 1u << index;
-                    urgencyA = math.max(urgencyA, urgency[index]);
+                    allPlantedA = false;
                 }
                 else
                 {
-                    maskB |= 1u << index;
-                    urgencyB = math.max(urgencyB, urgency[index]);
+                    allPlantedB = false;
                 }
+
+                if ((eligible & bit) == 0u)
+                    continue;
+
+                if (inGroupA)
+                    urgencyA = math.max(urgencyA, urgency[index]);
+                else
+                    urgencyB = math.max(urgencyB, urgency[index]);
             }
 
             // A group may start only when the other one is a complete base.
-            var allowedA = maskA != 0u && plantedB;
-            var allowedB = maskB != 0u && plantedA;
+            var allowedA = (eligible & plantedMaskA) != 0u && allPlantedB;
+            var allowedB = (eligible & plantedMaskB) != 0u && allPlantedA;
             if (allowedA && allowedB)
-                return urgencyA >= urgencyB ? maskA : maskB;
+                return urgencyA >= urgencyB ? plantedMaskA : plantedMaskB;
 
             if (allowedA)
-                return maskA;
+                return plantedMaskA;
 
-            return allowedB ? maskB : 0u;
+            return allowedB ? plantedMaskB : 0u;
         }
 
         /// <summary>The wave cadence: the cursor names the only leg allowed to ask.</summary>

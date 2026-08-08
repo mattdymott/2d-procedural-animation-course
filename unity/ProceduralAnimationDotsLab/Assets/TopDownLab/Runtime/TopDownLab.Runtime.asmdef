@@ -1,10 +1,9 @@
 {
-  "name": "Tealeaf.ProceduralAnimation.Dots.Editor",
-  "rootNamespace": "Tealeaf.ProceduralAnimation.Dots",
+  "name": "TopDownLab.Runtime",
+  "rootNamespace": "TopDownLab",
   "references": [
     "Tealeaf.ProceduralAnimation.Dots.Runtime",
     "Unity.Entities",
-    "Unity.Entities.Hybrid",
     "Unity.Collections",
     "Unity.Mathematics"
   ]
