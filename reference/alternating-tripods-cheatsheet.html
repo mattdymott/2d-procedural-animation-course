@@ -1,0 +1,10 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Reference — Alternating Tripods</title><link rel="stylesheet" href="../assets/course.css"><div class="page"><p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p><h1>Alternating Tripods Cheatsheet</h1><p class="lede">A six-legged top-down gait policy, taught in <a href="../lessons/0022-alternating-tripods.html">Lesson 22</a>.</p><h2>The groups</h2><pre><code>Tripod A: front-left, middle-right, rear-left
+Tripod B: front-right, middle-left, rear-right
+
+A may begin a coordinated swing only while B is planted.
+B may begin a coordinated swing only while A is planted.</code></pre><p>Tripods are an authored cadence policy. They decide which legs may request a swing; each leg still needs its own legal planar target and retains its own swing state.</p><h2>Group start</h2><pre><code>groupUrgency = max stress among planted group legs
+if (opposingTripodIsPlanted && groupUrgency > threshold):
+    for each leg in chosen tripod:
+        candidate = planarQuery at this swing start
+        if candidate is legal: begin that leg's swing
+        else: hold or use recovery policy</code></pre><h2>Rules to keep</h2><table><tr><th>Rule</th><th>Why</th></tr><tr><td>One planted tripod supports the other.</td><td>The base remains broad and easy to read.</td></tr><tr><td>Each leg filters its own candidate.</td><td>Group rhythm never creates impossible promises.</td></tr><tr><td>Support failure holds or recovers.</td><td>Never launch the opposing tripod to hide a bad target.</td></tr><tr><td>Presentation only decorates swing.</td><td>Raised sprites never change phase or target.</td></tr></table><div class="lesson-footer"><p>See <a href="top-down-support-policy-cheatsheet.html">support policy</a> · <a href="planar-footholds-cheatsheet.html">planar footholds</a> · <a href="top-down-creature-tick-cheatsheet.html">top-down creature tick</a>.</p></div></div>
