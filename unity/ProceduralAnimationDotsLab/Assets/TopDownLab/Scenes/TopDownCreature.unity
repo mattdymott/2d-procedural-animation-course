@@ -166,11 +166,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: TopDownLab.Runtime::TopDownLab.TopDownIntentAuthoring
   Centre: {x: 0, y: 0}
-  Radius: 3.2
-  Speed: 1.6
-  TurnRate: 2.5
-  RecoverySpeedScale: 0.35
-  RecoveryTurnRate: 3.5
+  Radius: 0.49
+  Speed: 1.94
+  TurnRate: 1.31
+  RecoverySpeedScale: 1
+  RecoveryTurnRate: 4.16
 --- !u!114 &1083337601
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -203,10 +203,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab62eb18eb4d93f44a709f4c35758bd4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Tealeaf.ProceduralAnimation.Dots.Editor::Tealeaf.ProceduralAnimation.Dots.GaitAuthoring
-  Comfort: 0.35
+  Comfort: 0.2
   StepDuration: 0.25
-  StepLead: 0.12
-  StepHeight: 0.35
+  StepLead: 0.05
+  StepHeight: 0.25
   MinimumSupport: 0
   MinimumForward: 0
 --- !u!114 &1083337603
@@ -271,9 +271,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Tealeaf.ProceduralAnimation.Dots.Editor::Tealeaf.ProceduralAnimation.Dots.VerletChainAuthoring
   ChainSegmentCount: 3
-  InitialRootPosition: {x: 0, y: -3.2}
-  RestLength: 0.8
-  Damping: 0.98
+  InitialRootPosition: {x: 0, y: -1.34}
+  RestLength: 0.48
+  Damping: 0.793
   Gravity: {x: 0, y: 0}
   RootBobAmplitude: 0
   RootBobFrequency: 0
