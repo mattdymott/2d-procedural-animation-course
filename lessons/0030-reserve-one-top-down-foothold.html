@@ -1,0 +1,86 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Lesson 30 — Reserve One Top-Down Foothold</title>
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="stylesheet" href="../assets/candidate-arena.css">
+<div class="page">
+  <p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 30 · Top-Down Branch</p>
+  <h1>Reserve One Top-Down Foothold</h1>
+  <p class="lede">A candidate is not a live sensor reading. At swing start, gait chooses one legal world point and carries that promise to landing—even if the creature turns and another point looks better a moment later.</p>
+
+  <h2>Try the reservation experiment</h2>
+  <p>Query the three points, reserve either legal shelf, then change heading during the purple swing. The gold home may move; the purple candidate should not. Finally land it. Repeat with the “query every tick” bug to see the target chase the body.</p>
+  <div class="candidate-arena" id="arena">
+    <canvas width="620" height="390" aria-label="Foothold reservation experiment"></canvas>
+    <div class="sim-controls" style="margin-top:1rem">
+      <label>Heading during swing <output data-heading-value>0 degrees</output><input data-heading type="range" min="-150" max="150" value="0"></label>
+    </div>
+    <div class="candidate-actions">
+      <button type="button" data-query>1. Query candidates</button>
+      <button type="button" data-land disabled>3. Complete swing and land</button>
+      <label><input type="checkbox" data-requery> Bug: query every tick</label>
+    </div>
+    <div class="candidate-options" data-options></div>
+    <div class="decision-feedback" data-readout>Start by querying candidates. Nothing may change the committed pale plant yet.</div>
+  </div>
+  <div class="challenge" id="challenge1"><span class="status">☐</span> <strong>Challenge 1 — Keep a promise through a turn.</strong> Reserve a legal shelf, rotate the heading at least 60 degrees, and land on the same purple point.</div>
+  <div class="challenge" id="challenge2"><span class="status">☐</span> <strong>Challenge 2 — Expose target chasing.</strong> During a swing, enable the bug and turn. The purple point changes: that is a new query overwriting a commitment.</div>
+
+  <h2>The transition has one job</h2>
+  <div class="recipe"><span class="callout-label">Recipe · query once, then commit</span><pre><code>if (foot.Phase == Planted && gait.AllowsSwing(foot))
+{
+    foot.CandidateWorldPoint = QueryBestLegalFoothold(foot, world);
+    foot.Phase = Swing;
+}
+
+if (foot.Phase == Swing && Reached(foot.CandidateWorldPoint))
+{
+    foot.PlantedWorldPoint = foot.CandidateWorldPoint;
+    foot.Phase = Planted;
+}</code></pre></div>
+  <p>Keep the query result and the plant in separate fields. A new terrain query belongs at a new transition, never in the planted or swinging update loop. If the candidate becomes unsafe mid-swing, make that an explicit recovery outcome; do not silently retarget it every frame.</p>
+
+  <h2>Why this makes top-down turns readable</h2>
+  <table><tr><th>State</th><th>May update continually</th><th>Must stay stable</th></tr>
+    <tr><td>Planted</td><td>Body, heading, derived home, stress</td><td>Committed plant</td></tr>
+    <tr><td>Selecting</td><td>Query evaluation before reservation</td><td>Existing plant</td></tr>
+    <tr><td>Swinging</td><td>Foot trajectory and presentation lift</td><td>Reserved candidate</td></tr>
+    <tr><td>Landing</td><td>Plant changes once to candidate</td><td>World-space meaning</td></tr>
+  </table>
+
+  <h2>Check yourself</h2>
+  <div id="quiz"></div>
+
+  <h2>Where to go deeper</h2>
+  <p><strong>Primary source:</strong> Little Polygon’s <a href="https://blog.littlepolygon.com/posts/loco1/">procedural locomotion series</a> is a helpful contrast: its foot pinning makes the “do not let a planted target drift” principle visible. This course uses event-driven candidate commitment so top-down terrain and support policies stay explicit.</p>
+  <p>Keep the <a href="../reference/foothold-reservation-cheatsheet.html">foothold reservation cheatsheet</a> beside the <a href="../reference/top-down-gait-debugger-cheatsheet.html">gait debugger</a> and <a href="../reference/planar-footholds-cheatsheet.html">planar footholds</a>.</p>
+  <div class="lesson-footer"><p><strong>Suggested real-world rep:</strong> log each foot’s phase, candidate world point, and plant world point. Turn the creature sharply during a swing. The candidate should be constant until either it lands or an explicit recovery cancels it.</p><p>Ask about cancellation policies, moving supports, or letting a candidate follow a support-local coordinate without becoming a fresh terrain query.</p></div>
+</div>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/candidate-arena.js"></script>
+<script>
+(function () {
+  'use strict';
+  var arena = document.getElementById('arena');
+  CandidateArena.mount(arena);
+  arena.addEventListener('candidatearena:state', function (event) {
+    var d = event.detail;
+    if (d.phase === 'Swing' && d.selected && !d.requery && Math.abs(Number(arena.querySelector('[data-heading]').value)) >= 60) {
+      var first = document.getElementById('challenge1');
+      first.classList.add('done');
+      first.querySelector('.status').textContent = '✓';
+    }
+    if (d.phase === 'Swing' && d.requery) {
+      var second = document.getElementById('challenge2');
+      second.classList.add('done');
+      second.querySelector('.status').textContent = '✓';
+    }
+  });
+  Quiz.render(document.getElementById('quiz'), [
+    {prompt:'When is a foothold query allowed?',options:['At a permitted swing transition','At every planted update tick','At every presentation update tick'],answer:0,explain:'A query produces a candidate during a state transition; it does not continuously rewrite a promise.'},
+    {prompt:'What remains stable during swing?',options:['The reserved world candidate','The current heading home point','The rendered foot lift height'],answer:0,explain:'Heading-relative homes and visuals can update, but the selected landing point remains the promise.'},
+    {prompt:'What changes at a completed landing?',options:['Plant becomes the reserved candidate','Candidate becomes the current home','Home becomes the rendered foot'],answer:0,explain:'Landing is the one normal transition that replaces the persistent plant world point.'}
+  ]);
+}());
+</script>
+

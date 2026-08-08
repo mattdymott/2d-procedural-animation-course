@@ -1,0 +1,33 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Reference — Foothold Reservation</title>
+<link rel="stylesheet" href="../assets/course.css">
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Foothold Reservation Cheatsheet</h1>
+  <p class="lede">The query-once, commit-on-landing contract from <a href="../lessons/0030-reserve-one-top-down-foothold.html">Lesson 30</a>.</p>
+  <h2>Four states, two persistent points</h2>
+  <table><tr><th>Phase</th><th>Query?</th><th>Candidate</th><th>Plant</th></tr>
+    <tr><td>Planted</td><td>No</td><td>None or previous diagnostic value</td><td>Persistent world point</td></tr>
+    <tr><td>Selecting</td><td>Yes, once</td><td>Choose one legal world point</td><td>Unchanged</td></tr>
+    <tr><td>Swing</td><td>No</td><td>Reserved, unchanged</td><td>Unchanged</td></tr>
+    <tr><td>Landing</td><td>No</td><td>Becomes the new plant</td><td>Replaced once</td></tr>
+  </table>
+  <h2>Minimal transition recipe</h2>
+  <pre><code>candidate = QueryBestLegalFoothold(foot, world) // one transition
+foot.Phase = Swing
+
+if (Reached(candidate))
+{
+    plant = candidate                              // one transition
+    foot.Phase = Planted
+}</code></pre>
+  <h2>Bad symptoms, useful traces</h2>
+  <table><tr><th>Symptom</th><th>Trace</th></tr>
+    <tr><td>Swing target curves as body turns</td><td>Writes to CandidateWorldPoint outside selection/cancellation.</td></tr>
+    <tr><td>Plant teleports before landing</td><td>Writes to PlantedWorldPoint outside landing/recovery.</td></tr>
+    <tr><td>Foot lands in now-invalid terrain</td><td>Explicit cancellation/recovery policy; do not hide it with continuous re-query.</td></tr>
+  </table>
+  <div class="lesson-footer"><p>See <a href="top-down-gait-debugger-cheatsheet.html">gait debugger</a> · <a href="planar-footholds-cheatsheet.html">planar footholds</a> · <a href="top-down-creature-tick-cheatsheet.html">top-down creature tick</a>.</p></div>
+</div>
+

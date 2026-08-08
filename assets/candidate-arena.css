@@ -1,0 +1,40 @@
+.candidate-arena {
+  padding: 1rem;
+  background: #16232a;
+  border: 1px solid #31515c;
+  border-radius: 10px;
+}
+.candidate-arena canvas {
+  display: block;
+  width: 100%;
+  max-width: 620px;
+  margin: auto;
+  background: #101820;
+  border-radius: 8px;
+}
+.candidate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .55rem;
+  margin: .85rem 0;
+}
+.candidate-actions button {
+  margin: 0;
+}
+.candidate-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: .55rem;
+}
+.candidate-option {
+  text-align: left;
+  min-height: 4.5rem;
+}
+.candidate-option:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+}
+.candidate-option.reserved {
+  outline: 2px solid #ba83ff;
+}
+
