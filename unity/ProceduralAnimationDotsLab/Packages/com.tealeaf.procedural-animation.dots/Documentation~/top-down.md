@@ -144,6 +144,40 @@ home back toward ground it can stand on — a suggestion, not a command.
 Nothing in the package acts on the request. A blocked foot that quietly teleports
 to the nearest point and asks IK to disguise it is precisely what this replaces.
 
+## The plant contract
+
+Everything above rests on one rule, so it is worth stating on its own:
+
+> A committed plant is a **world** point. It changes at exactly one ordinary
+> transition — a swing reaching its reserved candidate — and at no other time.
+
+Three things are recomputed every tick from the resolved body, and none of them
+is the plant:
+
+| Recomputed each tick | Held until a landing |
+| --- | --- |
+| `PlanarMath.Home(hip, HomeOffset, forward)` | `GaitLeg.Plant` |
+| The stress `distance(plant, home)` that asks for a step | `GaitLeg.SwingTo`, once a swing begins |
+| Candidate evidence from your query adapter | The support relation the plant was committed against |
+
+The failure this rules out looks like success. If a plant is recomputed from the
+body — even indirectly, by writing home into it — then stress reads zero through
+the sharpest turn, no leg ever asks to step, and the feet skate along under a
+creature that appears perfectly stable. Zero stress during a hard turn is the
+symptom; a body-local plant writer is the cause.
+
+`SwingTo` is the same promise one step earlier. Selection happens once, at the
+transition into a swing, and the reserved point then survives the body turning,
+the home moving, and a nearer candidate appearing beneath it. A foothold query
+belongs at a transition, never in the planted or swinging update. If a reserved
+candidate genuinely becomes unsafe, that is a `GaitRecoveryRequest` — an explicit
+outcome — not a silent retarget.
+
+`GaitLeg.Plant` has one honest exception: a plant committed against a moving
+support is expressed in that support's coordinates, so it travels with the
+support without ever being re-queried. The promise is unchanged; the frame it is
+written in moved.
+
 ## Presentation
 
 Gait and IK produce one authoritative point on the movement plane.
@@ -174,6 +208,46 @@ It is a pure function in `LowLevel`, deliberately not a system. Nothing inside
 the package reads its output, and nothing may write lift back into a plant, a
 swing target, IK, or collision.
 
+### Body language
+
+The same arrangement, one level up. `BodyPresentationMath.Advance` filters the
+resolved body pose into a drawn one:
+
+```csharp
+var presentation = BodyPresentationMath.Advance(
+    ref state,                        // your own BodyPresentationState
+    body.RootPosition,                // resolved, after the solve group
+    heading.LastForward,              // resolved
+    locomotion.RequestedTurnSign,     // semantic intent, read for timing only
+    policy,
+    deltaTime);
+```
+
+| Output | Derived from | Lesson |
+| --- | --- | --- |
+| `BankRadians`, `RotationRadians` | Resolved turn rate, filtered | Bank into the turn |
+| `Scale` | Resolved planar speed | Stretch as commitment |
+| `WeightShift`, `RenderPosition` | Resolved planar acceleration | Braking and setting off |
+
+Three details are load-bearing:
+
+- **It differences resolved state itself.** Velocity comes from successive
+  `RootPosition` values and turn rate from successive headings — not from
+  `DesiredVelocity`, which is what the creature *asked* for. Every previous-frame
+  value it needs lives in `BodyPresentationState`, so an effect you delete leaves
+  no field behind in the simulation.
+- **`RequestedTurnSign` is edge-triggered.** A newly raised request opens a short
+  window in which the body banks *against* the coming turn; when the window
+  expires the bank follows the resolved turn rate as usual. Held as a level, the
+  wind-up would lean the body the wrong way for the whole turn.
+- **`SecondOrderMath` derives its stability clamp per call.** Presentation is the
+  layer most likely to run on a variable frame delta, and a filter that baked
+  that clamp would be correct only at the step it was baked for.
+
+The authority test is the same for every one of these: switch the effect off and
+the plants, heading, cadence, and collision results must be identical. Only the
+flavour is allowed to change.
+
 ## The tick
 
 ```text
@@ -189,7 +263,8 @@ FixedStepSimulationSystemGroup
     ├── solve two-bone legs
     └── project contacts and publish the resolved pose
 
-presentation (after the group)      derive lift, shadow, and sort key
+presentation (after the group)      derive lift, shadow, and sort key;
+                                    filter bank, stretch, and weight shift
 ```
 
 The important edge is between the query adapter and gait: the query reports
@@ -205,3 +280,7 @@ repairs it.
 4. Render shadow and lift from the committed target — then disable presentation
    entirely. The simulation must still be legal.
 5. Only then add moving supports, tripods, and cadence switching.
+6. Last of all, body language. Bank, stretch, and weight shift are the easiest
+   things in the whole stack to mistake for a fix, so add them only once the
+   creature already walks correctly without them — and keep the switch that
+   turns them off, because it is the test.

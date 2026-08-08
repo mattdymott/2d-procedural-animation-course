@@ -559,6 +559,117 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
         }
 
         // ----------------------------------------------------------------------------------
+        // Lessons 29 / 30 — the plant contract, stated as assertions
+        // ----------------------------------------------------------------------------------
+
+        [Test]
+        public void ATurningBodyMovesEveryHomeAndNoCommittedPlant()
+        {
+            // Lesson 29's experiment, run as a test. The support policy is set tight enough that
+            // no leg may lift at all, which leaves nothing on stage but the contract: homes are
+            // recomputed from the resolved body, plants are remembered from a past landing.
+            using var world = new World(nameof(ATurningBodyMovesEveryHomeAndNoCommittedPlant));
+            var entity = CreateHexapod(world, GaitCadence.Support, minimumPlantedFeet: 6);
+            var manager = world.EntityManager;
+
+            var plantsBefore = Plants(manager, entity);
+            var homesBefore = Homes(manager, entity);
+
+            // A quarter turn on the spot. No candidates are published, because a planted foot is
+            // not supposed to need one.
+            manager.SetComponentData(entity, new CreatureLocomotion { DesiredHeading = new float2(0f, 1f) });
+            for (var tick = 0; tick < 5; tick++)
+                Tick(world);
+
+            var legs = manager.GetBuffer<GaitLeg>(entity);
+            var homesAfter = Homes(manager, entity);
+
+            for (var index = 0; index < legs.Length; index++)
+            {
+                Assert.That(legs[index].State, Is.EqualTo(FootState.Planted), "Nothing was permitted to step.");
+                Assert.That(legs[index].Plant, Is.EqualTo(plantsBefore[index]),
+                    "A committed plant is a world point. Recomputing it from the body is the skating bug.");
+                Assert.That(math.distance(homesAfter[index], homesBefore[index]),
+                    Is.GreaterThan(DefaultGait.Comfort),
+                    "The home rotated with the heading — that gap is the evidence gait reads.");
+                Assert.That(math.distance(legs[index].Plant, homesAfter[index]),
+                    Is.GreaterThan(DefaultGait.Comfort),
+                    "Stress past comfort is a reason to request a swing, not permission to move a plant.");
+            }
+        }
+
+        [Test]
+        public void AReservedFootholdSurvivesATurnAndABetterLateOption()
+        {
+            using var world = new World(nameof(AReservedFootholdSurvivesATurnAndABetterLateOption));
+            var entity = CreateHexapod(world, GaitCadence.Support, minimumPlantedFeet: 0);
+            var manager = world.EntityManager;
+            manager.SetComponentData(entity, new CreatureLocomotion { DesiredHeading = new float2(0f, 1f) });
+
+            // One tick with no candidates published: the heading settles and nothing may step,
+            // so the adapter below samples the homes gait is about to use.
+            Tick(world);
+
+            PublishCandidatesAtHomes(manager, entity);
+            Tick(world);
+
+            var swingingLeg = FirstSwingingLeg(manager, entity);
+            Assert.That(swingingLeg, Is.GreaterThanOrEqualTo(0), "This test needs a foot in the air.");
+            var reserved = manager.GetBuffer<GaitLeg>(entity)[swingingLeg].SwingTo;
+
+            // Mid-swing the world changes its mind twice over: the creature keeps turning, and the
+            // only candidate on offer is now a different, perfectly legal point. A foot that
+            // re-queries while airborne chases it; a foot that reserved one point does not.
+            manager.SetComponentData(entity, new CreatureLocomotion { DesiredHeading = new float2(-1f, 0f) });
+            var tempting = reserved + new float2(0.35f, -0.35f);
+
+            var landed = false;
+            for (var tick = 0; tick < 60 && !landed; tick++)
+            {
+                PublishOneCandidate(manager, entity, swingingLeg, tempting);
+                Tick(world);
+
+                var leg = manager.GetBuffer<GaitLeg>(entity)[swingingLeg];
+                Assert.That(leg.SwingTo, Is.EqualTo(reserved),
+                    "A query is a transition, not a subscription.");
+                landed = leg.State == FootState.Planted;
+            }
+
+            Assert.That(landed, Is.True, "The swing has to finish for the landing assertion to mean anything.");
+            Assert.That(manager.GetBuffer<GaitLeg>(entity)[swingingLeg].Plant, Is.EqualTo(reserved),
+                "Landing is the one ordinary transition that replaces a plant — with exactly the reserved point.");
+        }
+
+        // ----------------------------------------------------------------------------------
+        // Lesson 27 — the new fact has to be inert
+        // ----------------------------------------------------------------------------------
+
+        [Test]
+        public void ARequestedTurnPublishesIntentAndSteersNothing()
+        {
+            // A field that presentation reads is a field a solver could start reading too. This is
+            // the guard: publishing a hard left changes the heading by nothing at all.
+            using var world = new World(nameof(ARequestedTurnPublishesIntentAndSteersNothing));
+            var entity = CreateHexapod(world, GaitCadence.Support, minimumPlantedFeet: 0);
+            var manager = world.EntityManager;
+
+            var headingBefore = manager.GetComponentData<PlanarHeading>(entity).LastForward;
+            var plantsBefore = Plants(manager, entity);
+
+            manager.SetComponentData(entity, new CreatureLocomotion { RequestedTurnSign = 1f });
+            for (var tick = 0; tick < 10; tick++)
+            {
+                PublishCandidatesAtHomes(manager, entity);
+                Tick(world);
+            }
+
+            Assert.That(manager.GetComponentData<PlanarHeading>(entity).LastForward, Is.EqualTo(headingBefore),
+                "A requested turn is a fact for the picture. Turning is still locomotion's own job.");
+            Assert.That(Plants(manager, entity), Is.EqualTo(plantsBefore));
+            Assert.That(manager.GetComponentData<CreatureBody>(entity).RootPosition, Is.EqualTo(float2.zero));
+        }
+
+        // ----------------------------------------------------------------------------------
         // Fixtures
         // ----------------------------------------------------------------------------------
 
@@ -660,6 +771,56 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
                 plants[index] = legs[index].Plant;
 
             return plants;
+        }
+
+        /// <summary>
+        /// Where neutral feet would prefer to be right now — derived from the resolved body and
+        /// heading, and therefore expected to move whenever either of them does.
+        /// </summary>
+        static float2[] Homes(EntityManager manager, Entity entity)
+        {
+            var forward = manager.GetComponentData<PlanarHeading>(entity).LastForward;
+            var legs = manager.GetBuffer<GaitLeg>(entity);
+            var limbs = manager.GetBuffer<Limb2BoneLeg>(entity);
+            var points = manager.GetBuffer<VerletPoint>(entity);
+            var homes = new float2[legs.Length];
+            for (var index = 0; index < legs.Length; index++)
+            {
+                var hip = points[limbs[index].RootPointIndex].Position;
+                homes[index] = PlanarMath.Home(hip, legs[index].HomeOffset, forward);
+            }
+
+            return homes;
+        }
+
+        static int FirstSwingingLeg(EntityManager manager, Entity entity)
+        {
+            var legs = manager.GetBuffer<GaitLeg>(entity);
+            for (var index = 0; index < legs.Length; index++)
+            {
+                if (legs[index].State == FootState.Swinging)
+                    return index;
+            }
+
+            return -1;
+        }
+
+        /// <summary>
+        /// A world that offers one leg exactly one legal point. Used to tempt a foot that is
+        /// already airborne, which is the only way to catch a swing that re-queries.
+        /// </summary>
+        static void PublishOneCandidate(EntityManager manager, Entity entity, int legIndex, float2 point)
+        {
+            var candidates = manager.GetBuffer<FootholdCandidate>(entity);
+            candidates.Clear();
+            candidates.Add(new FootholdCandidate
+            {
+                LegIndex = (byte)legIndex,
+                Point = point,
+                Normal = new float2(0f, 1f),
+                Walkable = 1,
+                PathClear = 1,
+            });
         }
 
         /// <summary>

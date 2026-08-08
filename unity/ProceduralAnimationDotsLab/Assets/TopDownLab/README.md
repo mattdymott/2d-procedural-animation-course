@@ -1,6 +1,6 @@
 # Top-Down Lab
 
-The runnable demo for Lessons 16–25: a six-legged creature walking a circuit on a
+The runnable demo for Lessons 16–30: a six-legged creature walking a circuit on a
 movement plane, past a patch of ground it is not allowed to stand on.
 
 Open `Scenes/TopDownLab.unity` and press play.
@@ -15,6 +15,37 @@ Open `Scenes/TopDownLab.unity` and press play.
 | Blue / amber legs | Planted and swinging. Amber legs come in threes — the alternating tripod (Lesson 22). |
 | Dark cross vs. bright ring | A foot's shadow sits on its committed planar point; the ring is the same point pushed up the screen by the lift curve (Lesson 19). |
 | Red body | Gait has nowhere legal to step and has asked locomotion for help (Lesson 25). |
+| Pale ring + thin line | `ShowGaitDebug`: the gait's own committed world point and its stress out to the current home. Teal inside comfort, red past it (Lesson 29). |
+| Purple arrow | `ShowBodyLanguage`: where the drawn body is leaning, next to the green arrow showing where it actually points (Lessons 26–28). |
+
+## The two toggles are the lesson
+
+`ShowGaitDebug` and `ShowBodyLanguage` on `TopDownLabDemo` are there to be
+switched off in play mode, not to tidy the view.
+
+**`ShowGaitDebug`** draws the layer under the picture: `GaitLeg.Plant` while a
+foot is planted, `GaitLeg.SwingTo` while it swings. That is deliberately *not*
+the shadow cross above, which draws the IK-resolved foot and so is clamped to the
+limb's reach. Watch the creature turn hard: the gold homes rotate, the pale rings
+stay in the world, and the lines between them stretch and go red. If they ever
+stay short through a sharp turn, a plant is being recomputed from the body and
+the feet are skating (Lessons 29 and 30).
+
+**`ShowBodyLanguage`** filters bank, stretch, and weight shift onto the drawn
+spine only — legs, plants, homes, and candidates are never routed through it, so
+the planted base and the leaning body read as two separate layers. Turning it off
+must change nothing but the flavour; that is the authority test Lessons 26–28
+each state in their own words. Watch the purple arrow separate from the green one
+when the creature swerves round the island: the wind-up leans away from a turn
+`TopDownIntentSystem` has decided on but not yet resolved.
+
+The measured shape of that, cruising the default circuit: the bank sits steady
+around −6° the whole way round, and swings to roughly ±20° for the length of
+`AnticipationSeconds` whenever a swerve or a recovery raises a request — leaning
+the *opposite* way to the bank the turn itself will settle into. If you shorten
+the window much below the bank filter's own response time the cue stops being
+legible, which is why the default is 0.6 s and not the tenth of a second the
+effect conceptually needs.
 
 ## Who owns what
 
@@ -23,11 +54,15 @@ Open `Scenes/TopDownLab.unity` and press play.
   and takes the turn gait suggested. Body obstacle response is locomotion's job:
   a creature that walks its own centre into an obstacle leaves every leg with
   nowhere to go, and no foot policy can rescue that.
+  `TopDownIntentSystem` also publishes `CreatureLocomotion.RequestedTurnSign`,
+  which is the same steering decision restated as a semantic fact. It writes it
+  *after* it has already steered, and nothing in the package reads it — the field
+  exists so presentation can be early, not so anything can turn by it.
 - `PlanarQuerySystem` reports `Walkable` and `PathClear` for a fan of points around
   each leg's predicted home. It ranks nothing and never writes a plant. Replace it
   with a tilemap, navmesh, or physics query and nothing else changes.
-- `TopDownLabDemo` draws everything above from resolved output. Delete it and the
-  simulation is identical.
+- `TopDownLabDemo` draws everything above from resolved output, and owns the whole
+  of its own `BodyPresentationState`. Delete it and the simulation is identical.
 - The creature itself is composed from the package's authoring components. This
   project constructs no plants, swing state, or chain points.
 

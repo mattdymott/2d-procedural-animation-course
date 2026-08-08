@@ -23,6 +23,19 @@ namespace TopDownLab
         /// <summary>How far outside a blocked region the body keeps its own centre.</summary>
         const float BodyClearance = 0.9f;
 
+        /// <summary>
+        /// How far off the nose the chosen course has to be before it counts as a decided turn
+        /// worth announcing — about twenty degrees.
+        /// </summary>
+        /// <remarks>
+        /// Steering lags its course by roughly speed / (radius · turn rate) the whole way round an
+        /// ordinary circuit, which here is some eleven degrees. A threshold under that leaves the
+        /// request permanently raised, and a cue that never falls silent announces nothing: this
+        /// sits above the cruise lag so only a real change of course — an avoidance, a recovery —
+        /// gets a wind-up.
+        /// </remarks>
+        const float TurnRequestCosine = 0.94f;
+
         EntityQuery islandQuery;
 
         public void OnCreate(ref SystemState state)
@@ -72,6 +85,13 @@ namespace TopDownLab
 
                 locomotion.ValueRW.DesiredVelocity = steered * speed;
                 locomotion.ValueRW.DesiredHeading = steered;
+
+                // The same decision, published a second time as a semantic fact. Steering already
+                // happened on the line above; this only says which way, and only while the course
+                // is somewhere the heading has not caught up to yet.
+                locomotion.ValueRW.RequestedTurnSign = math.dot(course, forward) < TurnRequestCosine
+                    ? math.sign(math.dot(course, PlanarMath.Perpendicular(forward)))
+                    : 0f;
             }
         }
 

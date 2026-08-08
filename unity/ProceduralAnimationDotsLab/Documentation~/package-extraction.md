@@ -355,9 +355,15 @@ worked example. The alternative, an optional consumer-written root-offset
 component, remains more API than one float is worth. Revisit only if a real
 second consumer leaves the bob off.
 
-The Lesson 8 playground briefs that need FABRIK chains, second-order dynamics,
-and grab targets are still out of scope, as `Documentation~/index.md` declares.
-That gate is a scope decision — how much a `0.x` package should promise — not a
-missing implementation, and it should stay closed until a second real consumer
-exists. `Assets/PackageConsumer` is a compile-time tracer and the Lab is the
+The Lesson 8 playground briefs that need FABRIK chains and grab targets are still
+out of scope, as `Documentation~/index.md` declares. That gate is a scope
+decision — how much a `0.x` package should promise — not a missing
+implementation, and it should stay closed until a second real consumer exists.
+
+Second-order dynamics has since crossed that line, but only as far as it had to.
+`LowLevel.SecondOrderMath` exists because Lessons 26–28 need a response filter,
+and it arrived the way `PlanarMath` and `FootPresentationMath` did: a pure
+function a consumer calls, with no component, no system, and no place in the
+tick. The playground brief — a juice component the package owns and updates for
+you — remains closed. `Assets/PackageConsumer` is a compile-time tracer and the Lab is the
 worked example; neither counts.

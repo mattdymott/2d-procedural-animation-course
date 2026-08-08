@@ -29,9 +29,23 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no change.
 - `CreatureLocomotion.DesiredHeading`: an optional facing independent of travel,
   which is what lets a top-down creature turn on the spot.
+- `CreatureLocomotion.RequestedTurnSign`: a turn your locomotion has decided on
+  but not yet resolved, published so presentation can wind the body up before
+  the heading moves. No package system reads it, so writing it never steers.
 - `LegsAuthoring.LegRecipe.TripodGroup`: which diagonal tripod a leg belongs to.
 - `PlanarMath` and `FootPresentationMath` in `LowLevel`: heading-relative homes,
   and the lift, shadow, and sort key derived from one resolved planar foot point.
+- `SecondOrderMath` in `LowLevel`, with `SecondOrderTuning`, `SecondOrderFloat`,
+  and `SecondOrderFloat2`: the spring-damper response filter. Its stability
+  clamp is derived per call rather than baked, so the same filter is correct on
+  a fixed step and on a variable presentation delta.
+- `BodyPresentationMath` in `LowLevel`, with `BodyPresentationPolicy`,
+  `BodyPresentationState`, and `BodyPresentation`: top-down body language —
+  bank into a resolved turn, stretch with resolved speed, a short wind-up
+  against a requested turn, and a weight shift under resolved acceleration.
+  It reads resolved output and returns a picture; nothing in the package reads
+  it back, and its previous-frame state lives in the presentation struct rather
+  than on locomotion or gait.
 
 ### Changed
 

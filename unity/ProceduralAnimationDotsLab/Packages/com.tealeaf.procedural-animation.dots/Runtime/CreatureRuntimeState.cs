@@ -56,6 +56,14 @@ namespace Tealeaf.ProceduralAnimation.Dots
 		/// which is the case that gives a planted foot an honest reason to step.
 		/// </summary>
 		public float2 DesiredHeading;
+
+		/// <summary>
+		/// A turn your locomotion has decided on but not yet resolved: positive to turn left,
+		/// negative to turn right, zero for no request. It is published as a semantic fact so that
+		/// presentation can wind the body up before the heading actually changes. Nothing in the
+		/// package steers by it — writing it never turns the creature.
+		/// </summary>
+		public float RequestedTurnSign;
 	}
 
 	public struct ContactPlane : IBufferElementData
