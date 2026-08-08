@@ -1,0 +1,75 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Lesson 17 — Path-Aware Footholds</title>
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="stylesheet" href="../assets/candidate-grid.css">
+
+<div class="page">
+<p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 17 · Top-Down Branch</p>
+<h1>Path-Aware Footholds: Choose Once, Then Commit</h1>
+<p class="lede">A top-down obstacle is not a bad floor normal. It is a reason a planar point is not a legal foot target. Let sensing offer candidates; let gait choose one promise.</p>
+
+<h2>Replace “support normal” with a landing policy</h2>
+<p>Lesson 11 selected a point on terrain by checking whether its normal could support a foot. The top-down equivalent asks a different question: can this leg usefully put its foot <em>there</em> without crossing forbidden space?</p>
+<div class="recipe"><span class="callout-label">Recipe · gather facts, then make one promise</span><pre><code>predictedHome = home + bodyVelocity * lead
+candidates    = planarQuery.SampleAround(predictedHome)
+
+foreach (candidate in candidates)
+{
+    if (!candidate.Walkable) continue;          // not inside a blocked region
+    if (!candidate.PathClear) continue;         // no wall between swing and target
+    if (!WithinIkReach(hip, candidate.Point)) continue;
+    if (!MatchesStepPolicy(candidate.Point, predictedHome)) continue;
+
+    BeginSwing(from: leg.Plant, to: candidate.Point);
+    return;                                     // one committed target
+}
+
+KeepPlantOrChooseRecovery();                    // never invent an impossible promise</code></pre></div>
+<p>A query can be a tile map, a physics overlap, a navigation field, or a signed-distance function. Its implementation is deliberately hidden behind the narrow seam. The gait only consumes compact evidence about possible points.</p>
+
+<h2>The playground: choose the foot’s next promise</h2>
+<p>The body wants to move right. Select the one candidate that is walkable, reachable, forward enough, and connected to the current foot by a clear route. After choosing, the target is fixed until this swing completes.</p>
+<div class="sim"><div class="sim-controls" style="display:block"><strong style="font-size:.9rem">Planar candidates at this swing start</strong><div class="candidate-grid" id="candidates"></div><div class="feedback" id="feedback">Choose one candidate to become <code>SwingTo</code>.</div></div></div>
+<div class="challenge" id="ch1"><span class="status">☐</span> <strong>Challenge 1 — Reject a point that only looks close.</strong> Commit the one candidate that the leg can actually reach through legal space.</div>
+
+<h2>A path fact is not a new authority</h2>
+<table><tr><th>Fact or decision</th><th>Owner</th><th>May change a planted foot?</th></tr><tr><td>Blocked tile / open tile</td><td>Planar-query adapter</td><td>No</td></tr><tr><td>Clear path to a candidate</td><td>Planar-query adapter</td><td>No</td></tr><tr><td>Accept target and start swing</td><td>Gait</td><td>Only at its state transition</td></tr><tr><td>Resolve body intrusion</td><td>Contact/locomotion constraint</td><td>No</td></tr><tr><td>Draw lift and shadow</td><td>Presentation</td><td>No</td></tr></table>
+<p>This is the same ownership discipline as ground-aware stepping. More sensing does not mean more writers. A planted foot is still the state machine’s promise, not a live cursor hovering over navigation data.</p>
+
+<div class="dots-mapping"><span class="callout-label">DOTS mapping</span><p style="margin-top:0">Have an adapter gather a small buffer of world facts before the solve group. Gait runs only on the <code>Planted → Swinging</code> transition, picks one candidate, and writes the existing swing fields. The buffer can come from any query backend without broadening the gait API.</p><pre><code>public struct PlanarFootholdCandidate : IBufferElementData
+{
+    public float2 Point;
+    public byte Walkable;
+    public byte PathClear;
+    public byte Surface;
+}
+
+// Adapter fills candidates. Gait filters and commits exactly one SwingTo.</code></pre></div>
+
+<h2>Check yourself</h2>
+<p>Retrieve the boundary: world queries report possibilities; gait creates the foot’s single future.</p>
+<div id="quiz"></div>
+
+<h2>Where to go deeper</h2>
+<p><strong>Primary source:</strong> the <a href="https://diglib.eg.org/items/deb0a7a1-2ddf-496f-889a-fe0df1feeb73">Position Based Dynamics paper</a> is the course’s foundation for treating collision as a positional constraint rather than presentation repair. Apply that separation here: navigation/obstacle queries provide evidence, while gait owns target selection. For the locomotion rule layer, return to David Rosen’s <a href="https://www.gdcvault.com/play/1020583/Animation-Bootcamp-An-Indie-Approach">Animation Bootcamp</a>.</p>
+<p>Keep the <a href="../reference/planar-footholds-cheatsheet.html">planar footholds cheatsheet</a> beside <a href="../reference/top-down-locomotion-cheatsheet.html">top-down locomotion</a> and <a href="../reference/contact-constraints-cheatsheet.html">contact constraints</a>.</p>
+<div class="lesson-footer"><p><strong>Suggested real-world rep:</strong> add a blocked island to the L9 creature’s XY movement plane. At each swing start, collect four candidate points around its predicted home. Draw rejected candidates in rust, the accepted target in gold, and prove in a log that a plant never changes from a later query.</p><p>Ask about support polygons, deciding which leg may swing during a turn, or making lifted feet read clearly under a top-down sprite.</p></div>
+</div>
+<script src="../assets/quiz.js"></script>
+<script>
+(function(){'use strict';
+const data=[
+{name:'A · blocked tile',why:'Reachable, but the point itself is forbidden.',ok:false},
+{name:'B · across wall',why:'Open point, but the leg cannot cross the wall.',ok:false},
+{name:'C · open arc ahead',why:'Walkable, clear, reachable, and forward: commit it.',ok:true},
+{name:'D · distant opening',why:'Legal space, but outside the limb’s reach.',ok:false}
+],box=document.getElementById('candidates'),out=document.getElementById('feedback');
+data.forEach((x,index)=>{const button=document.createElement('button');button.type='button';button.className='candidate';button.innerHTML='<strong>'+x.name+'</strong><small>'+x.why+'</small>';button.addEventListener('click',()=>{document.querySelectorAll('.candidate').forEach(item=>item.disabled=true);button.classList.add(x.ok?'good':'bad');if(x.ok){out.className='feedback ok';out.textContent='✓ Commit C as SwingTo. Its point remains the target until landing; later queries do not overwrite it.';const challenge=document.getElementById('ch1');challenge.classList.add('done');challenge.querySelector('.status').textContent='✓';}else{out.className='feedback';out.textContent='Reject it: '+x.why+' Sensing reports the problem; gait keeps looking only at this swing start.';document.querySelectorAll('.candidate')[2].classList.add('good');}});box.appendChild(button);});
+Quiz.render(document.getElementById('quiz'),[
+{prompt:'When may gait choose a new planar foothold?',options:['Once when that foot starts swinging now','Every frame while that foot remains planted','After IK moves the foot target itself'],answer:0,explain:'Sample candidates at the state transition, filter them, then commit one target. A planted promise does not follow refreshed sensing.'},
+{prompt:'Which property rejects an open point beyond a wall?',options:['The candidate’s clear route from the foot','The candidate’s visible sprite sorting order','The candidate’s current rendered lift height'],answer:0,explain:'A target can be open yet unavailable to the leg. Keep path accessibility as a world fact supplied to gait.'},
+{prompt:'What should happen when all candidates fail?',options:['Keep the plant or use a recovery rule','Commit the nearest point and clamp it later','Refresh queries until a target appears nearby'],answer:0,explain:'No legal target is useful information. Preserve a possible promise and take an explicit recovery path instead of inventing an impossible one.'}
+]);
+})();
+</script>
+

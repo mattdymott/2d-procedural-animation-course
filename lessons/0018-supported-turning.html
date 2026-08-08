@@ -1,0 +1,75 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Lesson 18 — Supported Turning</title>
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="stylesheet" href="../assets/decision-grid.css">
+
+<div class="page">
+<p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 18 · Top-Down Branch</p>
+<h1>Supported Turning: Never Lift the Last Base</h1>
+<p class="lede">Heading-relative homes make a stationary turn create foot stress. That does not mean every stressed foot should move. Gait needs one more rule: preserve enough planted feet to make the turn read as supported rather than as a sliding sprite.</p>
+
+<h2>Stress asks; support permits</h2>
+<p>Lesson 16 gave a turning foot a reason to step. Lesson 17 made its destination legal. Now decide <em>which</em> stressed foot may take that step. A simple partner guard remains useful, but a top-down creature with four or more legs benefits from checking the plants it would leave behind.</p>
+<div class="recipe"><span class="callout-label">Recipe · choose one eligible swing</span><pre><code>foreach (leg in legs)
+{
+    leg.Urgency = length(leg.Plant - leg.HeadingRelativeHome);
+
+    leg.Eligible =
+        leg.State == Planted
+        && leg.Urgency > settings.Comfort
+        && RemainingPlantedCountWithout(leg) >= settings.MinSupport
+        && RetainsSupport(bodyPosition, PlantsWithout(leg));
+}
+
+legToMove = HighestUrgencyEligibleLeg(legs);
+if (legToMove.exists)
+    BeginSwing(legToMove);   // exactly one new commitment this tick
+else
+    HoldOrUseRecovery();</code></pre></div>
+<p><code>RetainsSupport</code> can begin as a diagonal-partner rule, a minimum planted count, or a simple “body remains inside the remaining feet” test. Pick the smallest rule that gives your creature a convincing base. The gait owns that policy; neither IK nor rendering should invent it afterward.</p>
+
+<h2>The playground: when is a second swing illegal?</h2>
+<p>Front-right is already swinging during a sharp turn. Front-left has the greatest stress, but lifting it would leave both remaining plants on one rear line. Select the correct decision.</p>
+<div class="decision-grid" id="choices"></div><button type="button" id="check">Check decision</button><div class="decision-feedback" id="feedback">Choose the next gait decision, not the most stressed foot.</div>
+<div class="challenge" id="ch1"><span class="status">☐</span> <strong>Challenge 1 — Let a stressed foot wait.</strong> Preserve the base until the existing swing lands.</div>
+
+<h2>Support is a policy, not a derived animation layer</h2>
+<table><tr><th>Concern</th><th>Authority</th><th>Bad shortcut</th></tr><tr><td>Foot stress and swing eligibility</td><td>Gait</td><td>Letting every leg above comfort swing.</td></tr><tr><td>Reach and knee pose</td><td>IK</td><td>Using an IK clamp to choose who moves.</td></tr><tr><td>Legal target candidates</td><td>Planar query + gait</td><td>Choosing the nearest open point after swing begins.</td></tr><tr><td>Body collision</td><td>Locomotion/contact constraints</td><td>Dragging a plant to correct the body.</td></tr><tr><td>Lift, shadow, sort order</td><td>Presentation</td><td>Hiding a missing base with a sprite effect.</td></tr></table>
+<p>For a biped, “the other foot is planted” is usually enough. For a quadruped, begin with an alternating/diagonal pair or a three-foot minimum. Only add geometric support-region tests when your creature’s actual turns expose a problem that the smaller policy cannot express.</p>
+
+<div class="dots-mapping"><span class="callout-label">DOTS mapping</span><p style="margin-top:0">Keep the policy inside the gait module. A per-creature leg buffer already has the states and plants it needs; the system can gather stress, test prospective remaining plants, and commit one leg without exposing a public “support polygon” component graph.</p><pre><code>public struct GaitSupportSettings : IComponentData
+{
+    public byte MinSupport;
+    public float TurnUrgencyBias;
+}
+
+// Internal gait helper: receives current leg buffer, returns one index or -1.
+int ChooseEligibleLeg(in DynamicBuffer<GaitLeg> legs, float2 bodyPosition);</code></pre></div>
+
+<h2>Check yourself</h2>
+<p>Retrieve the rule that turns urgency into a readable pivot rather than four simultaneous slides.</p>
+<div id="quiz"></div>
+
+<h2>Where to go deeper</h2>
+<p><strong>Primary source:</strong> David Rosen’s <a href="https://www.gdcvault.com/play/1020583/Animation-Bootcamp-An-Indie-Approach">Animation Bootcamp</a> remains the best grounding for the course’s approach: use small locomotion rules that produce believable movement rather than authoring every pose. This support rule is a top-down extension of the existing partner guard, not a demand for full physical balance.</p>
+<p>Keep the <a href="../reference/top-down-support-policy-cheatsheet.html">top-down support policy cheatsheet</a> beside <a href="../reference/top-down-locomotion-cheatsheet.html">top-down locomotion</a>, <a href="../reference/planar-footholds-cheatsheet.html">planar footholds</a>, and <a href="../reference/gait-cheatsheet.html">gait</a>.</p>
+<div class="lesson-footer"><p><strong>Suggested real-world rep:</strong> draw each planted foot and the body centre for the L9 creature while it turns. First enforce “no second swing while the diagonal partner is airborne.” If it still looks implausible, upgrade only then to a three-foot minimum or a body-inside-support test.</p><p>Ask about computing a support region cheaply, tripods for insects, or making elevated feet visually readable in a top-down sprite.</p></div>
+</div>
+<script src="../assets/quiz.js"></script>
+<script>
+(function(){'use strict';
+const choices=[
+{title:'Lift front-left now',detail:'It has greatest stress, but removes the last wide support.',ok:false},
+{title:'Wait for front-right',detail:'The existing swing must land before another base foot lifts.',ok:true},
+{title:'Lift rear-left now',detail:'It also leaves only a narrow rear support line.',ok:false},
+{title:'Drag front-left homeward',detail:'A planted promise may not be moved to hide stress.',ok:false}
+],box=document.getElementById('choices'),check=document.getElementById('check'),feedback=document.getElementById('feedback'),chosen=new Set();
+choices.forEach((choice,index)=>{const button=document.createElement('button');button.type='button';button.className='decision-card';button.innerHTML='<strong>'+choice.title+'</strong><small>'+choice.detail+'</small>';button.addEventListener('click',()=>{if(button.disabled)return;chosen.has(index)?chosen.delete(index):chosen.add(index);button.classList.toggle('selected',chosen.has(index));});box.appendChild(button);});
+check.addEventListener('click',()=>{const correct=choices.every((choice,index)=>chosen.has(index)===choice.ok);[...box.children].forEach((button,index)=>button.classList.add(choices[index].ok?'correct':'incorrect'));if(correct){feedback.className='decision-feedback ok';feedback.textContent='✓ Correct. Stress creates a request, but the remaining planted feet decide whether that request may begin now.';const challenge=document.getElementById('ch1');challenge.classList.add('done');challenge.querySelector('.status').textContent='✓';}else{feedback.textContent='Not yet. The question is not “which leg hurts most?” It is “what base remains after it lifts?”';}});
+Quiz.render(document.getElementById('quiz'),[
+{prompt:'What must be true before a stressed leg begins swing?',options:['Its remaining plants still provide enough support','Its visible lift arc is fully extended','Its IK knee has solved its target'],answer:0,explain:'Stress is only a request. Gait grants it only when the legs left planted still satisfy the creature’s support policy.'},
+{prompt:'Who decides whether a leg may lift during a turn?',options:['The gait module using its support policy','The IK solver using only reachability limits','The renderer using its sprite sorting configuration'],answer:0,explain:'IK resolves a target after gait has selected a leg. Presentation makes a selected swing readable; neither owns support policy.'},
+{prompt:'What is a safe response when no leg is eligible?',options:['Hold briefly or use an authored recovery','Launch the stressed leg regardless of support','Move each planted foot closer to home'],answer:0,explain:'A brief hold or recovery is deliberate behaviour. Moving plants or launching unsupported swings turns a gait problem into visible sliding.'}
+]);
+})();
+</script>

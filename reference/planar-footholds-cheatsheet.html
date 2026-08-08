@@ -1,0 +1,48 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Planar Footholds Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Planar Footholds Cheatsheet</h1>
+  <p class="lede">Choosing a legal top-down foot target, taught in <a href="../lessons/0017-path-aware-footholds.html">Lesson 17</a>.</p>
+
+  <h2>The contract</h2>
+  <p><strong>At swing start, gather planar candidates; accept one; commit it as <code>SwingTo</code>; never make a planted foot follow refreshed sensing.</strong></p>
+
+  <h2>Acceptance order</h2>
+<pre><code>for each candidate around predictedHome:
+    reject if !candidate.Walkable
+    reject if !candidate.PathClear
+    reject if !WithinIkReach(hip, candidate.Point)
+    reject if !MatchesMovementPolicy(candidate.Point)
+
+commit the best remaining candidate
+or keepPlant / use explicit recovery</code></pre>
+  <table>
+    <tr><th>Check</th><th>It prevents</th><th>Owner</th></tr>
+    <tr><td>Walkable</td><td>Landing inside a blocked tile or forbidden region</td><td>World-query adapter reports facts</td></tr>
+    <tr><td>Path clear</td><td>A foot target separated by a wall or gap</td><td>World-query adapter reports facts</td></tr>
+    <tr><td>IK reachable</td><td>An impossible limb promise</td><td>Gait accepts/rejects using IK geometry</td></tr>
+    <tr><td>Movement policy</td><td>Backward, unsafe, or pointless steps</td><td>Gait accepts/rejects</td></tr>
+  </table>
+
+  <h2>Ownership remains explicit</h2>
+  <table>
+    <tr><th>Thing</th><th>Authority</th></tr>
+    <tr><td>Tile/nav/physics samples</td><td>Planar query adapter</td></tr>
+    <tr><td>Candidate ranking and target commitment</td><td>Gait</td></tr>
+    <tr><td>Plant and swing state</td><td>Gait</td></tr>
+    <tr><td>Body intrusion and obstacle response</td><td>Contact / locomotion constraints</td></tr>
+    <tr><td>Lift, shadows, sorting</td><td>Presentation</td></tr>
+  </table>
+
+  <h2>Failure-safe policy</h2>
+  <p>No valid candidate is useful information. Retain the old plant briefly, shorten the intended step, turn, or enter an authored recovery. Never teleport to the nearest blocked point and ask IK or rendering to disguise it.</p>
+
+  <div class="lesson-footer">
+    <p>See <a href="top-down-locomotion-cheatsheet.html">top-down locomotion</a> · <a href="gait-cheatsheet.html">gait</a> · <a href="contact-constraints-cheatsheet.html">contact constraints</a>.</p>
+  </div>
+</div>
+

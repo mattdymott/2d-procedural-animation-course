@@ -1,0 +1,48 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Top-Down Support Policy Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Top-Down Support Policy Cheatsheet</h1>
+  <p class="lede">Coordinating steps during turns, taught in <a href="../lessons/0018-supported-turning.html">Lesson 18</a>.</p>
+
+  <h2>The rule</h2>
+  <p><strong>A leg may swing only when its target is urgent and the remaining planted feet still form a believable base.</strong> This is a gait policy, not a hidden physics simulation.</p>
+
+  <h2>Eligibility</h2>
+<pre><code>urgency = length(plant - headingRelativeHome)
+
+mayLift(leg) =
+    leg is planted
+    && urgency > comfort
+    && remainingPlantedCount >= minSupportCount
+    && RetainsSupport(bodyPosition, remainingPlants)
+    && policyAllows(leg, gaitPhase)</code></pre>
+
+  <h2>Choose among eligible legs</h2>
+  <table>
+    <tr><th>Step</th><th>Action</th></tr>
+    <tr><td>1. Gather</td><td>Read every leg’s plant, state, heading-relative home, and stress.</td></tr>
+    <tr><td>2. Reject</td><td>Reject legs whose lift would leave too few or badly arranged planted feet.</td></tr>
+    <tr><td>3. Rank</td><td>Prefer greatest stress, optionally biased by turn direction or authored gait phase.</td></tr>
+    <tr><td>4. Commit</td><td>Begin one swing; hold the rest until a support leg lands.</td></tr>
+  </table>
+
+  <h2>Choose the simplest policy that reads well</h2>
+  <table>
+    <tr><th>Creature</th><th>Good first policy</th><th>When to deepen</th></tr>
+    <tr><td>Biped</td><td>Other foot must be planted.</td><td>Only if quick pivots look wrong.</td></tr>
+    <tr><td>Quadruped</td><td>Diagonal partner guard or at least three planted feet.</td><td>When turning produces a stiff shuffle.</td></tr>
+    <tr><td>Six+ legs</td><td>Minimum planted count plus alternating groups.</td><td>When a static count permits an implausible cluster.</td></tr>
+  </table>
+
+  <h2>Failure-safe behaviour</h2>
+  <p>If every stressed leg fails the support test, hold, slow the intended turn, or use an explicit recovery step. Never start a second swing merely because a first one is taking too long.</p>
+
+  <div class="lesson-footer">
+    <p>See <a href="top-down-locomotion-cheatsheet.html">top-down locomotion</a> · <a href="planar-footholds-cheatsheet.html">planar footholds</a> · <a href="gait-cheatsheet.html">event-driven gait</a>.</p>
+  </div>
+</div>
+

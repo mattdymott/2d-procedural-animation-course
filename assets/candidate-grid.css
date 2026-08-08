@@ -1,0 +1,9 @@
+/* Reusable candidate-choice grid for terrain, navigation, and foothold lessons. */
+.candidate-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;margin:1rem 0}
+.candidate{min-height:7rem;border:1px solid var(--rule);border-radius:7px;background:var(--bg);color:var(--ink);padding:.7rem;text-align:left;font:inherit;cursor:pointer}
+.candidate:hover:not(:disabled){border-color:var(--accent)}
+.candidate:disabled{cursor:default;opacity:.8}
+.candidate.good{border-color:var(--good);background:#eef6f0}
+.candidate.bad{border-color:var(--bad);background:#f9ece8}
+.feedback{min-height:2.8rem;padding:.65rem .8rem;background:var(--sidebar-bg);border-left:3px solid var(--rule);font-size:.9rem}
+.feedback.ok{background:#eef6f0;border-color:var(--good)}
