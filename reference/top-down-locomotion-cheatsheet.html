@@ -1,0 +1,50 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference — Top-Down Locomotion Cheatsheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+
+<div class="page">
+  <p class="kicker">Reference · 2D Procedural Animation with Unity DOTS</p>
+  <h1>Top-Down Locomotion Cheatsheet</h1>
+  <p class="lede">A planar adaptation of <a href="../lessons/0004-gait-stepping.html">Lesson 4</a>. Feet still make promises; “ground” is now the movement plane.</p>
+
+  <h2>The coordinate contract</h2>
+<pre><code>plane:    XY (or XZ — choose once)
+forward:  normalize(velocity, else previousForward)
+right:    perpendicular(forward)
+
+home[leg] = bodyPosition
+          + forward * localHome[leg].x
+          + right   * localHome[leg].y</code></pre>
+  <p>Each leg owns an authored, creature-local forward/lateral home. Rotate it by current heading every tick. This replaces “project a hip down onto a flat floor.”</p>
+
+  <h2>Gait: unchanged promise, richer trigger</h2>
+  <table>
+    <tr><th>Rule</th><th>Top-down form</th></tr>
+    <tr><td>Stress</td><td><code>length(plant − home)</code>; translation and turning both create it.</td></tr>
+    <tr><td>Target</td><td><code>home + velocity × lead</code>; lead remains a planar vector.</td></tr>
+    <tr><td>Swing</td><td>Interpolate across the plane; add visual lift only for readability.</td></tr>
+    <tr><td>Coordination</td><td>Keep a partner or support-polygon rule so every foot cannot swing at once.</td></tr>
+  </table>
+
+  <h2>Walkability is not a support normal</h2>
+  <table>
+    <tr><th>Question</th><th>Answering seam</th></tr>
+    <tr><td>Where may a foot land?</td><td>Planar walkability/tile/nav query at swing start.</td></tr>
+    <tr><td>Where is a foot now?</td><td>Its committed <code>Plant</code> or <code>SwingTo</code>.</td></tr>
+    <tr><td>May the body occupy this?</td><td>Obstacle/contact constraint, not a rewrite of a plant.</td></tr>
+  </table>
+
+  <h2>Author these rules</h2>
+  <ul>
+    <li><strong>Local foot offsets:</strong> forward and lateral homes for each leg.</li>
+    <li><strong>Comfort radius:</strong> tolerated translation/turn error.</li>
+    <li><strong>Turn policy:</strong> heading change that requires an eligible leg to replant.</li>
+    <li><strong>Visual lift:</strong> draw-height or sorting cue, never a source of planar targets.</li>
+  </ul>
+
+  <div class="lesson-footer">
+    <p>See <a href="../lessons/0016-top-down-locomotion.html">Lesson 16</a> · <a href="gait-cheatsheet.html">gait</a> · <a href="moving-platform-cheatsheet.html">relative promises</a> · <a href="conveyor-support-cheatsheet.html">conveyor supports</a>.</p>
+  </div>
+</div>
+

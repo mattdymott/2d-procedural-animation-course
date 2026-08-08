@@ -1,0 +1,73 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Lesson 16 — Top-Down Locomotion</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+.topdown-lab{padding:1rem 1.1rem;font-family:-apple-system,"Segoe UI",sans-serif;background:#fff}.topdown-lab canvas{width:100%;background:#20242b;cursor:default}.topdown-lab .lab-row{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem 1.15rem;margin-top:.85rem;font-size:.84rem}.topdown-lab label{display:flex;align-items:center;gap:.4rem;color:var(--muted)}.topdown-lab input{accent-color:var(--accent);width:10rem}.topdown-lab output{font-weight:700;color:var(--ink);min-width:3.3rem}.topdown-lab .legend{font-size:.78rem;color:var(--muted)}
+</style>
+<div class="page">
+<p class="kicker">2D Procedural Animation with Unity DOTS — Lesson 16 · Top-Down Branch</p>
+<h1>Top-Down Locomotion: The Plane Is Ground</h1>
+<p class="lede">The side-view gait is not fundamentally about down. It is a body moving past feet that have made promises. In top-down, put that promise on a movement plane and rotate each foot’s home with body heading.</p>
+
+<h2>Keep the contract; replace the frame</h2>
+<p>Lesson 4 gave every foot a planted world point, a moving home, a comfort radius, a led target, and a swing. Keep all of it. Retire only the shortcut <em>“home is below a hip on ground Y.”</em></p>
+<div class="recipe"><span class="callout-label">Recipe · local leg intent becomes a planar home</span><pre><code>// Choose XY or XZ once. This creature moves in XY.
+float2 forward = math.normalizesafe(bodyVelocity, previousForward);
+float2 right   = new float2(-forward.y, forward.x);
+
+float2 offset = leg.LocalHome;     // authored forward/lateral offset
+float2 home   = bodyPosition
+              + forward * offset.x
+              + right   * offset.y;
+
+float stress = math.length(leg.Plant - home);
+if (stress > settings.Comfort && PartnerMaySupport(leg))
+    BeginSwing(leg, home + bodyVelocity * settings.Lead);</code></pre></div>
+<p>At zero speed, preserve <code>previousForward</code>. When the creature turns, homes rotate even if its centre stays still. A planted foot then gains honest stress and can request a step rather than slide.</p>
+
+<h2>The playground: turn without translating</h2>
+<p>Gold rings are heading-relative homes; pale dots are the old plants. With speed at zero, turn far enough to make a plant rust. The sketch shows why a turn may need a step before a state machine hides the detail.</p>
+<div class="sim"><div class="topdown-lab"><canvas id="lab" width="680" height="390" aria-label="Top-down creature heading and planted-foot stress"></canvas><div class="lab-row"><label>Heading <input id="heading" type="range" min="-180" max="180" value="0" step="1"><output id="headingOut"></output></label><label>Speed <input id="speed" type="range" min="0" max="110" value="0" step="5"><output id="speedOut"></output></label><label>Comfort <input id="comfort" type="range" min="16" max="78" value="48" step="2"><output id="comfortOut"></output></label></div><p class="legend">teal = heading · gold = homes · pale = planted feet · rust = a legitimate step request</p></div></div>
+<div class="challenge" id="ch1"><span class="status">☐</span> <strong>Challenge 1 — Make turning demand a step.</strong> With speed at 0, turn until a plant becomes rust.</div>
+
+<h2>Do not turn a plane back into a floor</h2>
+<table><tr><th>Side-view shorthand</th><th>Top-down replacement</th><th>Action</th></tr><tr><td>World-down / ground height</td><td>Explicit movement plane</td><td>Replace</td></tr><tr><td>Hip projected to ground</td><td>Heading-rotated local home</td><td>Replace</td></tr><tr><td>Committed plant</td><td>Committed planar plant</td><td>Keep</td></tr><tr><td>Velocity lead</td><td>Planar velocity vector</td><td>Keep</td></tr><tr><td>Parabolic lift</td><td>Visual height/sort cue</td><td>Reinterpret</td></tr></table>
+<p>A lift arc still tells the player which foot is swinging. It decorates a decided planar trajectory; it does not decide where a foot may land.</p>
+
+<div class="dots-mapping"><span class="callout-label">DOTS mapping</span><p style="margin-top:0">Bake each leg’s local home, comfort, and lead. Runtime gait owns plants, swing state, and last non-zero heading. Ownership remains: locomotion writes pose/velocity; gait writes targets; IK resolves limbs; presentation adds lift and sorting.</p><pre><code>public struct PlanarLegConfig : IBufferElementData
+{
+    public float2 LocalHome;
+    public float Comfort;
+    public float Lead;
+}
+
+public struct PlanarHeading : IComponentData
+{
+    public float2 LastForward;
+}</code></pre></div>
+
+<h2>Check yourself</h2>
+<p>Retrieve the invariant: a foot promise is planar; visible lift is a separate concern.</p>
+<div id="quiz"></div>
+
+<h2>Where to go deeper</h2>
+<p><strong>Primary source:</strong> <a href="https://blog.littlepolygon.com/posts/loco1/">Little Polygon’s locomotion article</a> explains root direction, foot pinning, and landing extrapolation. This lesson infers a top-down frame from those general locomotion ideas and the course’s event-driven gait contract.</p>
+<p>Keep the <a href="../reference/top-down-locomotion-cheatsheet.html">top-down locomotion cheatsheet</a> beside <a href="../reference/gait-cheatsheet.html">gait</a>, <a href="../reference/two-bone-ik-cheatsheet.html">two-bone IK</a>, and <a href="../reference/conveyor-support-cheatsheet.html">conveyor supports</a>.</p>
+<div class="lesson-footer"><p><strong>Suggested real-world rep:</strong> give the L9 lizard four local foot-home offsets on the XY plane. Stand it still and rotate 90°. Draw old plants, new homes, comfort circles, and the one leg allowed to move. It should pivot rather than slide.</p><p>This starts the top-down branch. Next: legal planar landing points when obstacles are not “ground.” Ask about turn gait, path-aware footholds, or top-down foot readability.</p></div>
+</div>
+<script src="../assets/quiz.js"></script>
+<script>
+(function(){'use strict';
+const canvas=document.getElementById('lab'),ctx=canvas.getContext('2d'),heading=document.getElementById('heading'),speed=document.getElementById('speed'),comfort=document.getElementById('comfort'),outs={heading:document.getElementById('headingOut'),speed:document.getElementById('speedOut'),comfort:document.getElementById('comfortOut')};
+const centre={x:340,y:196},offsets=[{x:42,y:-46},{x:42,y:46},{x:-42,y:-46},{x:-42,y:46}],plants=offsets.map(p=>({x:centre.x+p.x,y:centre.y+p.y}));
+function rotate(p,a){const c=Math.cos(a),s=Math.sin(a);return{x:p.x*c-p.y*s,y:p.x*s+p.y*c};}
+function draw(){const a=(+heading.value)*Math.PI/180,sp=+speed.value,co=+comfort.value;outs.heading.value=heading.value+'°';outs.speed.value=sp;outs.comfort.value=co;ctx.fillStyle='#20242b';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.strokeStyle='#303944';ctx.lineWidth=1;for(let x=20;x<canvas.width;x+=32){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}for(let y=4;y<canvas.height;y+=32){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}const forward={x:Math.cos(a),y:Math.sin(a)},body={x:centre.x+forward.x*sp*.42,y:centre.y+forward.y*sp*.42};let stressed=false;offsets.forEach((o,i)=>{const r=rotate(o,a),home={x:body.x+r.x,y:body.y+r.y},plant=plants[i],d=Math.hypot(plant.x-home.x,plant.y-home.y),bad=d>co;stressed||=bad;ctx.strokeStyle=bad?'#b5442d':'#f6d365';ctx.lineWidth=2;ctx.setLineDash([5,5]);ctx.beginPath();ctx.arc(home.x,home.y,co,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.strokeStyle=bad?'#b5442d':'#687785';ctx.beginPath();ctx.moveTo(plant.x,plant.y);ctx.lineTo(home.x,home.y);ctx.stroke();ctx.fillStyle='#e9f7f4';ctx.beginPath();ctx.arc(plant.x,plant.y,6,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f6d365';ctx.beginPath();ctx.arc(home.x,home.y,4,0,Math.PI*2);ctx.fill();});ctx.strokeStyle='#3ed1c2';ctx.lineWidth=7;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(body.x-forward.x*28,body.y-forward.y*28);ctx.lineTo(body.x+forward.x*42,body.y+forward.y*42);ctx.stroke();ctx.fillStyle='#3ed1c2';ctx.beginPath();ctx.arc(body.x,body.y,18,0,Math.PI*2);ctx.fill();ctx.fillStyle='#d9e0e8';ctx.font='13px system-ui';ctx.fillText(stressed?'A plant exceeded comfort: an eligible leg may swing.':'All plants are within comfort.',20,28);if(stressed&&sp===0){const ch=document.getElementById('ch1');ch.classList.add('done');ch.querySelector('.status').textContent='✓';}}
+[heading,speed,comfort].forEach(x=>x.addEventListener('input',draw));draw();
+Quiz.render(document.getElementById('quiz'),[
+{prompt:'What should determine a top-down leg’s home point?',options:['Body position plus its heading-rotated local leg offset','The newest collider hit beneath the planted foot point','The visible arc height chosen for sprite presentation'],answer:0,explain:'Local offsets express the authored stance; current heading maps that intent onto the movement plane.'},
+{prompt:'What happens to a planted foot while the body turns?',options:['It stays committed while its heading-relative home moves away','It is overwritten every frame by the newly rotated home','It rotates around the body to retain its local offset'],answer:0,explain:'A plant is a world-space promise. Turning changes stress and can ask for a later step; it does not drag the foot.'},
+{prompt:'What is the correct role of foot lift in a top-down gait?',options:['A visual arc layered over a planar swing trajectory','A replacement for the planar landing target decision','A test that decides whether a tile is walkable'],answer:0,explain:'Lift makes swing state readable. Walkability and the committed target remain planar simulation decisions.'}
+]);
+})();
+</script>
+
