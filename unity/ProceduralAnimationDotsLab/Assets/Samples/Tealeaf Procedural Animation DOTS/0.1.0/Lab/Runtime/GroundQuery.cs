@@ -32,6 +32,11 @@ namespace ProceduralAnimationDotsLab
                 LegIndex = legIndex,
                 Point = new float2(probe.x, height),
                 Normal = math.normalizesafe(new float2(-slope, 1f), new float2(0f, 1f)),
+
+                // This lesson terrain has no blocked regions. The side-view gait ignores both
+                // facts, but a planar creature rejects on them, so report them honestly.
+                Walkable = 1,
+                PathClear = 1,
             };
         }
 
@@ -55,6 +60,8 @@ namespace ProceduralAnimationDotsLab
                 LegIndex = legIndex,
                 Point = SupportMath.TransformPoint(pose, localPoint),
                 Normal = SupportMath.TransformDirection(pose, new float2(0f, 1f)),
+                Walkable = 1,
+                PathClear = 1,
                 Support = support,
                 SupportLocalPoint = localPoint,
             };

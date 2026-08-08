@@ -49,6 +49,13 @@ namespace Tealeaf.ProceduralAnimation.Dots
 	public struct CreatureLocomotion : IComponentData
 	{
 		public float2 DesiredVelocity;
+
+		/// <summary>
+		/// Optional facing for a creature with <see cref="PlanarHeading"/>. Zero means "face the
+		/// way you are travelling"; writing it is what lets a top-down creature turn on the spot,
+		/// which is the case that gives a planted foot an honest reason to step.
+		/// </summary>
+		public float2 DesiredHeading;
 	}
 
 	public struct ContactPlane : IBufferElementData
@@ -70,7 +77,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
 		public float2 Foot;
 	}
 
-	[InternalBufferCapacity(2)]
+	[InternalBufferCapacity(6)]
 	public struct Limb2BoneLeg : IBufferElementData
 	{
 		public Limb2Bone Limb;
@@ -83,7 +90,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
 		Swinging
 	}
 
-	[InternalBufferCapacity(2)]
+	[InternalBufferCapacity(6)]
 	public struct GaitLeg : IBufferElementData
 	{
 		public FootState State;
@@ -91,8 +98,19 @@ namespace Tealeaf.ProceduralAnimation.Dots
 		public float2 SwingFrom;
 		public float2 SwingTo;
 		public float SwingT;
+
+		/// <summary>
+		/// Where this foot wants to be, relative to its hip. Side-view reads it as a world offset;
+		/// a creature with <see cref="PlanarHeading"/> reads it as a local offset — x along the
+		/// heading, y across it — so the home rotates when the body turns.
+		/// </summary>
 		public float2 HomeOffset;
+
 		public sbyte PartnerIndex;
+
+		/// <summary>Which alternating tripod this leg belongs to: 0 or 1. Unused by other cadences.</summary>
+		public byte TripodGroup;
+
 		public Entity Support;
 		public float2 LocalPlant;
 		public float2 SurfaceOffset;

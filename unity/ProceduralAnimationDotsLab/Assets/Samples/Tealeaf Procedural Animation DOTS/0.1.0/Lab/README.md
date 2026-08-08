@@ -28,7 +28,9 @@ provide:
 - `GroundQuery` and `GroundQuerySystem` are deterministic lesson terrain. They
   fill the creature's `FootholdCandidate` buffer, preferring the moving support
   when the probe falls inside it. A tilemap, Unity Physics, or a signed-distance
-  field would replace this file and nothing else.
+  field would replace this file and nothing else. It reports `Walkable` and
+  `PathClear` as true because this terrain has no blocked regions; the side-view
+  creature ignores both, but a top-down one would reject on them.
 - `MovingSupportSystem` animates the elevator/conveyor and publishes
   `SupportPose` and `SupportKinematics`.
 - `VerletChainDemo` draws line renderers from resolved output. Delete it and the

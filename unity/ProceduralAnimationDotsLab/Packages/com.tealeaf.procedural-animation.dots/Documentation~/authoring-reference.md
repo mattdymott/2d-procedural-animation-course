@@ -9,6 +9,7 @@ whose behaviour you want; each one bakes its own runtime data and nothing else.
 | `MusclesAuthoring` | Draws the chain tip toward a target you write | `VerletChainAuthoring` |
 | `LegsAuthoring` | Two-bone limbs | `VerletChainAuthoring` |
 | `GaitAuthoring` | Alternating stepping | `LegsAuthoring` |
+| `PlanarGaitAuthoring` | Moves that stepping onto a top-down movement plane | `GaitAuthoring` |
 | `ContactPlanesAuthoring` | Static planes the body cannot sink through | `VerletChainAuthoring` |
 
 The dependencies are declared with `[RequireComponent]`, so adding
@@ -24,6 +25,7 @@ VerletChain + Muscles                         a tentacle reaching for a target y
 VerletChain + Legs                            limbs you aim yourself
 VerletChain + Legs + Gait                     a walking creature
 VerletChain + Legs + Gait + ContactPlanes     a walking creature with a floor
+VerletChain + Legs + Gait + PlanarGait        a top-down creature on a movement plane
 ```
 
 ## VerletChainAuthoring
@@ -80,7 +82,8 @@ creature back as it moved.
 | `LengthA` | Upper bone length. |
 | `LengthB` | Lower bone length. |
 | `BendSign` | Knee side. Any negative value becomes -1, otherwise +1. |
-| `HomeOffset` | Rest foot position relative to the attachment point. |
+| `HomeOffset` | Rest foot position relative to the attachment point. A planar creature reads it as x along the heading, y across it. |
+| `TripodGroup` | Which alternating tripod this leg belongs to: 0 or 1. Read only by the tripod cadence. |
 
 Bakes the `Limb2BoneLeg` buffer, one entry per recipe.
 
@@ -101,7 +104,7 @@ legs exist.
 | `StepDuration` | 0.34 | Seconds a swing takes. Minimum 0.001. |
 | `StepLead` | 0.12 | Seconds of body velocity aimed ahead of home when no candidate is chosen. |
 | `StepHeight` | 0.42 | Peak lift of the swing arc, reached at mid-swing. |
-| `MinimumSupport` | 0.7 | Minimum dot product between a candidate normal and world up. |
+| `MinimumSupport` | 0.7 | Minimum dot product between a candidate normal and world up. Side-view only. |
 | `MinimumForward` | 0.03 | Forward progress a candidate must offer to be worth stepping to. |
 
 `MinimumSupport` and `MinimumForward` are the foothold policy: they decide
@@ -112,11 +115,38 @@ as ground.
 Bakes `Gait`, the `GaitLeg` buffer, and an empty `FootholdCandidate`
 buffer for your adapter to fill.
 
+`StepHeight` is world geometry only for a side-view creature. On a movement
+plane the swing target stays planar and `StepHeight` becomes an input to
+presentation instead — see [top-down creatures](top-down.md).
+
 **Author legs in pairs.** Legs are paired for alternation by index — 0 with 1,
 2 with 3, and so on. A leg only begins a step while its partner is planted, and
 an unpaired final leg is treated as having a permanently swinging partner, so it
 never steps. It will stay planted at its initial position and be dragged along
-by the chain.
+by the chain. The pairing rule is the `Partner` cadence; a planar creature can
+choose a different one.
+
+## PlanarGaitAuthoring
+
+Puts the creature on a top-down movement plane. Adding it changes how the same
+gait reads its data rather than adding a second stepping system.
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `InitialForward` | (1, 0) | Heading before the creature first moves. Leg home offsets are authored against it. |
+| `MinimumPlantedFeet` | 0 | Feet that must stay planted after a lift is granted. Clamped to leg count - 1. |
+| `Cadence` | `Partner` | Which permission rule starts active. |
+| `SlowCadence` | `Wave` | Requested at or below `ExitSpeed`. |
+| `FastCadence` | `Tripod` | Requested at or above `EnterSpeed`. |
+| `EnterSpeed` | 1.2 | Speed that requests `FastCadence`. Forced above `ExitSpeed` at bake. |
+| `ExitSpeed` | 0.7 | Speed that requests `SlowCadence`. |
+| `WaveOrder` | empty | Crawl order for the wave cadence. Empty bakes every leg once, in index order. |
+
+Bakes `PlanarHeading`, `GaitSupportPolicy`, `GaitCadenceState`, `WaveGaitState`,
+the `WaveOrder` buffer, and `GaitRecoveryRequest`.
+
+Set `VerletChainAuthoring.Gravity` to zero alongside it: on a movement plane
+there is no down for the body to sag toward.
 
 ## ContactPlanesAuthoring
 

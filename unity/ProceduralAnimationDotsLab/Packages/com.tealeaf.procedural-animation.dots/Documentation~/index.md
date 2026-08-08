@@ -10,6 +10,8 @@ owns the simulation and publishes resolved poses.
 - [Authoring reference](authoring-reference.md) — the creature recipe and what
   the Baker creates from it.
 - [World facts](world-facts.md) — the data an adapter writes each tick.
+- [Top-down creatures](top-down.md) — the same rules on a movement plane:
+  heading-relative homes, walkable footholds, insect cadences, and drawn lift.
 
 ## Requirements
 
@@ -48,6 +50,7 @@ the authoring components for the behaviour you want:
 | `MusclesAuthoring` | Draws the chain tip toward a target you write | `VerletChainAuthoring` |
 | `LegsAuthoring` | Two-bone limbs | `VerletChainAuthoring` |
 | `GaitAuthoring` | Alternating stepping | `LegsAuthoring` |
+| `PlanarGaitAuthoring` | Moves that stepping onto a top-down movement plane | `GaitAuthoring` |
 | `ContactPlanesAuthoring` | Static planes the body cannot sink through | `VerletChainAuthoring` |
 
 ```text
@@ -56,6 +59,7 @@ VerletChain + Muscles                         a tentacle reaching for a target y
 VerletChain + Legs                            limbs you aim yourself
 VerletChain + Legs + Gait                     a walking creature
 VerletChain + Legs + Gait + ContactPlanes     a walking creature with a floor
+VerletChain + Legs + Gait + PlanarGait        a top-down creature on a movement plane
 ```
 
 The dependencies are declared with `[RequireComponent]`, so adding
@@ -187,13 +191,15 @@ listed here is implementation detail, whatever its C# accessibility.
 | `VerletChainSolver.Pin` / `.SatisfyDistance` | Verlet point pinning and one distance constraint |
 | `VerletContactSolver.ProjectAgainstPlane` | One-sided contact projection with friction |
 | `SupportMath` | Support-local transforms and point velocity, including conveyor travel |
+| `PlanarMath` | Heading-relative homes and the facing rule behind them |
+| `FootPresentationMath.Derive` | Turns one planar foot point into lift, shadow, and sort key |
 | `CreatureLayout.PointPosition` | Rest position of a chain point, shared by the bakers |
 
 None of them is required for normal use. The high-level components call exactly
 these functions, so going off-road costs you no fidelity.
 
-`GaitStepper`, the gait decision policy, is deliberately *not* here — it is
-stateful policy rather than geometry, and it is free to change.
+`GaitStepper` and `GaitPermission`, the gait decision policy, are deliberately
+*not* here — they are stateful policy rather than geometry, and free to change.
 
 ## Not in this release
 

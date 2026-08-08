@@ -5,6 +5,41 @@ All notable changes to this package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `PlanarGaitAuthoring`: moves an existing gait onto a top-down movement plane.
+  Leg home offsets become heading-relative, footholds are judged by walkability
+  rather than a floor normal, and the swing target stays planar. Presence of the
+  baked `PlanarHeading` is the mode switch, so a creature without it keeps the
+  side-view behaviour unchanged.
+- Gait cadences — `Partner`, `Support`, `Tripod`, and `Wave` — as one permission
+  rule each over the same plant and swing implementation. `GaitSupportPolicy`
+  carries the minimum planted base and the speed thresholds; `GaitCadenceState`
+  applies a requested change only when no foot is in the air, so switching
+  policy never rewrites a foot that has already promised.
+- `WaveGaitState` and the `WaveOrder` buffer: an authored crawl order whose
+  cursor advances only when the leg it names lands.
+- `GaitRecoveryRequest`: gait's semantic hand-off when a permitted leg has no
+  legal foothold. It keeps the plant and the cursor, and asks locomotion to slow
+  or turn instead of inventing a target.
+- `FootholdCandidate.Walkable` and `.PathClear`: the two facts a planar query
+  adapter reports. Read only by a top-down creature, so existing adapters need
+  no change.
+- `CreatureLocomotion.DesiredHeading`: an optional facing independent of travel,
+  which is what lets a top-down creature turn on the spot.
+- `LegsAuthoring.LegRecipe.TripodGroup`: which diagonal tripod a leg belongs to.
+- `PlanarMath` and `FootPresentationMath` in `LowLevel`: heading-relative homes,
+  and the lift, shadow, and sort key derived from one resolved planar foot point.
+
+### Changed
+
+- Gait now runs as a whole-creature selection pass followed by a per-leg
+  commitment, which is what lets a rule reason about the base a lift would leave
+  behind. The single-leg `GaitStepper.Update` entry points and the side-view
+  partner guard behave as before.
+
 ## [0.1.0] - 2026-08-07
 
 Initial release. The interface is deliberately narrow and stays at `0.x` until

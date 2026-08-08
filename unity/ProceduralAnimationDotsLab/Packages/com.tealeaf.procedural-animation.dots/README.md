@@ -27,8 +27,9 @@ this repository the imported copy is already committed under
 [`Documentation~/index.md`](Documentation~/index.md) is the consumer guide and
 stands alone: install, the three things a consumer does, ordering, and what the
 first release deliberately leaves out. It links an
-[authoring reference](Documentation~/authoring-reference.md) and the
-[world-fact seam](Documentation~/world-facts.md).
+[authoring reference](Documentation~/authoring-reference.md), the
+[world-fact seam](Documentation~/world-facts.md), and the
+[top-down guide](Documentation~/top-down.md).
 
 The *why* behind the interface — what moved, what stayed a sample, and what is
 deferred until a second consumer — is the extraction contract at
@@ -49,6 +50,7 @@ VerletChainAuthoring                                a rope or hanging tail
   + MusclesAuthoring                                a tip that reaches for your target
   + LegsAuthoring                                   limbs you aim yourself
     + GaitAuthoring                                 a walking creature
+      + PlanarGaitAuthoring                         ...on a top-down movement plane
   + ContactPlanesAuthoring                          static geometry to rest on
 ```
 

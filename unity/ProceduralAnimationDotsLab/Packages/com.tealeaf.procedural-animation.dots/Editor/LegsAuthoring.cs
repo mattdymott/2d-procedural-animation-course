@@ -22,7 +22,14 @@ namespace Tealeaf.ProceduralAnimation.Dots
             [Min(0.001f)] public float LengthA;
             [Min(0.001f)] public float LengthB;
             public float BendSign;
+
+            [Tooltip("Where this foot wants to stand, relative to its hip. A planar creature reads " +
+                     "it as x along the heading and y across it.")]
             public Vector2 HomeOffset;
+
+            [Tooltip("Alternating tripod this leg belongs to: 0 or 1. Only the tripod cadence reads it. " +
+                     "Per-leg gait data lives here so it cannot fall out of step with the leg list.")]
+            [Range(0, 1)] public int TripodGroup;
         }
 
         private sealed class LegsBaker : Baker<LegsAuthoring>

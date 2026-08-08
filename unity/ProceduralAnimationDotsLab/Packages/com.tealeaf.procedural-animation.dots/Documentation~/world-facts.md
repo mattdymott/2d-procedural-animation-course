@@ -12,6 +12,7 @@ at the same seam.
 public struct CreatureLocomotion : IComponentData
 {
     public float2 DesiredVelocity;
+    public float2 DesiredHeading;
 }
 ```
 
@@ -21,6 +22,11 @@ creature from its last liftoff, then simulates.
 
 Write it every tick. It is intent, not an impulse, so leaving a stale value in
 place keeps the creature walking.
+
+`DesiredHeading` matters only to a creature with `PlanarHeading` (see
+[top-down creatures](top-down.md)). Leave it zero to face the way you travel;
+write it to aim independently of travel, which is what lets a top-down creature
+turn on the spot.
 
 ## Muscle target
 
@@ -57,6 +63,8 @@ public struct FootholdCandidate : IBufferElementData
     public byte LegIndex;
     public float2 Point;
     public float2 Normal;
+    public byte Walkable;
+    public byte PathClear;
     public Entity Support;
     public float2 SupportLocalPoint;
 }
@@ -65,10 +73,14 @@ public struct FootholdCandidate : IBufferElementData
 One observation of somewhere a leg *could* step. Clear and refill the buffer
 each tick; gait reads it only when a foot is about to leave the ground.
 
-- `LegIndex` selects which leg the observation is for.
+- `LegIndex` selects which leg the observation is for. A leg may have several
+  candidates; gait accepts at most one.
 - `Point` and `Normal` are the world contact point and surface normal. `Normal`
   is what `MinimumSupport` tests against, so a wall-steep normal is rejected
   rather than walked on.
+- `Walkable` and `PathClear` are read only by a top-down creature, which has no
+  meaningful floor normal to judge. Set both to 1 for a legal point. A side-view
+  creature ignores them, so existing adapters need no change.
 - `Support` and `SupportLocalPoint` are optional. Set them when the surface
   moves: `Support` is the entity carrying `SupportPose`, and
   `SupportLocalPoint` is the same contact point expressed in that support's

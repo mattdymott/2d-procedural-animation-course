@@ -20,6 +20,15 @@ sample and verification host during that work.
 - Lesson 11: `GroundQuerySystem` gathers terrain candidates; gait filters support, reach, and forward policy, then commits a foothold only when a swing begins.
 - Lesson 12: planted feet can store a support entity plus a local plant; `MovingSupportSystem` resolves the world target from the current elevator pose until liftoff.
 - Lesson 13: conveyor material travel accumulates in `GaitLeg.SurfaceOffset`; support-point and belt velocity combine into a carry velocity only at liftoff.
+- Lesson 16: `PlanarGaitAuthoring` bakes `PlanarHeading`, and gait rotates each leg's `HomeOffset` by the body heading instead of hanging it below a hip. `CreatureLocomotion.DesiredHeading` lets a creature turn on the spot.
+- Lesson 17: `FootholdCandidate.Walkable` and `.PathClear` replace the support-normal test for a planar creature; several candidates per leg are ranked and exactly one is committed.
+- Lesson 18: `GaitPermission` is a whole-creature selection pass. `GaitSupportPolicy.MinimumPlantedFeet` plus the `Support` cadence grant one most-urgent leg per tick.
+- Lesson 19: a planar swing target stays on its committed segment; `FootPresentationMath` derives lift, shadow, and a sort key from that point and nothing reads them back.
+- Lesson 20: the gait stage runs as resolve feet → cadence → permission → commit → publish, so each rule keeps its own owner.
+- Lesson 21: unchanged code, now proven under a planar creature — `SupportMath` was always planar, so support-relative plants, belt travel, and liftoff carry work as they are.
+- Lessons 22–23: `Tripod` and `Wave` cadences. A tripod may move only while its opposite is a complete base; a wave cursor advances only when the leg it names lands.
+- Lesson 24: `GaitCadenceState` records a requested cadence and applies it only when no foot is airborne, with separate enter/exit speeds so the choice cannot flicker.
+- Lesson 25: `GaitRecoveryRequest` makes "nowhere legal to step" a first-class result — the plant and cursor stand, and locomotion is asked to slow or turn.
 - DOTS tick: `VerletChainSystem` runs in `FixedStepSimulationSystemGroup`.
 - Presentation: `VerletChainDemo` reads the resolved buffers and draws the chain, both legs, and their targets. A swinging leg turns amber.
 
@@ -28,5 +37,6 @@ Open `ProceduralAnimationDotsLab` with Unity `6000.7.0a3`, then enter Play mode.
 ## Next slices
 
 1. Compose the chain and legs into the Lesson 9 lizard, then add terrain, moving supports, and conveyor support from Lessons 10–13.
+2. Author a top-down scene: a six-legged creature with `PlanarGaitAuthoring`, a planar query adapter that reports `Walkable`/`PathClear` around a blocked island, and a presentation pass that draws shadows and lift from `FootPresentationMath`. The runtime and its tests are in place; only the scene and its sample-side adapter are outstanding.
 
 The project is intentionally excluded from GitHub Pages navigation: the course remains served by the repository root `index.html`.
