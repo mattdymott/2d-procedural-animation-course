@@ -46,6 +46,11 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   It reads resolved output and returns a picture; nothing in the package reads
   it back, and its previous-frame state lives in the presentation struct rather
   than on locomotion or gait.
+- `TopDownLab` sample: a hexapod walking a circuit past a blocked island. It is
+  the top-down counterpart to `Lab` and fills the same three consumer roles — a
+  locomotion adapter that is the only thing acting on `GaitRecoveryRequest`, a
+  planar query adapter that publishes candidates and ranks nothing, and
+  presentation with the two toggles the authority test needs.
 
 ### Changed
 

@@ -14,13 +14,15 @@ Runtime/        Package-owned solve group, state, authoring, and LowLevel primit
 Editor/         Creature Baker, validation, and derived previews
 Tests/Editor/   Solver, gait, and authoring coverage
 Samples~/Lab/   The teaching lab: adapters, presentation, and its scenes
+Samples~/TopDownLab/  The same seam on a movement plane: planar query, cadences, body language
 Documentation~/ Consumer usage: install, authoring reference, world-fact seam
 ```
 
-Install the `Lab` sample from the Package Manager to get a runnable scene. In
-this repository the imported copy is already committed under
-`Assets/Samples/Tealeaf Procedural Animation DOTS/<version>/Lab`, so
-`Scenes/Lab.unity` opens and plays from a fresh clone.
+Install the `Lab` sample from the Package Manager to get a runnable scene, or
+`TopDownLab` for the top-down equivalent. In this repository the imported copies
+are already committed under
+`Assets/Samples/Tealeaf Procedural Animation DOTS/<version>/`, so
+`Scenes/Lab.unity` and `Scenes/TopDownLab.unity` open and play from a fresh clone.
 
 ## Documentation
 

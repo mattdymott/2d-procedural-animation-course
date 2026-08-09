@@ -70,6 +70,26 @@ effect conceptually needs.
 **Tealeaf → Rebuild Top-Down Lab Scenes**), so the setup is reviewable as code
 rather than as scene YAML.
 
+## Source of truth
+
+`Samples~/TopDownLab` in the package is the source of truth. This repository also
+commits the imported copy under
+`Assets/Samples/Tealeaf Procedural Animation DOTS/<version>/TopDownLab` so a fresh
+clone can open the scene and press play without an import step, and so the sample
+is proven to work rather than merely stored. Edit the `Samples~` copy and
+re-import when the two drift.
+
+The same two rules the `Lab` sample lists apply here — every `.cs` and `.unity`
+file keeps its `.meta` beside it so the imported copy reuses those GUIDs, and a
+version bump means deleting `Assets/Samples/.../<old version>/TopDownLab` before
+re-importing, because two copies mean two `TopDownLab.Runtime` assemblies and the
+project will not compile.
+
+One extra thing to move on a version bump, which the `Lab` sample does not have:
+`TopDownLabSceneBuilder.SceneFolder` is the imported path spelled out as a string,
+version and all. Leave it stale and the builder writes into the previous version's
+folder instead of failing.
+
 ## Why the authoring assembly is not editor-only
 
 `Tealeaf.ProceduralAnimation.Dots.Editor` deliberately carries no

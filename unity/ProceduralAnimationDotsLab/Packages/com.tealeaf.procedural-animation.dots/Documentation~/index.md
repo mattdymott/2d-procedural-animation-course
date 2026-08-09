@@ -25,7 +25,8 @@ stay on your side of the seam.
 
 Add the package to `Packages/manifest.json`, then install the **Lab** sample
 from the Package Manager for a runnable scene that walks a creature over a ramp
-and onto a moving conveyor.
+and onto a moving conveyor. The **TopDownLab** sample is the same seam on a
+movement plane — see [top-down creatures](top-down.md).
 
 To run the package's own tests in your project, list it under `testables`:
 

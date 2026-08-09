@@ -15,6 +15,11 @@
       "displayName": "Lab",
       "description": "The teaching lab: an authored creature, lesson terrain and moving-support adapters, and line-renderer presentation.",
       "path": "Samples~/Lab"
+    },
+    {
+      "displayName": "TopDownLab",
+      "description": "The top-down slice: a hexapod on a movement plane with heading-relative homes, a planar foothold query, tripod cadence, an explicit recovery hand-off, and filtered body language.",
+      "path": "Samples~/TopDownLab"
     }
   ]
 }

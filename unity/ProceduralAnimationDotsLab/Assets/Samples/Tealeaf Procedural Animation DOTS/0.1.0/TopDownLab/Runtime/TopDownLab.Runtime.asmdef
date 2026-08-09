@@ -1,0 +1,10 @@
+{
+  "name": "TopDownLab.Runtime",
+  "rootNamespace": "TopDownLab",
+  "references": [
+    "Tealeaf.ProceduralAnimation.Dots.Runtime",
+    "Unity.Entities",
+    "Unity.Collections",
+    "Unity.Mathematics"
+  ]
+}

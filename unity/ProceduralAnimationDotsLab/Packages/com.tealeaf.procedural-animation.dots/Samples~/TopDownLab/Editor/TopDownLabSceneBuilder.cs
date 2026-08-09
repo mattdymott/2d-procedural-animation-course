@@ -14,15 +14,19 @@ namespace TopDownLab
     /// The creature is composed entirely from the package's authoring components — this builder
     /// never constructs plants, swing state, or chain points itself.
     ///
-    /// NOTE: the package's authoring components compile into an editor-only assembly, and Unity
-    /// refuses to <c>AddComponent</c> an editor script. Scenes that already reference them load
-    /// fine, so the built scenes work — but to re-run this builder you must first drop
-    /// <c>"includePlatforms": ["Editor"]</c> from
-    /// <c>Tealeaf.ProceduralAnimation.Dots.Editor.asmdef</c>, and restore it afterwards.
+    /// Those authoring components are runtime scripts rather than editor-only ones, which is what
+    /// lets this builder <c>AddComponent</c> them at all. Adding
+    /// <c>"includePlatforms": ["Editor"]</c> to <c>Tealeaf.ProceduralAnimation.Dots.Editor.asmdef</c>
+    /// breaks this builder and silently stops the creature baking — see "Why the authoring
+    /// assembly is not editor-only" in this sample's README.
     /// </summary>
     public static class TopDownLabSceneBuilder
     {
-        const string SceneFolder = "Assets/TopDownLab/Scenes";
+        // The imported sample folder, which Package Manager names after the package version. A
+        // version bump moves it, and this const has to move with it — otherwise the builder writes
+        // scenes into the old folder and the sample silently keeps its previous ones.
+        const string SceneFolder =
+            "Assets/Samples/Tealeaf Procedural Animation DOTS/0.1.0/TopDownLab/Scenes";
         const string CreatureScenePath = SceneFolder + "/TopDownCreature.unity";
         const string HostScenePath = SceneFolder + "/TopDownLab.unity";
 
