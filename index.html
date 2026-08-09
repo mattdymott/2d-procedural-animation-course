@@ -1,67 +1,13 @@
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>2D Procedural Animation with Unity DOTS</title>
-<link rel="stylesheet" href="assets/course.css">
-
-<div class="page">
-  <p class="kicker">A course</p>
-  <h1>2D Procedural Animation with Unity DOTS</h1>
-  <p class="lede">
-    Rain World-style creatures — soft, bendy bodies that move believably through any space —
-    built from first principles: verlet chains, muscles, analytic and iterative IK, gait,
-    second-order "juice," batching at ECS scale, a reusable package API, and an end-to-end
-    lizard capstone, and a top-down locomotion branch. Thirty lessons,
-    each with an interactive simulation, a challenge, and a quiz.
-  </p>
-
-  <h2>Lessons</h2>
-  <table>
-    <tr><th>#</th><th>Lesson</th><th>Cheatsheet</th></tr>
-    <tr><td>1</td><td><a href="lessons/0001-verlet-chains.html">Verlet Chains: Points on Strings</a></td><td><a href="reference/verlet-chain-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>2</td><td><a href="lessons/0002-muscles-active-chains.html">Muscles: Active Chains</a></td><td><a href="reference/muscles-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>3</td><td><a href="lessons/0003-two-bone-ik.html">Analytic Two-Bone IK</a></td><td><a href="reference/two-bone-ik-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>4</td><td><a href="lessons/0004-gait-stepping.html">Gait &amp; Stepping</a></td><td><a href="reference/gait-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>5</td><td><a href="lessons/0005-fabrik.html">FABRIK</a></td><td><a href="reference/fabrik-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>6</td><td><a href="lessons/0006-second-order-dynamics.html">Second-Order Dynamics (Juice)</a></td><td><a href="reference/second-order-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>7</td><td><a href="lessons/0007-batching-at-scale.html">Batching at Scale</a></td><td><a href="reference/scale-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>8</td><td><a href="lessons/0008-package-api-design.html">Package API Design</a></td><td><a href="reference/package-design-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>9</td><td><a href="lessons/0009-lizard-capstone.html">Capstone: The Creature Tick</a></td><td><a href="reference/creature-tick-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>10</td><td><a href="lessons/0010-contact-constraints.html">Contact Constraints: World Promises</a></td><td><a href="reference/contact-constraints-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>11</td><td><a href="lessons/0011-ground-aware-stepping.html">Ground-Aware Stepping: Promises to Terrain</a></td><td><a href="reference/ground-aware-stepping-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>12</td><td><a href="lessons/0012-moving-platforms.html">Moving Platforms: Relative Promises</a></td><td><a href="reference/moving-platform-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>13</td><td><a href="lessons/0013-conveyor-supports.html">Conveyors: A Support Has Two Motions</a></td><td><a href="reference/conveyor-support-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>14</td><td><a href="lessons/0014-rotating-supports.html">Rotating Supports: Carry the Contact Point</a></td><td><a href="reference/rotating-support-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>15</td><td><a href="lessons/0015-creature-authoring-tools.html">Creature Authoring: Rules In, Preview Out</a></td><td><a href="reference/creature-authoring-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>16</td><td><a href="lessons/0016-top-down-locomotion.html">Top-Down Locomotion: The Plane Is Ground</a></td><td><a href="reference/top-down-locomotion-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>17</td><td><a href="lessons/0017-path-aware-footholds.html">Path-Aware Footholds: Choose Once, Then Commit</a></td><td><a href="reference/planar-footholds-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>18</td><td><a href="lessons/0018-supported-turning.html">Supported Turning: Never Lift the Last Base</a></td><td><a href="reference/top-down-support-policy-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>19</td><td><a href="lessons/0019-top-down-foot-readability.html">Top-Down Foot Readability: Lift Is a Picture</a></td><td><a href="reference/top-down-foot-readability-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>20</td><td><a href="lessons/0020-top-down-creature-tick.html">Capstone: The Top-Down Creature Tick</a></td><td><a href="reference/top-down-creature-tick-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>21</td><td><a href="lessons/0021-top-down-moving-supports.html">Top-Down Moving Supports: A Foot Follows Material</a></td><td><a href="reference/top-down-moving-supports-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>22</td><td><a href="lessons/0022-alternating-tripods.html">Alternating Tripods: A Gait for Six Legs</a></td><td><a href="reference/alternating-tripods-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>23</td><td><a href="lessons/0023-wave-gait.html">Wave Gait: One Foot at a Time</a></td><td><a href="reference/wave-gait-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>24</td><td><a href="lessons/0024-cadence-switching.html">Cadence Switching: Change the Rule, Not the Plants</a></td><td><a href="reference/gait-cadence-switching-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>25</td><td><a href="lessons/0025-gait-recovery.html">Gait Recovery: When No Foot May Go There</a></td><td><a href="reference/gait-recovery-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>26</td><td><a href="lessons/0026-top-down-body-language.html">Top-Down Body Language: Bank After the Turn</a></td><td><a href="reference/top-down-body-language-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>27</td><td><a href="lessons/0027-turn-anticipation.html">Turn Anticipation: Tell Before You Turn</a></td><td><a href="reference/turn-anticipation-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>28</td><td><a href="lessons/0028-stop-go-weight-shift.html">Stop and Go: Weight Shift Without Sliding Feet</a></td><td><a href="reference/stop-go-weight-shift-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>29</td><td><a href="lessons/0029-top-down-gait-debugger.html">Top-Down Gait Debugger: See the Plant Slip</a></td><td><a href="reference/top-down-gait-debugger-cheatsheet.html">cheatsheet</a></td></tr>
-    <tr><td>30</td><td><a href="lessons/0030-reserve-one-top-down-foothold.html">Reserve One Top-Down Foothold</a></td><td><a href="reference/foothold-reservation-cheatsheet.html">cheatsheet</a></td></tr>
-  </table>
-
-  <h2>Reference</h2>
-  <p><a href="reference/glossary.html">Glossary</a> of terms used throughout the course, plus the cheatsheets linked above.</p>
-
-  <h2>About</h2>
-  <p class="lede" style="font-size: 1rem;">
-    Written for a reader already fluent in Unity DOTS (ISystem, Burst, jobs, buffers) —
-    the lessons teach the animation techniques, not ECS plumbing. Math is presented as
-    intuition and ready-to-adapt recipes rather than derivations.
-  </p>
-  <p class="lede" style="font-size: 1rem;">
-    Built using the <a href="https://github.com/mattpocock/skills/tree/main/skills/productivity/teach">teach skill</a>
-    by <a href="https://github.com/mattpocock">Matt Pocock</a> for Claude Code, and its
-    content is AI-generated. Source on
-    <a href="https://github.com/mattdymott/2d-procedural-animation-course">GitHub</a>.
-  </p>
-</div>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>2D Procedural Animation with Unity DOTS</title><link rel="stylesheet" href="assets/course.css"><link rel="stylesheet" href="assets/workshop.css"></head><body><main class="page">
+<p class="kicker">A course</p><h1>2D Procedural Animation with Unity DOTS</h1>
+<p class="lede">Build soft, believable 2D creatures from points, constraints, IK, gait rules, and deliberate presentation. The core course is a complete path; workshops are optional applied builds for a project-specific depth.</p>
+<h2>Core course — complete in eight lessons</h2><p>Start here. These lessons cover the reusable techniques and package boundary: chains, muscles, IK, gait, FABRIK, juice, scale, and API design.</p>
+<table><tr><th>#</th><th>Lesson</th><th>Cheatsheet</th></tr><tr><td>1</td><td><a href="lessons/0001-verlet-chains.html">Verlet Chains: Points on Strings</a></td><td><a href="reference/verlet-chain-cheatsheet.html">cheatsheet</a></td></tr><tr><td>2</td><td><a href="lessons/0002-muscles-active-chains.html">Muscles: Active Chains</a></td><td><a href="reference/muscles-cheatsheet.html">cheatsheet</a></td></tr><tr><td>3</td><td><a href="lessons/0003-two-bone-ik.html">Analytic Two-Bone IK</a></td><td><a href="reference/two-bone-ik-cheatsheet.html">cheatsheet</a></td></tr><tr><td>4</td><td><a href="lessons/0004-gait-stepping.html">Gait &amp; Stepping</a></td><td><a href="reference/gait-cheatsheet.html">cheatsheet</a></td></tr><tr><td>5</td><td><a href="lessons/0005-fabrik.html">FABRIK</a></td><td><a href="reference/fabrik-cheatsheet.html">cheatsheet</a></td></tr><tr><td>6</td><td><a href="lessons/0006-second-order-dynamics.html">Second-Order Dynamics (Juice)</a></td><td><a href="reference/second-order-cheatsheet.html">cheatsheet</a></td></tr><tr><td>7</td><td><a href="lessons/0007-batching-at-scale.html">Batching at Scale</a></td><td><a href="reference/scale-cheatsheet.html">cheatsheet</a></td></tr><tr><td>8</td><td><a href="lessons/0008-package-api-design.html">Package API Design</a></td><td><a href="reference/package-design-cheatsheet.html">cheatsheet</a></td></tr></table>
+<h2>Applied creature track — optional side-view build</h2><p>Use this four-part track to assemble the core techniques into one world-aware lizard before choosing a workshop.</p>
+<table><tr><th>#</th><th>Lesson</th><th>Cheatsheet</th></tr><tr><td>9</td><td><a href="lessons/0009-lizard-capstone.html">Capstone: The Creature Tick</a></td><td><a href="reference/creature-tick-cheatsheet.html">cheatsheet</a></td></tr><tr><td>10</td><td><a href="lessons/0010-contact-constraints.html">Contact Constraints: World Promises</a></td><td><a href="reference/contact-constraints-cheatsheet.html">cheatsheet</a></td></tr><tr><td>11</td><td><a href="lessons/0011-ground-aware-stepping.html">Ground-Aware Stepping: Promises to Terrain</a></td><td><a href="reference/ground-aware-stepping-cheatsheet.html">cheatsheet</a></td></tr><tr><td>12</td><td><a href="lessons/0012-moving-platforms.html">Moving Platforms: Relative Promises</a></td><td><a href="reference/moving-platform-cheatsheet.html">cheatsheet</a></td></tr></table>
+<h2>Optional workshops</h2><p>Choose by the outcome your project needs. Each workshop begins with retrieval, makes a deliberate failure visible, asks for a real Unity rep, and links its field notes rather than pretending every note is a mandatory next step.</p>
+<div class="workshop-path"><div class="workshop-station"><span class="station-number">1</span><div><h3><a href="workshops/01-creature-on-moving-worlds.html">Creature on Moving Worlds</a></h3><p>Elevators, conveyors, turntables, and contact-point liftoff carry.</p></div></div><div class="workshop-station"><span class="station-number">2</span><div><h3><a href="workshops/02-port-a-creature-to-top-down.html">Port a Creature to Top-Down</a></h3><p>Planar plants, legal footholds, turning, and one complete top-down tick.</p></div></div><div class="workshop-station"><span class="station-number">3</span><div><h3><a href="workshops/03-design-an-insect-gait.html">Design an Insect Gait</a></h3><p>Tripods, wave cadence, safe switching, and explicit recovery.</p></div></div><div class="workshop-station"><span class="station-number">4</span><div><h3><a href="workshops/04-make-motion-readable.html">Make Motion Readable</a></h3><p>Read-only bank, anticipation, and weight shift with a simulation A/B proof.</p></div></div><div class="workshop-station"><span class="station-number">5</span><div><h3><a href="workshops/05-debug-a-gait-contract.html">Debug a Gait Contract</a></h3><p>Expose plant dragging and target chasing, then trace the illegal writer.</p></div></div></div>
+<h2>Field-note library</h2><p>The remaining short pages are searchable supporting experiments, not a thirty-step curriculum.</p><p><a href="lessons/0013-conveyor-supports.html">Conveyors</a> · <a href="lessons/0014-rotating-supports.html">Rotating supports</a> · <a href="lessons/0015-creature-authoring-tools.html">Creature authoring</a> · <a href="lessons/0016-top-down-locomotion.html">Top-down movement</a> · <a href="lessons/0017-path-aware-footholds.html">Path-aware footholds</a> · <a href="lessons/0018-supported-turning.html">Supported turning</a> · <a href="lessons/0019-top-down-foot-readability.html">Foot readability</a> · <a href="lessons/0020-top-down-creature-tick.html">Top-down tick</a> · <a href="lessons/0021-top-down-moving-supports.html">Top-down moving supports</a> · <a href="lessons/0022-alternating-tripods.html">Tripods</a> · <a href="lessons/0023-wave-gait.html">Wave gait</a> · <a href="lessons/0024-cadence-switching.html">Cadence switching</a> · <a href="lessons/0025-gait-recovery.html">Gait recovery</a> · <a href="lessons/0026-top-down-body-language.html">Body language</a> · <a href="lessons/0027-turn-anticipation.html">Turn anticipation</a> · <a href="lessons/0028-stop-go-weight-shift.html">Weight shift</a> · <a href="lessons/0029-top-down-gait-debugger.html">Gait debugger</a> · <a href="lessons/0030-reserve-one-top-down-foothold.html">Foothold reservation</a></p>
+<h2>Reference</h2><p><a href="reference/glossary.html">Glossary</a> and the linked cheatsheets are the durable, printable reference layer.</p><h2>About</h2><p class="lede" style="font-size:1rem">Written for a reader already fluent in Unity DOTS (ISystem, Burst, jobs, buffers). Math is presented as intuition and working recipes rather than derivations.</p><p class="lede" style="font-size:1rem">Built using the <a href="https://github.com/mattpocock/skills/tree/main/skills/productivity/teach">teach skill</a> by Matt Pocock for Claude Code. Source on <a href="https://github.com/mattdymott/2d-procedural-animation-course">GitHub</a>.</p>
+</main></body></html>
