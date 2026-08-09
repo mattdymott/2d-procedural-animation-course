@@ -255,13 +255,15 @@ FixedStepSimulationSystemGroup
 ├── your support adapters           write SupportPose / SupportKinematics
 ├── your locomotion adapter         write DesiredVelocity and DesiredHeading;
 │                                   read GaitRecoveryRequest
-├── your planar query adapter       publish walkable / path-clear candidates
+├── your planar query adapter       read FootholdProbe; publish walkable /
+│                                   path-clear candidates around that aim
 └── ProceduralAnimationSolveSystemGroup
     ├── apply locomotion, carry velocity, and heading
     ├── integrate and constrain the chain
     ├── gait: resolve feet → cadence → permission → commit one target each
     ├── solve two-bone legs
-    └── project contacts and publish the resolved pose
+    ├── project contacts and publish the resolved pose
+    └── publish FootholdProbe: each leg's heading-rotated home, led by velocity
 
 presentation (after the group)      derive lift, shadow, and sort key;
                                     filter bank, stretch, and weight shift

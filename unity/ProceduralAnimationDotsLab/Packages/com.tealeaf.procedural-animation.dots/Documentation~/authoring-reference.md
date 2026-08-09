@@ -106,14 +106,17 @@ legs exist.
 | `StepHeight` | 0.42 | Peak lift of the swing arc, reached at mid-swing. |
 | `MinimumSupport` | 0.7 | Minimum dot product between a candidate normal and world up. Side-view only. |
 | `MinimumForward` | 0.03 | Forward progress a candidate must offer to be worth stepping to. |
+| `MaximumEvidenceAge` | 2 | How many published frames old a *stamped* candidate may be and still be stepped on. Unstamped candidates are never aged out. |
 
 `MinimumSupport` and `MinimumForward` are the foothold policy: they decide
 which candidates gait will accept, which is why a candidate is evidence rather
 than a command. At `0.7`, a surface tilted more than about 45° stops counting
 as ground.
 
-Bakes `Gait`, the `GaitLeg` buffer, and an empty `FootholdCandidate`
-buffer for your adapter to fill.
+Bakes `Gait`, the `GaitLeg` buffer, an empty `FootholdCandidate` buffer for your
+adapter to fill, and the `FootholdProbe` buffer and `FootholdProbeFrame` the
+package publishes each leg's aim into — see
+[world facts](world-facts.md#the-probe-frame).
 
 `StepHeight` is world geometry only for a side-view creature. On a movement
 plane the swing target stays planar and `StepHeight` becomes an input to

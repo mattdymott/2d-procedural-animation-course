@@ -23,7 +23,12 @@ namespace ProceduralAnimationDotsLab
     {
         public override void Bake(LabTerrainAdapterAuthoring authoring)
         {
-            AddBuffer<GroundQueryDebugHit>(GetEntity(TransformUsageFlags.None));
+            var entity = GetEntity(TransformUsageFlags.None);
+
+            // The marker is the opt-in; the buffer is only ever debug data.
+            AddComponent<LabTerrainAdapter>(entity);
+            if (authoring.RecordProbes)
+                AddBuffer<GroundQueryDebugHit>(entity);
         }
     }
 

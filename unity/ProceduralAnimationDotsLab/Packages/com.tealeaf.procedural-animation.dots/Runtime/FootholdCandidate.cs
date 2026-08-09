@@ -27,10 +27,36 @@ namespace Tealeaf.ProceduralAnimation.Dots
         /// </summary>
         public byte Walkable;
 
-        /// <summary>Non-zero when nothing blocks the route from the current plant to this point.</summary>
+        /// <summary>
+        /// Non-zero when nothing blocks the route a swing would take to this point. Top-down only,
+        /// like <see cref="Walkable"/>. The adapter chooses what the route is measured from —
+        /// measuring from the current plant is a trap, because a blocked leg's plant goes stale
+        /// while it waits and the lengthening segment locks the leg out permanently.
+        /// </summary>
         public byte PathClear;
 
+        /// <summary>
+        /// The entity carrying <c>SupportPose</c> that this point sits on, and the same point in
+        /// that support's local space. Optional in either projection: leave them default for
+        /// static ground. Set them and the plant travels with a platform or conveyor without ever
+        /// being re-queried.
+        /// </summary>
         public Entity Support;
+
+        /// <inheritdoc cref="Support"/>
         public float2 SupportLocalPoint;
+
+        /// <summary>
+        /// The <see cref="FootholdProbeFrame.FrameId"/> this observation was made against, if the
+        /// adapter read one. Zero — the default — means unstamped: gait judges the candidate
+        /// against the live body exactly as it always has.
+        /// </summary>
+        /// <remarks>
+        /// A stamped candidate is judged against the aim it was observed with, so the adapter and
+        /// gait cannot disagree about where the step was going. It is also how gait spots evidence
+        /// older than <see cref="Gait.MaximumEvidenceAge"/> and reports
+        /// <see cref="GaitRecovery.HoldingForFreshEvidence"/> rather than silently stepping on it.
+        /// </remarks>
+        public uint ObservedFrame;
     }
 }

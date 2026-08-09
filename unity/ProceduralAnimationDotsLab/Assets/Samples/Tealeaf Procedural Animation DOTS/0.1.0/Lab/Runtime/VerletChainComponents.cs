@@ -26,6 +26,16 @@ namespace ProceduralAnimationDotsLab
         public float2 SurfaceVelocityLocal;
     }
 
+    /// <summary>
+    /// Opt-in marker: this creature's footholds are served by the lesson terrain adapter. Without
+    /// it <see cref="GroundQuerySystem"/> would serve every creature carrying the package's gait
+    /// buffers — including a top-down creature in the same world, whose own adapter it would
+    /// silently overwrite with side-view ground.
+    /// </summary>
+    public struct LabTerrainAdapter : IComponentData
+    {
+    }
+
     [InternalBufferCapacity(2)]
     public struct GroundQueryDebugHit : IBufferElementData
     {

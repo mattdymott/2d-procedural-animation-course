@@ -83,7 +83,17 @@ namespace Tealeaf.ProceduralAnimation.Dots
     public enum GaitRecovery : byte
     {
         None,
+
+        /// <summary>Candidates arrived, and none of them was a legal place to stand.</summary>
         HoldingForFoothold,
+
+        /// <summary>
+        /// The only candidates on offer were older than <see cref="Gait.MaximumEvidenceAge"/>. The
+        /// feet are fine; the information is not. Distinct from
+        /// <see cref="HoldingForFoothold"/> because the fix is a query adapter that keeps up, not a
+        /// creature that turns away.
+        /// </summary>
+        HoldingForFreshEvidence,
     }
 
     /// <summary>

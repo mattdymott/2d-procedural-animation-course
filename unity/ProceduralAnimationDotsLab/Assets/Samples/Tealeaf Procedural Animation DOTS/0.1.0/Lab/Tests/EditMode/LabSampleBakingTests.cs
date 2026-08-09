@@ -59,6 +59,104 @@ namespace ProceduralAnimationDotsLab.Tests
             }
         }
 
+        /// <summary>
+        /// Debug data must never gate the simulation. The probe-marker buffer is authored by an
+        /// optional component, so a creature without it has to receive exactly the same footholds
+        /// — asking for that buffer in the adapter's query tuple would silently stop it walking.
+        /// </summary>
+        [Test]
+        public void ACreatureWithoutTheDebugBufferReceivesTheSameFootholds()
+        {
+            var withDebug = BuildCreature(recordProbes: true);
+            var withoutDebug = BuildCreature(recordProbes: false);
+            var supportA = BuildMovingSupport();
+            var supportB = BuildMovingSupport();
+            try
+            {
+                using var worldA = Bake(withDebug, supportA);
+                using var worldB = Bake(withoutDebug, supportB);
+
+                var candidatesA = ServeFootholds(worldA);
+                var candidatesB = ServeFootholds(worldB);
+
+                // Both empty would satisfy the comparison below without proving anything.
+                Assert.That(candidatesA.Length, Is.EqualTo(2), "The adapter served no footholds at all.");
+                Assert.That(candidatesB.Length, Is.EqualTo(candidatesA.Length),
+                    "The optional debug buffer changed how many footholds the adapter served.");
+                for (var index = 0; index < candidatesA.Length; index++)
+                {
+                    Assert.That(candidatesB[index].Point.x, Is.EqualTo(candidatesA[index].Point.x).Within(0.0001f));
+                    Assert.That(candidatesB[index].Point.y, Is.EqualTo(candidatesA[index].Point.y).Within(0.0001f));
+                    Assert.That(candidatesB[index].LegIndex, Is.EqualTo(candidatesA[index].LegIndex));
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(withDebug);
+                UnityEngine.Object.DestroyImmediate(withoutDebug);
+                UnityEngine.Object.DestroyImmediate(supportA);
+                UnityEngine.Object.DestroyImmediate(supportB);
+            }
+        }
+
+        /// <summary>
+        /// The package's gait buffers do not identify a creature as this sample's. A top-down
+        /// creature carries every one of them and is served by its own adapter, so this one has to
+        /// leave anything it was not opted into alone — overwriting it would freeze that creature's
+        /// feet with side-view ground it can never reach.
+        /// </summary>
+        [Test]
+        public void ACreatureWithoutTheAdapterMarkerIsLeftAlone()
+        {
+            var creature = BuildCreature();
+            var stranger = BuildCreature();
+            UnityEngine.Object.DestroyImmediate(stranger.GetComponent<LabTerrainAdapterAuthoring>());
+            try
+            {
+                using var world = Bake(creature, stranger, BuildMovingSupport());
+                var manager = world.EntityManager;
+
+                var entities = manager.CreateEntityQuery(ComponentType.ReadOnly<VerletChain>())
+                    .ToEntityArray(Unity.Collections.Allocator.Temp);
+                var unmarked = Entity.Null;
+                for (var index = 0; index < entities.Length; index++)
+                {
+                    if (!manager.HasComponent<LabTerrainAdapter>(entities[index]))
+                        unmarked = entities[index];
+                }
+
+                Assert.That(unmarked, Is.Not.EqualTo(Entity.Null), "The fixture must contain an unmarked creature.");
+
+                // A sentinel only this test could have written.
+                var sentinel = new FootholdCandidate { LegIndex = 9, Point = new float2(-99f, -99f) };
+                manager.GetBuffer<FootholdCandidate>(unmarked).Add(sentinel);
+
+                world.SetTime(new TimeData(0.02, 0.02f));
+                world.GetOrCreateSystem<MovingSupportSystem>().Update(world.Unmanaged);
+                world.GetOrCreateSystem<GroundQuerySystem>().Update(world.Unmanaged);
+
+                var candidates = manager.GetBuffer<FootholdCandidate>(unmarked);
+                Assert.That(candidates.Length, Is.EqualTo(1), "The adapter served a creature it was never opted into.");
+                Assert.That(candidates[0].Point.x, Is.EqualTo(-99f).Within(0.0001f));
+                entities.Dispose();
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(creature);
+                UnityEngine.Object.DestroyImmediate(stranger);
+            }
+        }
+
+        static DynamicBuffer<FootholdCandidate> ServeFootholds(World world)
+        {
+            var entity = world.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<VerletChain>()).GetSingletonEntity();
+            world.SetTime(new TimeData(0.02, 0.02f));
+            world.GetOrCreateSystem<MovingSupportSystem>().Update(world.Unmanaged);
+            world.GetOrCreateSystem<LabCreaturePatrolSystem>().Update(world.Unmanaged);
+            world.GetOrCreateSystem<GroundQuerySystem>().Update(world.Unmanaged);
+            return world.EntityManager.GetBuffer<FootholdCandidate>(entity);
+        }
+
         [Test]
         public void GroundQuery_RejectsAProbeBeyondTheSupportEdge()
         {
@@ -74,7 +172,7 @@ namespace ProceduralAnimationDotsLab.Tests
             Assert.That(found, Is.False);
         }
 
-        static GameObject BuildCreature()
+        static GameObject BuildCreature(bool recordProbes = true)
         {
             var creature = new GameObject("Lab Creature");
             var chain = creature.AddComponent<VerletChainAuthoring>();
@@ -91,7 +189,7 @@ namespace ProceduralAnimationDotsLab.Tests
             };
             creature.AddComponent<GaitAuthoring>();
             creature.AddComponent<LabCreaturePatrolAuthoring>();
-            creature.AddComponent<LabTerrainAdapterAuthoring>();
+            creature.AddComponent<LabTerrainAdapterAuthoring>().RecordProbes = recordProbes;
             return creature;
         }
 

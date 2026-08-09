@@ -14,6 +14,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
             AddSystemToUpdateList(World.GetOrCreateSystem<GaitSystem>());
             AddSystemToUpdateList(World.GetOrCreateSystem<TwoBoneIkSystem>());
             AddSystemToUpdateList(World.GetOrCreateSystem<HardResolveSystem>());
+            AddSystemToUpdateList(World.GetOrCreateSystem<FootholdProbeSystem>());
             SortSystems();
         }
     }

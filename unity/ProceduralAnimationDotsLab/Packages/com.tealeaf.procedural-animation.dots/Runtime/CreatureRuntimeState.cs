@@ -135,5 +135,12 @@ namespace Tealeaf.ProceduralAnimation.Dots
 		public float StepHeight;
 		public float MinimumSupport;
 		public float MinimumForward;
+
+		/// <summary>
+		/// How many published frames old a stamped <see cref="FootholdCandidate"/> may be and still
+		/// be stepped on. An adapter running every tick produces evidence of age zero; one running
+		/// at half rate produces age one. Unstamped candidates are never aged out.
+		/// </summary>
+		public uint MaximumEvidenceAge;
 	}
 }

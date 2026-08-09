@@ -10,17 +10,20 @@ namespace ProceduralAnimationDotsLab
     public partial struct GroundQuerySystem : ISystem
     {
         EntityQuery supportQuery;
+        BufferLookup<GroundQueryDebugHit> debugHitLookup;
 
         public void OnCreate(ref SystemState state)
         {
             supportQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<SupportKinematics>(),
                 ComponentType.ReadOnly<SupportPose>());
+            debugHitLookup = state.GetBufferLookup<GroundQueryDebugHit>();
         }
 
         public void OnUpdate(ref SystemState state)
         {
             var deltaTime = SystemAPI.Time.DeltaTime;
+            debugHitLookup.Update(ref state);
             var supportEntity = Entity.Null;
             var supportPose = default(SupportPose);
             if (!supportQuery.IsEmptyIgnoreFilter)
@@ -29,12 +32,23 @@ namespace ProceduralAnimationDotsLab
                 supportPose = state.EntityManager.GetComponentData<SupportPose>(supportEntity);
             }
 
-            foreach (var (gait, gaitLegs, limbs, points, candidates, debugHits) in SystemAPI.Query<RefRO<Gait>, DynamicBuffer<GaitLeg>, DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>, DynamicBuffer<FootholdCandidate>, DynamicBuffer<GroundQueryDebugHit>>())
+            // The debug buffer is looked up, never queried on. Asking for it in the query tuple
+            // would let a presentation-only concern decide which creatures get footholds at all —
+            // drop the debug component and the creature silently stops walking.
+            //
+            // LabTerrainAdapter is the opt-in that scopes this adapter. The package's gait buffers
+            // alone are not enough to identify a creature as ours: a top-down creature in the same
+            // world carries every one of them, and would have its own footholds overwritten.
+            foreach (var (gait, gaitLegs, limbs, points, candidates, entity) in SystemAPI.Query<RefRO<Gait>, DynamicBuffer<GaitLeg>, DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>, DynamicBuffer<FootholdCandidate>>().WithAll<LabTerrainAdapter>().WithEntityAccess())
             {
                 var mutableCandidates = candidates;
-                var mutableDebugHits = debugHits;
                 mutableCandidates.Clear();
-                mutableDebugHits.Clear();
+
+                var recordDebug = debugHitLookup.HasBuffer(entity);
+                var mutableDebugHits = recordDebug ? debugHitLookup[entity] : default;
+                if (recordDebug)
+                    mutableDebugHits.Clear();
+
                 var legCount = math.min(gaitLegs.Length, limbs.Length);
                 for (var index = 0; index < legCount; index++)
                 {
@@ -52,13 +66,15 @@ namespace ProceduralAnimationDotsLab
                         && GroundQuery.TrySampleSupport(legIndex, probe, supportEntity, supportPose, out var supportCandidate))
                     {
                         mutableCandidates.Add(supportCandidate);
-                        mutableDebugHits.Add(GroundQuery.CreateDebugHit(legIndex, probe, supportCandidate));
+                        if (recordDebug)
+                            mutableDebugHits.Add(GroundQuery.CreateDebugHit(legIndex, probe, supportCandidate));
                     }
                     else
                     {
                         var candidate = GroundQuery.Sample(legIndex, probe);
                         mutableCandidates.Add(candidate);
-                        mutableDebugHits.Add(GroundQuery.CreateDebugHit(legIndex, probe, candidate));
+                        if (recordDebug)
+                            mutableDebugHits.Add(GroundQuery.CreateDebugHit(legIndex, probe, candidate));
                     }
                 }
             }

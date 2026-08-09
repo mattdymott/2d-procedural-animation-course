@@ -120,6 +120,8 @@ namespace TopDownLab
             var limbs = entityManager.GetBuffer<Limb2BoneLeg>(entity, true);
             var gaitLegs = entityManager.GetBuffer<GaitLeg>(entity, true);
             var debugHits = entityManager.GetBuffer<PlanarQueryDebugHit>(entity, true);
+            var hasProbes = entityManager.HasBuffer<FootholdProbe>(entity);
+            var probes = hasProbes ? entityManager.GetBuffer<FootholdProbe>(entity, true) : default;
             var heading = entityManager.GetComponentData<PlanarHeading>(entity).LastForward;
             var body = entityManager.GetComponentData<CreatureBody>(entity);
             var comfort = entityManager.GetComponentData<Gait>(entity).Comfort;
@@ -179,8 +181,12 @@ namespace TopDownLab
                 SetColor(footMarkers[index], swinging ? SwingColor : PlantedColor);
                 DrawRing(footMarkers[index], presentation.FootPoint, 0.07f);
 
-                var hip = points[limbs[index].RootPointIndex].Position;
-                var home = PlanarMath.Home(hip, leg.HomeOffset, heading);
+                // The gold ring is the package's own published aim — the point the query adapter
+                // fanned around and gait ranked against. Deriving it here again would make the
+                // debugger capable of disagreeing with the thing it is supposed to be debugging.
+                var home = hasProbes && index < probes.Length && probes[index].Valid != 0
+                    ? probes[index].Home
+                    : PlanarMath.Home(points[limbs[index].RootPointIndex].Position, leg.HomeOffset, heading);
                 DrawRing(homeRings[index], home, 0.11f);
                 DrawCandidateFan(candidateFans[index], debugHits, (byte)index);
 
