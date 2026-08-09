@@ -126,6 +126,47 @@ solver state. `Assets/PackageConsumer` in this repository is the same adapter
 with patrol reversal and a configurable ground height, and it compiles against
 the package assemblies alone.
 
+### Reading the published aim instead
+
+Working out *where to look* is the fiddly half of an adapter, and it is the half
+the package already knows: it has to combine hip, home offset, heading, and step
+lead the same way gait does. So the package publishes the answer. Reading it
+makes the adapter shorter and removes the chance of the two disagreeing:
+
+```csharp
+foreach (var (frame, probes, candidates) in
+         SystemAPI.Query<
+             RefRO<FootholdProbeFrame>,
+             DynamicBuffer<FootholdProbe>,
+             DynamicBuffer<FootholdCandidate>>())
+{
+    var mutableCandidates = candidates;
+    mutableCandidates.Clear();
+    if (frame.ValueRO.FrameId == 0u)
+        continue;               // nothing published yet, on the very first tick
+
+    for (var index = 0; index < probes.Length; index++)
+    {
+        if (probes[index].Valid == 0)
+            continue;           // this leg has no hip to measure from
+
+        var aim = probes[index].PredictedHome;
+        mutableCandidates.Add(new FootholdCandidate
+        {
+            LegIndex = (byte)index,
+            Point = new float2(aim.x, 0f),   // flat ground at y = 0
+            Normal = new float2(0f, 1f),
+            ObservedFrame = frame.ValueRO.FrameId,
+        });
+    }
+}
+```
+
+Stamping `ObservedFrame` is what lets gait tell fresh evidence from stale. Leave
+it unset and your candidates are judged against the live body exactly as in the
+first example — both forms are supported, and the samples ship one of each:
+`TopDownLab` reads the frame, the side-view `Lab` derives its own.
+
 A candidate is evidence, not a command. Gait decides whether to accept it and
 commits a target only on a planted-to-swinging transition; while a foot is
 planted the package tracks the committed support relation instead of querying
@@ -161,18 +202,25 @@ are internal and marked `DisableAutoCreation`.
 FixedStepSimulationSystemGroup
 ├── your support adapters          write SupportPose / SupportKinematics
 ├── your locomotion adapter        write CreatureLocomotion
-├── your foothold adapter          refresh FootholdCandidate
+├── your foothold adapter          read FootholdProbe, refresh FootholdCandidate
 └── ProceduralAnimationSolveSystemGroup
     ├── apply locomotion and carry velocity to the body root
     ├── integrate and constrain the chain
     ├── advance gait and resolve support-relative plants
     ├── solve two-bone legs
-    └── project contacts and publish the resolved pose
+    ├── project contacts and publish the resolved pose
+    └── publish FootholdProbe: where each leg aims next
 ```
 
 Order your own adapters relative to each other: sample footholds *after* you
 move a support, so candidates are measured against the pose the solver will
 use. Presentation runs after the group and never writes solver state.
+
+The probe is published last, so the aim your adapter reads was measured against
+the previous solve. That is deliberate: gait judges a stamped candidate against
+the same aim you offered around it, which it cannot do while each side derives
+its own from a body that moves in between. You need no ordering attribute for
+it — the fact is already there when your adapter runs.
 
 The package may change its internal systems, jobs, and constraint passes
 without changing this contract.

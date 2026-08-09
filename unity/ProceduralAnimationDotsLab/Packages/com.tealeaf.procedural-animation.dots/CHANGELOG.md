@@ -9,6 +9,22 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `FootholdProbe` and `FootholdProbeFrame`: the package now publishes where every
+  leg is aiming, as the last step of the solve. A query adapter reads that aim
+  instead of reconstructing it from hips, home offsets, heading, and step lead —
+  four facts it previously had to combine correctly and in the same way gait
+  does. Reading it is optional; an adapter that derives its own still works.
+- `FootholdCandidate.ObservedFrame`: which published frame a candidate was
+  observed against. Zero — the default — means unstamped, and an unstamped
+  candidate is judged against the live body exactly as before, so no existing
+  adapter changes behaviour.
+- `Gait.MaximumEvidenceAge` and `GaitRecovery.HoldingForFreshEvidence`: gait
+  refuses stamped evidence older than the tolerance and says so, instead of
+  stepping onto a point observed against a body that has since moved. The
+  default of `2` frames accommodates an adapter running slower than the solve;
+  the reason is distinct from `HoldingForFoothold` because the fix is an adapter
+  that keeps up, not a creature that turns away.
+
 - `PlanarGaitAuthoring`: moves an existing gait onto a top-down movement plane.
   Leg home offsets become heading-relative, footholds are judged by walkability
   rather than a floor normal, and the swing target stays planar. Presence of the
@@ -58,6 +74,19 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   commitment, which is what lets a rule reason about the base a lift would leave
   behind. The single-leg `GaitStepper.Update` entry points and the side-view
   partner guard behave as before.
+
+### Fixed
+
+- Both sample query adapters asked for their debug-marker buffer in the query
+  tuple, so a creature baked without the optional debug authoring received no
+  foothold candidates at all and silently stopped walking. The buffer is now
+  looked up and written only when present. Debug data never gates the
+  simulation; note that the sample visualisers still require the buffer to bind,
+  so a lesson scene without it draws nothing.
+- The Lab sample's ground adapter now filters on an explicit `LabTerrainAdapter`
+  marker. The package's gait components do not identify whose creature is whose,
+  so with both samples imported into one project it was serving the top-down
+  creature side-view ground and freezing its feet.
 
 ## [0.1.0] - 2026-08-07
 

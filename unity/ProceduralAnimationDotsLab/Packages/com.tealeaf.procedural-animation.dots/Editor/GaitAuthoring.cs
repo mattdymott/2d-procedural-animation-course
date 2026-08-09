@@ -30,6 +30,11 @@ namespace Tealeaf.ProceduralAnimation.Dots
         [Min(0f)] public float MinimumSupport = 0.7f;
         [Min(0f)] public float MinimumForward = 0.03f;
 
+        [Tooltip("How many published frames old a stamped foothold candidate may be and still be " +
+                 "stepped on. An adapter running every tick produces evidence of age zero. Raise " +
+                 "it for an adapter that runs at a slower cadence than the solve.")]
+        [Min(0)] public int MaximumEvidenceAge = 2;
+
         private sealed class GaitBaker : Baker<GaitAuthoring>
         {
             public override void Bake(GaitAuthoring authoring)
@@ -49,6 +54,7 @@ namespace Tealeaf.ProceduralAnimation.Dots
                     StepHeight = math.max(0f, authoring.StepHeight),
                     MinimumSupport = math.max(0f, authoring.MinimumSupport),
                     MinimumForward = math.max(0f, authoring.MinimumForward),
+                    MaximumEvidenceAge = (uint)math.max(0, authoring.MaximumEvidenceAge),
                 });
 
                 // Leg count, home offsets, and partner pairing all come from the leg recipe, so the
@@ -72,6 +78,11 @@ namespace Tealeaf.ProceduralAnimation.Dots
                 }
 
                 AddBuffer<FootholdCandidate>(entity);
+
+                // The published aim. Present on every gait creature so an adapter can always read
+                // it — nothing reads it back into the solve, so a creature is never gated on it.
+                AddBuffer<FootholdProbe>(entity);
+                AddComponent<FootholdProbeFrame>(entity);
             }
         }
     }

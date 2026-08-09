@@ -11,6 +11,16 @@ namespace TopDownLab
     /// which leg is about to swing, and never writes a plant.
     ///
     /// Replace this file with a real query backend and nothing else in the project changes.
+    ///
+    /// It reads the package's published <see cref="FootholdProbe"/> buffer rather than working out
+    /// where each leg is aiming, so the aim it offers around is the same one gait will judge
+    /// against — the two can no longer drift apart. Stamping each candidate with the frame it was
+    /// observed on is what lets gait notice if this adapter ever falls behind.
+    ///
+    /// It leaves <c>FootholdCandidate.Support</c> and <c>.SupportLocalPoint</c> default because
+    /// this arena is static — not because a planar creature cannot ride a moving support. It can;
+    /// the side-view Lab sample demonstrates it and <c>PlanarGaitTests</c> pins it on a creature
+    /// carrying <c>PlanarHeading</c>.
     /// </summary>
     [UpdateInGroup(typeof(FixedStepSimulationSystemGroup))]
     [UpdateAfter(typeof(TopDownIntentSystem))]
@@ -23,56 +33,65 @@ namespace TopDownLab
         const float FanSpread = 0.22f;
 
         EntityQuery islandQuery;
+        BufferLookup<PlanarQueryDebugHit> debugHitLookup;
 
         public void OnCreate(ref SystemState state)
         {
             islandQuery = state.GetEntityQuery(ComponentType.ReadOnly<PlanarIsland>());
+            debugHitLookup = state.GetBufferLookup<PlanarQueryDebugHit>();
         }
 
         public void OnUpdate(ref SystemState state)
         {
-            var deltaTime = SystemAPI.Time.DeltaTime;
+            debugHitLookup.Update(ref state);
             var island = islandQuery.IsEmptyIgnoreFilter
                 ? new PlanarIsland { Radius = -1f }
                 : islandQuery.GetSingleton<PlanarIsland>();
 
-            foreach (var (gait, headingRef, gaitLegs, limbs, points, candidates, debugHits) in
-                     SystemAPI.Query<RefRO<Gait>, RefRO<PlanarHeading>, DynamicBuffer<GaitLeg>,
-                         DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>,
-                         DynamicBuffer<FootholdCandidate>, DynamicBuffer<PlanarQueryDebugHit>>())
+            // The debug buffer is looked up, never queried on. Asking for it in the query tuple
+            // would let a presentation-only concern decide which creatures get footholds at all —
+            // drop the debug component and the creature silently stops walking.
+            //
+            // PlanarHeading is a filter rather than a read: it is what marks a creature top-down,
+            // and a side-view creature has its own adapter.
+            foreach (var (frameRef, probes, candidates, entity) in
+                     SystemAPI.Query<RefRO<FootholdProbeFrame>, DynamicBuffer<FootholdProbe>,
+                         DynamicBuffer<FootholdCandidate>>()
+                         .WithAll<PlanarHeading>().WithEntityAccess())
             {
                 var mutableCandidates = candidates;
-                var mutableDebug = debugHits;
                 mutableCandidates.Clear();
-                mutableDebug.Clear();
 
-                var forward = headingRef.ValueRO.LastForward;
+                var recordDebug = debugHitLookup.HasBuffer(entity);
+                var mutableDebug = recordDebug ? debugHitLookup[entity] : default;
+                if (recordDebug)
+                    mutableDebug.Clear();
+
+                // Nothing has been published yet on the very first tick. Offering a fan around an
+                // aim that does not exist would be worse than offering nothing.
+                var frame = frameRef.ValueRO;
+                if (frame.FrameId == 0u)
+                    continue;
+
+                var forward = frame.Forward;
                 var lateral = PlanarMath.Perpendicular(forward);
-                var legCount = math.min(gaitLegs.Length, limbs.Length);
 
-                for (var index = 0; index < legCount; index++)
+                for (var index = 0; index < probes.Length; index++)
                 {
-                    var limbLeg = limbs[index];
-                    if (limbLeg.RootPointIndex < 0 || limbLeg.RootPointIndex >= points.Length)
+                    var probe = probes[index];
+                    if (probe.Valid == 0)
                         continue;
-
-                    var hipPoint = points[limbLeg.RootPointIndex];
-                    var bodyVelocity = deltaTime > 0f
-                        ? (hipPoint.Position - hipPoint.PreviousPosition) / deltaTime
-                        : float2.zero;
-                    var home = PlanarMath.Home(hipPoint.Position, gaitLegs[index].HomeOffset, forward);
-                    var predictedHome = home + bodyVelocity * gait.ValueRO.StepLead;
 
                     for (var fan = 0; fan < FanSize; fan++)
                     {
-                        var point = predictedHome + FanOffset(fan, forward, lateral);
+                        var point = probe.PredictedHome + FanOffset(fan, forward, lateral);
                         var walkable = !Inside(island, point);
 
                         // The route is measured from the hip, not from the current plant. A
                         // blocked leg's plant goes stale while it waits, and a stale plant makes
                         // an ever-longer segment that clips the obstacle from further and further
                         // away — the leg would be locked out permanently by its own waiting.
-                        var pathClear = !SegmentHitsIsland(island, hipPoint.Position, point);
+                        var pathClear = !SegmentHitsIsland(island, probe.Hip, point);
 
                         mutableCandidates.Add(new FootholdCandidate
                         {
@@ -81,13 +100,15 @@ namespace TopDownLab
                             Normal = new float2(0f, 1f),
                             Walkable = (byte)(walkable ? 1 : 0),
                             PathClear = (byte)(pathClear ? 1 : 0),
+                            ObservedFrame = frame.FrameId,
                         });
-                        mutableDebug.Add(new PlanarQueryDebugHit
-                        {
-                            LegIndex = (byte)index,
-                            Point = point,
-                            Legal = (byte)(walkable && pathClear ? 1 : 0),
-                        });
+                        if (recordDebug)
+                            mutableDebug.Add(new PlanarQueryDebugHit
+                            {
+                                LegIndex = (byte)index,
+                                Point = point,
+                                Legal = (byte)(walkable && pathClear ? 1 : 0),
+                            });
                     }
                 }
             }

@@ -33,7 +33,13 @@ world-fact seam for moving and conveyor supports. The maths was always planar,
 so support-relative plants, conveyor travel, and liftoff carry work unchanged for
 a top-down creature. `FootholdCandidate` is the
 compact terrain/physics/custom-world evidence that gait evaluates only at swing
-start. Consumers write `CreatureLocomotion.DesiredVelocity`, provide those
+start. `FootholdProbeSystem` closes the loop from the other side: it publishes
+each leg's aim as the last step of the solve, so an adapter reads where to look
+rather than recombining hip, home offset, heading, and step lead itself — the
+one piece of an adapter that has to agree with gait exactly. Candidates stamped
+with the frame they were observed against are judged against that same aim, and
+gait can tell when evidence has gone stale; unstamped ones behave as they always
+did. Consumers write `CreatureLocomotion.DesiredVelocity`, provide those
 facts, and read resolved poses; they do not construct or mutate solver history
 directly. `CreatureLocomotionSystem` applies the desired velocity and any
 package-owned carry velocity at the start of the fixed-step solve.

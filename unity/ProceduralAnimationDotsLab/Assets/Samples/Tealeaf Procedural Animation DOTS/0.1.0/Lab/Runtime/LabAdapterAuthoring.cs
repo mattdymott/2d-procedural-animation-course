@@ -11,11 +11,16 @@ namespace ProceduralAnimationDotsLab
     }
 
     /// <summary>
-    /// Attach beside the package authoring components to have the lesson terrain adapter
-    /// serve this creature's footholds and record its probe results for presentation.
+    /// Attach beside the package authoring components to have the lesson terrain adapter serve
+    /// this creature's footholds. This is what scopes the adapter — a creature without it is left
+    /// alone, which is how a top-down creature sharing the world keeps its own footholds.
     /// </summary>
     public sealed class LabTerrainAdapterAuthoring : MonoBehaviour
     {
+        [Tooltip("Record each probe result for the lesson visualiser. Debug data only — the " +
+                 "adapter serves the same footholds either way — but VerletChainDemo requires " +
+                 "the buffer to bind, so the lesson scene draws nothing without it.")]
+        public bool RecordProbes = true;
     }
 
     /// <summary>Authors the lesson elevator/conveyor that writes the package support seam.</summary>

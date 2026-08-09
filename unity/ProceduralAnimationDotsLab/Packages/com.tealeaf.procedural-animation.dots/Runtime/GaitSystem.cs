@@ -30,6 +30,17 @@ namespace Tealeaf.ProceduralAnimation.Dots
             public float MinimumReach;
             public float MaximumReach;
             public byte Valid;
+
+            /// <summary>
+            /// The aim published for this leg at the end of the last solve, used to judge a
+            /// candidate that was observed against it. <see cref="Home"/> stays live: it measures
+            /// how far a planted foot has actually drifted, which is a question about the body
+            /// now, not about what any adapter was told.
+            /// </summary>
+            public float2 ProbeHome;
+
+            public float2 ProbePredictedHome;
+            public byte HasProbe;
         }
 
         ComponentLookup<SupportPose> supportPoses;
@@ -40,7 +51,9 @@ namespace Tealeaf.ProceduralAnimation.Dots
         ComponentLookup<WaveGaitState> waveStates;
         ComponentLookup<GaitRecoveryRequest> recoveryRequests;
         ComponentLookup<CreatureLocomotion> locomotions;
+        ComponentLookup<FootholdProbeFrame> probeFrames;
         BufferLookup<WaveOrder> waveOrders;
+        BufferLookup<FootholdProbe> footholdProbes;
 
         public void OnCreate(ref SystemState state)
         {
@@ -52,7 +65,9 @@ namespace Tealeaf.ProceduralAnimation.Dots
             waveStates = state.GetComponentLookup<WaveGaitState>(false);
             recoveryRequests = state.GetComponentLookup<GaitRecoveryRequest>(false);
             locomotions = state.GetComponentLookup<CreatureLocomotion>(true);
+            probeFrames = state.GetComponentLookup<FootholdProbeFrame>(true);
             waveOrders = state.GetBufferLookup<WaveOrder>(true);
+            footholdProbes = state.GetBufferLookup<FootholdProbe>(true);
         }
 
         [BurstCompile]
@@ -67,7 +82,9 @@ namespace Tealeaf.ProceduralAnimation.Dots
             waveStates.Update(ref state);
             recoveryRequests.Update(ref state);
             locomotions.Update(ref state);
+            probeFrames.Update(ref state);
             waveOrders.Update(ref state);
+            footholdProbes.Update(ref state);
 
             foreach (var (gait, body, gaitLegs, limbs, points, footholdCandidates, entity) in SystemAPI.Query<RefRO<Gait>, RefRW<CreatureBody>, DynamicBuffer<GaitLeg>, DynamicBuffer<Limb2BoneLeg>, DynamicBuffer<VerletPoint>, DynamicBuffer<FootholdCandidate>>().WithEntityAccess())
             {
@@ -83,9 +100,13 @@ namespace Tealeaf.ProceduralAnimation.Dots
                 var planar = planarHeadings.HasComponent(entity);
                 var forward = planar ? planarHeadings[entity].LastForward : new float2(1f, 0f);
 
+                var hasProbes = footholdProbes.HasBuffer(entity);
+                var probes = hasProbes ? footholdProbes[entity] : default;
+
                 var landed = ResolveFeet(
                     legs, mutableLimbs, points, frames, urgency,
-                    legCount, planar, forward, gait.ValueRO, deltaTime);
+                    legCount, planar, forward, gait.ValueRO, deltaTime,
+                    hasProbes, probes);
 
                 var cadence = ResolveCadence(entity, legs, legCount);
                 var minimumPlantedFeet = supportPolicies.HasComponent(entity)
@@ -122,7 +143,9 @@ namespace Tealeaf.ProceduralAnimation.Dots
             bool planar,
             float2 forward,
             in Gait gait,
-            float deltaTime)
+            float deltaTime,
+            bool hasProbes,
+            DynamicBuffer<FootholdProbe> probes)
         {
             var landed = 0u;
             for (var index = 0; index < legCount; index++)
@@ -156,17 +179,25 @@ namespace Tealeaf.ProceduralAnimation.Dots
                     ? PlanarMath.Home(hip, leg.HomeOffset, forward)
                     : hip + leg.HomeOffset;
 
+                var bodyVelocity = deltaTime > 0f
+                    ? (hipPoint.Position - hipPoint.PreviousPosition) / deltaTime
+                    : float2.zero;
+
+                var probe = hasProbes && index < probes.Length ? probes[index] : default;
+                var hasProbe = probe.Valid != 0;
+
                 legs[index] = leg;
                 frames[index] = new LegFrame
                 {
                     Hip = hip,
                     Home = home,
-                    BodyVelocity = deltaTime > 0f
-                        ? (hipPoint.Position - hipPoint.PreviousPosition) / deltaTime
-                        : float2.zero,
+                    BodyVelocity = bodyVelocity,
                     MinimumReach = math.abs(limbLeg.Limb.LengthA - limbLeg.Limb.LengthB),
                     MaximumReach = limbLeg.Limb.LengthA + limbLeg.Limb.LengthB,
                     Valid = 1,
+                    ProbeHome = probe.Home,
+                    ProbePredictedHome = probe.PredictedHome,
+                    HasProbe = (byte)(hasProbe ? 1 : 0),
                 };
 
                 if (leg.State == FootState.Planted && (landed & (1u << index)) == 0u)
@@ -263,6 +294,8 @@ namespace Tealeaf.ProceduralAnimation.Dots
         {
             var blockedLegIndex = -1;
             var preferredTurn = forward;
+            var blockedByStaleEvidence = false;
+            var currentFrameId = probeFrames.HasComponent(entity) ? probeFrames[entity].FrameId : 0u;
 
             for (var index = 0; index < legCount; index++)
             {
@@ -274,12 +307,15 @@ namespace Tealeaf.ProceduralAnimation.Dots
                     continue;
 
                 var leg = legs[index];
-                if (!TrySelectCandidate(candidates, (byte)index, frame, planar, gait, out var candidate, out var foothold))
+                if (!TrySelectCandidate(
+                        candidates, (byte)index, frame, planar, gait, currentFrameId,
+                        out var candidate, out var foothold, out var sawStaleEvidence))
                 {
                     if (blockedLegIndex < 0)
                     {
                         blockedLegIndex = index;
                         preferredTurn = PreferredTurn(leg, forward);
+                        blockedByStaleEvidence = sawStaleEvidence;
                     }
 
                     continue;
@@ -311,7 +347,13 @@ namespace Tealeaf.ProceduralAnimation.Dots
             {
                 recoveryRequests[entity] = new GaitRecoveryRequest
                 {
-                    State = blockedLegIndex < 0 ? GaitRecovery.None : GaitRecovery.HoldingForFoothold,
+                    // Turning away does not help a leg that was offered nothing current: the fix
+                    // is an adapter that keeps up, so the two reasons stay distinguishable.
+                    State = blockedLegIndex < 0
+                        ? GaitRecovery.None
+                        : blockedByStaleEvidence
+                            ? GaitRecovery.HoldingForFreshEvidence
+                            : GaitRecovery.HoldingForFoothold,
                     SlowDown = (byte)(blockedLegIndex < 0 ? 0 : 1),
                     PreferredTurn = preferredTurn,
                     BlockedLegIndex = (byte)(blockedLegIndex < 0 ? 255 : blockedLegIndex),
@@ -347,12 +389,14 @@ namespace Tealeaf.ProceduralAnimation.Dots
             in LegFrame frame,
             bool planar,
             in Gait gait,
+            uint currentFrameId,
             out FootholdCandidate chosen,
-            out float2 foothold)
+            out float2 foothold,
+            out bool sawStaleEvidence)
         {
             chosen = default;
             foothold = float2.zero;
-            var predictedHome = frame.Home + frame.BodyVelocity * gait.StepLead;
+            sawStaleEvidence = false;
             var bestDistance = float.PositiveInfinity;
             var found = false;
 
@@ -362,18 +406,44 @@ namespace Tealeaf.ProceduralAnimation.Dots
                 if (candidate.LegIndex != legIndex)
                     continue;
 
+                // An unstamped candidate came from an adapter that never read the published aim,
+                // so it is judged against the live body exactly as it always was. A stamped one is
+                // judged against the aim it was actually observed with — which is the whole point:
+                // the adapter and gait stop being able to disagree about where the step was going.
+                var stamped = candidate.ObservedFrame != 0u && currentFrameId != 0u;
+                var aimHome = frame.Home;
+                var aimPredictedHome = frame.Home + frame.BodyVelocity * gait.StepLead;
+
+                if (stamped)
+                {
+                    var age = candidate.ObservedFrame > currentFrameId
+                        ? 0u
+                        : currentFrameId - candidate.ObservedFrame;
+                    if (age > gait.MaximumEvidenceAge)
+                    {
+                        sawStaleEvidence = true;
+                        continue;
+                    }
+
+                    if (frame.HasProbe != 0)
+                    {
+                        aimHome = frame.ProbeHome;
+                        aimPredictedHome = frame.ProbePredictedHome;
+                    }
+                }
+
                 float2 point;
                 var accepted = planar
                     ? GaitStepper.TryChoosePlanarFoothold(
-                        candidate, frame.Hip, frame.Home, frame.BodyVelocity,
+                        candidate, frame.Hip, aimHome, frame.BodyVelocity,
                         frame.MinimumReach, frame.MaximumReach, gait, out point)
                     : GaitStepper.TryChooseFoothold(
-                        candidate, frame.Hip, frame.Home, frame.BodyVelocity,
+                        candidate, frame.Hip, aimHome, frame.BodyVelocity,
                         frame.MinimumReach, frame.MaximumReach, gait, out point);
                 if (!accepted)
                     continue;
 
-                var distance = math.distancesq(point, predictedHome);
+                var distance = math.distancesq(point, aimPredictedHome);
                 if (found && distance >= bestDistance)
                     continue;
 

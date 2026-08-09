@@ -69,6 +69,9 @@ not construct or mutate them directly.
 
 Before the package solve runs, a consumer writes `CreatureLocomotion` with the
 desired root velocity and refreshes the creature's `FootholdCandidate` buffer.
+The package publishes where each leg is aiming into `FootholdProbe` as the last
+step of the solve, so an adapter may read that aim rather than deriving it; both
+forms are supported.
 `CreatureLocomotionSystem` applies desired and carry velocity to the private
 body state; package systems then integrate the chain, advance gait, and solve
 the legs. A terrain, physics, or support adapter may also create entities with

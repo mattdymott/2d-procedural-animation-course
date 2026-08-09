@@ -23,6 +23,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
             StepHeight = 0.4f,
             MinimumSupport = 0.7f,
             MinimumForward = 0f,
+            MaximumEvidenceAge = 2,
         };
 
         // ----------------------------------------------------------------------------------
@@ -827,7 +828,312 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
         /// Stands in for a planar world-query adapter: one candidate per leg at that leg's
         /// current heading-relative home, optionally with one leg's only option blocked.
         /// </summary>
-        static void PublishCandidatesAtHomes(EntityManager manager, Entity entity, int blockedLegIndex = -1)
+        // ----------------------------------------------------------------------------------
+        // The published probe frame
+        // ----------------------------------------------------------------------------------
+
+        [Test]
+        public void TheProbeFramePublishesTheSameAimTheAdapterWouldHaveDerived()
+        {
+            using var world = new World(nameof(TheProbeFramePublishesTheSameAimTheAdapterWouldHaveDerived));
+            var entity = CreateHexapod(world, GaitCadence.Support, minimumPlantedFeet: 0);
+            var manager = world.EntityManager;
+            manager.SetComponentData(entity, new CreatureLocomotion { DesiredVelocity = new float2(0.6f, 0f) });
+
+            Tick(world);
+            Tick(world);
+
+            var frame = manager.GetComponentData<FootholdProbeFrame>(entity);
+            Assert.That(frame.FrameId, Is.EqualTo(2u), "One frame is published per solve, starting at one.");
+
+            // The formula every adapter used to carry a copy of, checked against the published one.
+            var forward = manager.GetComponentData<PlanarHeading>(entity).LastForward;
+            var gait = manager.GetComponentData<Gait>(entity);
+            var legs = manager.GetBuffer<GaitLeg>(entity);
+            var limbs = manager.GetBuffer<Limb2BoneLeg>(entity);
+            var points = manager.GetBuffer<VerletPoint>(entity);
+            var probes = manager.GetBuffer<FootholdProbe>(entity);
+
+            Assert.That(probes.Length, Is.EqualTo(legs.Length), "One probe per leg, index-aligned.");
+            Assert.That(frame.Forward, Is.EqualTo(forward));
+
+            for (var index = 0; index < legs.Length; index++)
+            {
+                var hipPoint = points[limbs[index].RootPointIndex];
+                var bodyVelocity = (hipPoint.Position - hipPoint.PreviousPosition) / 0.02f;
+                var home = PlanarMath.Home(hipPoint.Position, legs[index].HomeOffset, forward);
+
+                Assert.That(probes[index].Hip, Is.EqualTo(hipPoint.Position));
+                Assert.That(probes[index].Home.x, Is.EqualTo(home.x).Within(0.0001f));
+                Assert.That(probes[index].Home.y, Is.EqualTo(home.y).Within(0.0001f));
+                Assert.That(probes[index].PredictedHome.x,
+                    Is.EqualTo((home + bodyVelocity * gait.StepLead).x).Within(0.0001f));
+            }
+        }
+
+        [Test]
+        public void EvidenceOlderThanTheToleranceIsRefusedAndNamedAsSuch()
+        {
+            using var world = new World(nameof(EvidenceOlderThanTheToleranceIsRefusedAndNamedAsSuch));
+            var entity = CreateHexapod(world, GaitCadence.Support, minimumPlantedFeet: 0);
+            var manager = world.EntityManager;
+            manager.SetComponentData(entity, new CreatureLocomotion { DesiredHeading = new float2(0f, 1f) });
+
+            // Run the counter well past the stamp below, so age genuinely exceeds the tolerance.
+            // No candidates are on offer during the warm-up, so no foot moves.
+            for (var tick = 0; tick < 6; tick++)
+                Tick(world);
+
+            var staleFrame = 1u;
+            Assert.That(manager.GetComponentData<FootholdProbeFrame>(entity).FrameId - staleFrame,
+                Is.GreaterThan(DefaultGait.MaximumEvidenceAge), "The fixture must actually be stale.");
+            var plantsBefore = ClonePlants(manager, entity);
+
+            // Legal footholds in every respect, stamped with a frame long past.
+            for (var tick = 0; tick < 5; tick++)
+            {
+                PublishCandidatesAtHomes(manager, entity, observedFrame: staleFrame);
+                Tick(world);
+            }
+
+            var legs = manager.GetBuffer<GaitLeg>(entity);
+            for (var index = 0; index < legs.Length; index++)
+            {
+                Assert.That(legs[index].State, Is.EqualTo(FootState.Planted));
+                Assert.That(legs[index].Plant, Is.EqualTo(plantsBefore[index]),
+                    "Stale evidence must not move a foot, however legal the point looks.");
+            }
+
+            var recovery = manager.GetComponentData<GaitRecoveryRequest>(entity);
+            Assert.That(recovery.State, Is.EqualTo(GaitRecovery.HoldingForFreshEvidence),
+                "Turning away does not help a leg that was offered nothing current.");
+        }
+
+        [Test]
+        public void EvidenceInsideTheToleranceStillMovesAFoot()
+        {
+            using var world = new World(nameof(EvidenceInsideTheToleranceStillMovesAFoot));
+            var entity = CreateHexapod(world, GaitCadence.Support, minimumPlantedFeet: 0);
+            var manager = world.EntityManager;
+            manager.SetComponentData(entity, new CreatureLocomotion { DesiredHeading = new float2(0f, 1f) });
+
+            Tick(world);
+
+            var stepped = false;
+            for (var tick = 0; tick < 5 && !stepped; tick++)
+            {
+                // What an adapter running one solve behind produces: age one, inside the default.
+                var current = manager.GetComponentData<FootholdProbeFrame>(entity).FrameId;
+                PublishCandidatesAtHomes(manager, entity, observedFrame: current);
+                Tick(world);
+
+                var legs = manager.GetBuffer<GaitLeg>(entity);
+                for (var index = 0; index < legs.Length; index++)
+                    stepped |= legs[index].State == FootState.Swinging;
+            }
+
+            Assert.That(stepped, Is.True, "A stamped candidate within the tolerance is ordinary evidence.");
+            Assert.That(manager.GetComponentData<GaitRecoveryRequest>(entity).State,
+                Is.Not.EqualTo(GaitRecovery.HoldingForFreshEvidence));
+        }
+
+        /// <summary>
+        /// Two identical creatures in one world, one served by an adapter that derives its own aim
+        /// and never stamps — the contract as it shipped — and one served by an adapter that reads
+        /// the published probe frame. Both must walk, and their plants must stay together.
+        /// </summary>
+        /// <remarks>
+        /// Bit-identical footholds would be the wrong assertion. The raw adapter aims from the
+        /// live pre-solve body and the frame reader aims from the body one solve earlier, so a
+        /// gap of roughly one solve of travel is correct and expected. What must not happen is
+        /// that gap growing into different decisions — which is what a wrong heading rotation, a
+        /// dropped step lead, or an off-by-one frame would produce.
+        /// </remarks>
+        [Test]
+        public void TheRawAndFrameReadingAdaptersKeepTheSameCreatureWalking()
+        {
+            using var world = new World(nameof(TheRawAndFrameReadingAdaptersKeepTheSameCreatureWalking));
+            var manager = world.EntityManager;
+            var raw = CreateHexapod(world, GaitCadence.Tripod, minimumPlantedFeet: 0);
+            var framed = CreateHexapod(world, GaitCadence.Tripod, minimumPlantedFeet: 0);
+
+            // Diagonal deliberately: travelling along +x leaves the heading at identity, and a
+            // published aim that forgot to rotate local homes by it would look perfectly correct.
+            var travel = new float2(0.5f, 0.5f);
+            manager.SetComponentData(raw, new CreatureLocomotion { DesiredVelocity = travel });
+            manager.SetComponentData(framed, new CreatureLocomotion { DesiredVelocity = travel });
+
+            const float deltaTime = 0.02f;
+            var rawSteps = 0;
+            var framedSteps = 0;
+
+            for (var tick = 0; tick < 120; tick++)
+            {
+                PublishRawCandidates(manager, raw, deltaTime);
+                PublishFrameReadCandidates(manager, framed);
+                Tick(world, deltaTime);
+
+                rawSteps += CountSwinging(manager, raw);
+                framedSteps += CountSwinging(manager, framed);
+            }
+
+            Assert.That(rawSteps, Is.GreaterThan(0), "The raw adapter stopped working.");
+            Assert.That(framedSteps, Is.GreaterThan(0), "The frame-reading adapter never moved a foot.");
+            Assert.That(manager.GetComponentData<GaitRecoveryRequest>(framed).State,
+                Is.Not.EqualTo(GaitRecovery.HoldingForFreshEvidence),
+                "An adapter reading the current frame must never look stale.");
+            Assert.That(manager.GetComponentData<GaitRecoveryRequest>(raw).State,
+                Is.Not.EqualTo(GaitRecovery.HoldingForFreshEvidence),
+                "An unstamped candidate can never be aged out.");
+        }
+
+        /// <summary>
+        /// The published aim must be exactly what an adapter deriving its own would compute from
+        /// the same body — that equality is the entire reason a query adapter is allowed to stop
+        /// doing the work itself.
+        /// </summary>
+        /// <remarks>
+        /// This is the differential check, and it deliberately measures one creature rather than
+        /// comparing two. Two creatures fed by different adapters drift apart in gait <em>phase</em>
+        /// — a hair's difference in aim moves the tick where stress crosses comfort — and once
+        /// their steps are out of phase their plants differ by however far the body has since
+        /// walked, which says nothing about whether either aim was right.
+        /// </remarks>
+        [Test]
+        public void ThePublishedAimIsExactlyWhatARawAdapterWouldDerive()
+        {
+            using var world = new World(nameof(ThePublishedAimIsExactlyWhatARawAdapterWouldDerive));
+            var manager = world.EntityManager;
+            var entity = CreateHexapod(world, GaitCadence.Tripod, minimumPlantedFeet: 0);
+            manager.SetComponentData(entity, new CreatureLocomotion { DesiredVelocity = new float2(0.5f, 0.5f) });
+
+            const float deltaTime = 0.02f;
+            for (var tick = 0; tick < 40; tick++)
+            {
+                PublishFrameReadCandidates(manager, entity);
+                Tick(world, deltaTime);
+
+                // The probe is published as the last step of the solve, so the buffers now hold
+                // precisely the body it was measured from. Any drift here is a real defect.
+                var forward = manager.GetComponentData<PlanarHeading>(entity).LastForward;
+                var stepLead = manager.GetComponentData<Gait>(entity).StepLead;
+                var legs = manager.GetBuffer<GaitLeg>(entity, true);
+                var limbs = manager.GetBuffer<Limb2BoneLeg>(entity, true);
+                var points = manager.GetBuffer<VerletPoint>(entity, true);
+                var probes = manager.GetBuffer<FootholdProbe>(entity, true);
+
+                for (var index = 0; index < legs.Length; index++)
+                {
+                    var hipPoint = points[limbs[index].RootPointIndex];
+                    var bodyVelocity = (hipPoint.Position - hipPoint.PreviousPosition) / deltaTime;
+                    var home = PlanarMath.Home(hipPoint.Position, legs[index].HomeOffset, forward);
+
+                    Assert.That(probes[index].Valid, Is.Not.EqualTo(0));
+                    Assert.That(math.distance(probes[index].Home, home), Is.LessThan(1e-5f),
+                        $"Tick {tick}, leg {index}: published home is not the derived home.");
+                    Assert.That(math.distance(probes[index].PredictedHome, home + bodyVelocity * stepLead),
+                        Is.LessThan(1e-5f),
+                        $"Tick {tick}, leg {index}: published aim is not home led by body velocity.");
+                    Assert.That(math.distance(probes[index].Hip, hipPoint.Position), Is.LessThan(1e-5f));
+                }
+            }
+        }
+
+        static int CountSwinging(EntityManager manager, Entity entity)
+        {
+            var legs = manager.GetBuffer<GaitLeg>(entity);
+            var count = 0;
+            for (var index = 0; index < legs.Length; index++)
+            {
+                if (legs[index].State == FootState.Swinging)
+                    count++;
+            }
+
+            return count;
+        }
+
+        // Both publishers read every source buffer into a local array *before* touching the
+        // candidate buffer. A fan of three per leg grows that buffer past its internal capacity,
+        // and the reallocation invalidates the other DynamicBuffer handles on the chunk — the
+        // same hazard CreateHexapod's own ordering guards against.
+
+        /// <summary>The contract as it shipped: derive the aim from the live body, stamp nothing.</summary>
+        static void PublishRawCandidates(EntityManager manager, Entity entity, float deltaTime)
+        {
+            var forward = manager.GetComponentData<PlanarHeading>(entity).LastForward;
+            var stepLead = manager.GetComponentData<Gait>(entity).StepLead;
+
+            var legs = manager.GetBuffer<GaitLeg>(entity, true);
+            var limbs = manager.GetBuffer<Limb2BoneLeg>(entity, true);
+            var points = manager.GetBuffer<VerletPoint>(entity, true);
+            var centres = new float2[legs.Length];
+            for (var index = 0; index < legs.Length; index++)
+            {
+                var hipPoint = points[limbs[index].RootPointIndex];
+                var bodyVelocity = (hipPoint.Position - hipPoint.PreviousPosition) / deltaTime;
+                var home = PlanarMath.Home(hipPoint.Position, legs[index].HomeOffset, forward);
+                centres[index] = home + bodyVelocity * stepLead;
+            }
+
+            var candidates = manager.GetBuffer<FootholdCandidate>(entity);
+            candidates.Clear();
+            for (var index = 0; index < centres.Length; index++)
+                AddFan(candidates, (byte)index, centres[index], forward, 0u);
+        }
+
+        /// <summary>The migrated contract: read the published aim, stamp the frame it came from.</summary>
+        static void PublishFrameReadCandidates(EntityManager manager, Entity entity)
+        {
+            var frame = manager.GetComponentData<FootholdProbeFrame>(entity);
+            if (frame.FrameId == 0u)
+                return;
+
+            var probes = manager.GetBuffer<FootholdProbe>(entity, true);
+            var centres = new float2[probes.Length];
+            var valid = new bool[probes.Length];
+            for (var index = 0; index < probes.Length; index++)
+            {
+                centres[index] = probes[index].PredictedHome;
+                valid[index] = probes[index].Valid != 0;
+            }
+
+            var candidates = manager.GetBuffer<FootholdCandidate>(entity);
+            candidates.Clear();
+            for (var index = 0; index < centres.Length; index++)
+            {
+                if (valid[index])
+                    AddFan(candidates, (byte)index, centres[index], frame.Forward, frame.FrameId);
+            }
+        }
+
+        static void AddFan(
+            DynamicBuffer<FootholdCandidate> candidates, byte legIndex, float2 centre, float2 forward, uint observedFrame)
+        {
+            var lateral = PlanarMath.Perpendicular(forward);
+            for (var fan = -1; fan <= 1; fan++)
+            {
+                candidates.Add(new FootholdCandidate
+                {
+                    LegIndex = legIndex,
+                    Point = centre + lateral * (fan * 0.2f),
+                    Normal = new float2(0f, 1f),
+                    Walkable = 1,
+                    PathClear = 1,
+                    ObservedFrame = observedFrame,
+                });
+            }
+        }
+
+        static float2[] ClonePlants(EntityManager manager, Entity entity)
+        {
+            var legs = manager.GetBuffer<GaitLeg>(entity);
+            var plants = new float2[legs.Length];
+            for (var index = 0; index < legs.Length; index++)
+                plants[index] = legs[index].Plant;
+            return plants;
+        }
+
+        static void PublishCandidatesAtHomes(EntityManager manager, Entity entity, int blockedLegIndex = -1, uint observedFrame = 0u)
         {
             var forward = manager.GetComponentData<PlanarHeading>(entity).LastForward;
             var legs = manager.GetBuffer<GaitLeg>(entity);
@@ -846,6 +1152,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
                     Normal = new float2(0f, 1f),
                     Walkable = (byte)(index == blockedLegIndex ? 0 : 1),
                     PathClear = 1,
+                    ObservedFrame = observedFrame,
                 });
             }
         }
@@ -882,6 +1189,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
             });
             manager.AddComponentData(entity, new WaveGaitState { Cursor = 0 });
             manager.AddComponentData(entity, new GaitRecoveryRequest { BlockedLegIndex = 255 });
+            manager.AddComponentData(entity, new FootholdProbeFrame());
 
             // Every buffer is created before any is filled: adding one is a structural change,
             // and a DynamicBuffer fetched before it goes stale.
@@ -889,6 +1197,7 @@ namespace Tealeaf.ProceduralAnimation.Dots.Tests
             manager.AddBuffer<Limb2BoneLeg>(entity);
             manager.AddBuffer<GaitLeg>(entity);
             manager.AddBuffer<FootholdCandidate>(entity);
+            manager.AddBuffer<FootholdProbe>(entity);
             manager.AddBuffer<WaveOrder>(entity);
 
             var points = manager.GetBuffer<VerletPoint>(entity);
